@@ -1,0 +1,46 @@
+# MetaTrader 5 - Compiled Binaries
+*.ex4
+*.ex5
+*.dll
+
+# MetaTrader 5 - Logs & Cache
+logs/
+Tester/
+tester/
+History/
+Downloads/
+
+# Python temporary diagnostic scripts
+*.pyc
+__pycache__/
+analyze_forensic_logs.py
+search_forensic.py
+extract_forensic.py
+verify_forensic.py
+
+# Visual Studio Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+*.code-workspace
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Build artifacts
+*.obj
+*.exp
+*.lib
+*.pdb
+*.ilk
+
+# Backup files
+*.bak
+*.tmp
+*.temp
+*~
+
+# MQL5 specific
+experts.dat
