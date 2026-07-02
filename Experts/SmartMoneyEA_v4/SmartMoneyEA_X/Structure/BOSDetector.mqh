@@ -310,525 +310,418 @@ private:
         m_logger.Info("Consumed Successfully: YES");
      }
    
-   //+------------------------------------------------------------------+
-   //| Log BOS rejection                                                 |
-   //+------------------------------------------------------------------+
-    void LogBOSRejected(const SwingPoint &pivot, int breakBarIndex, string reason)
-    {
-       m_statRejectedBOS++;
-       m_logger.Debug(StringFormat("BOS REJECTED | PivotID: %d | Bar: %d | Reason: %s",
-                                  pivot.pivotID, breakBarIndex, reason));
-       
-       // SPRINT 4.3: Log pivot rejection for audit
-       m_logger.Info("PIVOT LIFECYCLE | PivotID=" + IntegerToString(pivot.pivotID) + 
-                    " | Bar=" + IntegerToString(pivot.barIndex) +
-                    " | Status=REJECTED" +
-                    " | Reason=" + reason);
-    }
+    //+------------------------------------------------------------------+
+    //| Log BOS rejection                                                 |
+    //+------------------------------------------------------------------+
+     void LogBOSRejected(const SwingPoint &pivot, int breakBarIndex, string reason)
+     {
+        m_statRejectedBOS++;
+        m_logger.Debug(StringFormat("BOS REJECTED | PivotID: %d | Bar: %d | Reason: %s",
+                                   pivot.pivotID, breakBarIndex, reason));
+        
+        // SPRINT 4.3: Log pivot rejection for audit
+        m_logger.Info("PIVOT LIFECYCLE | PivotID=" + IntegerToString(pivot.pivotID) + 
+                     " | Bar=" + IntegerToString(pivot.barIndex) +
+                     " | Status=REJECTED" +
+                     " | Reason=" + reason);
+     }
    
-    //+------------------------------------------------------------------+
-    //| SPRINT 5.1.9: Track BOS creation with timestamp diagnostics      |
-    //+------------------------------------------------------------------+
-    void TrackBOSCreation(const BOSEvent &bos, const SwingPoint &selectedPivot, bool isHistorical)
-    {
-       // Log BOS creation details
-       string source = isHistorical ? "Historical" : "Runtime";
-       m_logger.Error("BOS Created [" + source + "]:");
-       m_logger.Error("  BOS#: " + IntegerToString(bos.bosID));
-       m_logger.Error("  PivotID: PIVOT-" + IntegerToString(bos.relatedPivotID));
-       m_logger.Error("  Pivot Time: " + TimeToString(bos.pivotTime));
-       m_logger.Error("  Pivot Bar: " + IntegerToString(bos.pivotBarIndex));
-       m_logger.Error("  Pivot Price: " + Helpers::FormatPrice(bos.pivotPrice));
-       m_logger.Error("  Break Time: " + TimeToString(bos.breakTime));
-       m_logger.Error("  Break Bar: " + IntegerToString(bos.breakBarIndex));
-       m_logger.Error("  Direction: " + ((bos.direction == TREND_BULLISH) ? "BULLISH" : "BEARISH"));
-       
-       // SPRINT 5.1.10: TASK 3 - Timestamp Verification at BOSEvent creation
-       datetime pivotTimeFromBar = iTime(_Symbol, _Period, bos.pivotBarIndex);
-       bool timestampMatch = (bos.pivotTime == pivotTimeFromBar);
-       m_logger.Error("TASK 3 - TIMESTAMP VERIFICATION:");
-       m_logger.Error("  Pivot Time (stored): " + TimeToString(bos.pivotTime));
-       m_logger.Error("  iTime(Symbol(), Period(), pivotBarIndex): " + TimeToString(pivotTimeFromBar));
-       m_logger.Error("  Match: " + (timestampMatch ? "PASS" : "FAIL"));
-       
-       if(!timestampMatch)
-       {
-          m_logger.Error("  ERROR: Pivot timestamp mismatch detected!");
-          m_logger.Error("  Difference (seconds): " + IntegerToString((int)(bos.pivotTime - pivotTimeFromBar)));
-       }
-    }
+      //+------------------------------------------------------------------+
+      //| Track BOS creation                                                |
+      //+------------------------------------------------------------------+
+      void TrackBOSCreation(const BOSEvent &bos, const SwingPoint &selectedPivot, bool isHistorical)
+      {
+         string source = isHistorical ? "Historical" : "Runtime";
+         m_logger.Debug("BOS Created [" + source + "] | BOS#" + IntegerToString(bos.bosID) + 
+                       " | PivotID: PIVOT-" + IntegerToString(bos.relatedPivotID) +
+                       " | Direction: " + ((bos.direction == TREND_BULLISH) ? "BULLISH" : "BEARISH"));
+      }
    
-    //+------------------------------------------------------------------+
-    //| Store BOS event in bounded array                                 |
-    //+------------------------------------------------------------------+
-    void StoreBOSEvent(const BOSEvent &bos)
-    {
-       // Check if array is full
-       if(m_bosCount >= MAX_BOS_EVENTS)
-       {
-          // Shift array left (remove oldest)
-          for(int i = 0; i < m_bosCount - 1; i++)
-          {
-             m_bosEvents[i] = m_bosEvents[i + 1];
-          }
-          m_bosCount--;
-       }
-       
-       // Resize if needed
-       if(ArraySize(m_bosEvents) <= m_bosCount)
-       {
-          ArrayResize(m_bosEvents, m_bosCount + 10);
-       }
-       
-        // SPRINT 5.1.10: TASK 4 - Stored BOS Verification
-        m_logger.Error("TASK 4 - STORED BOS VERIFICATION (BOS#" + IntegerToString(bos.bosID) + "):");
-        
-        // Store event
-        m_bosEvents[m_bosCount] = bos;
-        
-        // Verify stored values match (use copy, MQL5 doesn't support references)
-        BOSEvent stored = m_bosEvents[m_bosCount];
-        bool pivotTimeMatch = (stored.pivotTime == bos.pivotTime);
-        bool pivotBarMatch = (stored.pivotBarIndex == bos.pivotBarIndex);
-        bool pivotIDMatch = (stored.relatedPivotID == bos.relatedPivotID);
-        
-        m_logger.Error("  stored.pivotTime == bos.pivotTime: " + (pivotTimeMatch ? "PASS" : "FAIL"));
-        m_logger.Error("  stored.pivotBar == bos.pivotBar: " + (pivotBarMatch ? "PASS" : "FAIL"));
-        m_logger.Error("  stored.relatedPivotID == bos.relatedPivotID: " + (pivotIDMatch ? "PASS" : "FAIL"));
-        
-        if(!pivotTimeMatch || !pivotBarMatch || !pivotIDMatch)
+     //+------------------------------------------------------------------+
+     //| Store BOS event in bounded array                                 |
+     //+------------------------------------------------------------------+
+     void StoreBOSEvent(const BOSEvent &bos)
+     {
+        // Check if array is full
+        if(m_bosCount >= MAX_BOS_EVENTS)
         {
-           m_logger.Error("  ERROR: Storage corruption detected!");
-           if(!pivotTimeMatch)
+           // Shift array left (remove oldest)
+           for(int i = 0; i < m_bosCount - 1; i++)
            {
-              m_logger.Error("    pivotTime: stored=" + TimeToString(stored.pivotTime) + 
-                            " expected=" + TimeToString(bos.pivotTime));
+              m_bosEvents[i] = m_bosEvents[i + 1];
            }
-           if(!pivotBarMatch)
-           {
-              m_logger.Error("    pivotBar: stored=" + IntegerToString(stored.pivotBarIndex) + 
-                            " expected=" + IntegerToString(bos.pivotBarIndex));
-           }
-           if(!pivotIDMatch)
-           {
-              m_logger.Error("    pivotID: stored=" + IntegerToString(stored.relatedPivotID) + 
-                            " expected=" + IntegerToString(bos.relatedPivotID));
-           }
+           m_bosCount--;
         }
+        
+        // Resize if needed
+        if(ArraySize(m_bosEvents) <= m_bosCount)
+        {
+           ArrayResize(m_bosEvents, m_bosCount + 10);
+        }
+        
+         // Store event
+         m_bosEvents[m_bosCount] = bos;
+         m_bosCount++;
+        
+        // Update statistics
+        if(bos.direction == TREND_BULLISH)
+           m_statBullishBOS++;
+        else
+           m_statBearishBOS++;
+     }
+   
+    //+------------------------------------------------------------------+
+    //| Find latest structural pivot of given type                       |
+    //+------------------------------------------------------------------+
+    SwingPoint FindLatestStructuralPivot(ENUM_TREND_STATE type, int breakBarIndex, datetime breakTime)
+    {
+       SwingPoint empty = {0};
        
-       m_bosCount++;
-       
-       // Update statistics
-       if(bos.direction == TREND_BULLISH)
-          m_statBullishBOS++;
+       if(type == TREND_BULLISH)
+       {
+          // Search from most recent swing high backwards
+          for(int i = m_swingDetector.GetSwingHighCount() - 1; i >= 0; i--)
+          {
+             SwingPoint sp = m_swingDetector.GetSwingHigh(i);
+             
+             // Check: structural pivot, older bar, not consumed, valid chronology
+             if(sp.isStructuralPivot && sp.barIndex > breakBarIndex && !IsPivotConsumed(sp.pivotID))
+             {
+                if(sp.time > breakTime)
+                   continue;
+                
+                return sp;
+             }
+          }
+       }
        else
-          m_statBearishBOS++;
+       {
+          // Search from most recent swing low backwards
+          for(int i = m_swingDetector.GetSwingLowCount() - 1; i >= 0; i--)
+          {
+             SwingPoint sp = m_swingDetector.GetSwingLow(i);
+             
+             // Check: structural pivot, older bar, not consumed, valid chronology
+             if(sp.isStructuralPivot && sp.barIndex > breakBarIndex && !IsPivotConsumed(sp.pivotID))
+             {
+                if(sp.time > breakTime)
+                   continue;
+                
+                return sp;
+             }
+          }
+       }
+       
+       return empty;
     }
    
-   //+------------------------------------------------------------------+
-   //| Find latest structural pivot of given type                       |
-   //+------------------------------------------------------------------+
-   SwingPoint FindLatestStructuralPivot(ENUM_TREND_STATE type)
-   {
-      SwingPoint empty = {0};
-      
-      if(type == TREND_BULLISH)
-      {
-         // Search from most recent swing high backwards
-         for(int i = m_swingDetector.GetSwingHighCount() - 1; i >= 0; i--)
-         {
-            SwingPoint sp = m_swingDetector.GetSwingHigh(i);
-            if(sp.isStructuralPivot && !IsPivotConsumed(sp.pivotID))
-            {
-               return sp;
-            }
-         }
-      }
-      else
-      {
-         // Search from most recent swing low backwards
-         for(int i = m_swingDetector.GetSwingLowCount() - 1; i >= 0; i--)
-         {
-            SwingPoint sp = m_swingDetector.GetSwingLow(i);
-            if(sp.isStructuralPivot && !IsPivotConsumed(sp.pivotID))
-            {
-               return sp;
-            }
-         }
-      }
-      
-      return empty;
-   }
+    //+------------------------------------------------------------------+
+    //| Scan for BOS on new bar                                          |
+    //+------------------------------------------------------------------+
+    void ScanForBOS()
+    {
+       if(!m_initialized || !m_initialScanDone) return;
+       
+       int currentBar = Bars(_Symbol, _Period);
+       int breakBarIndex = currentBar - 1; // Most recent closed bar
+       
+       if(breakBarIndex < 0) return;
+       
+       double closePrice = iClose(_Symbol, _Period, breakBarIndex);
+       double bufferPoints = SMA_BOS_BUFFER_POINTS * _Point;
+       
+       // Check for bullish BOS (break above structural high)
+       SwingPoint latestHigh = FindLatestStructuralPivot(TREND_BULLISH, breakBarIndex, iTime(_Symbol, _Period, breakBarIndex));
+       if(latestHigh.time != 0)
+       {
+          // Validate all rules
+          string rejectionReason = ValidateBOSRules(latestHigh, breakBarIndex, closePrice, bufferPoints);
+          
+          if(rejectionReason == "")
+          {
+             // BOS confirmed - create event
+             BOSEvent bos;
+             bos.bosID = ++m_bosIDCounter;
+             bos.relatedPivotID = latestHigh.pivotID;
+             bos.direction = TREND_BULLISH;
+             bos.breakPrice = closePrice;
+             bos.pivotPrice = latestHigh.price;
+             bos.breakBarIndex = breakBarIndex;
+             bos.pivotBarIndex = latestHigh.barIndex;
+             bos.breakTime = iTime(_Symbol, _Period, breakBarIndex);
+             bos.pivotTime = latestHigh.time;
+             bos.confirmed = true;
+             bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
+             bos.breakDistance = MathAbs(closePrice - latestHigh.price);
+             bos.barsSincePivot = breakBarIndex - latestHigh.barIndex;
+             bos.bufferUsed = bufferPoints;
+             bos.closePrice = closePrice;
+             
+              // Track BOS creation
+              TrackBOSCreation(bos, latestHigh, false);
+              
+               // Store and visualize
+               StoreBOSEvent(bos);
+              DrawBOSLine(bos);
+              LogBOSDetected(bos);
+              
+              // Mark pivot as consumed
+              MarkPivotConsumed(latestHigh.pivotID);
+             
+             //--- SPRINT 4.8: Track pivot lifecycle ---
+             if(m_swingDetector != NULL)
+             {
+                m_swingDetector.IncrementSPHBroken();
+             }
+          }
+          else
+          {
+             LogBOSRejected(latestHigh, breakBarIndex, rejectionReason);
+          }
+       }
+       
+       // Check for bearish BOS (break below structural low)
+       SwingPoint latestLow = FindLatestStructuralPivot(TREND_BEARISH, breakBarIndex, iTime(_Symbol, _Period, breakBarIndex));
+       if(latestLow.time != 0)
+       {
+          // Validate all rules
+          string rejectionReason = ValidateBOSRules(latestLow, breakBarIndex, closePrice, bufferPoints);
+          
+          if(rejectionReason == "")
+          {
+             // BOS confirmed - create event
+             BOSEvent bos;
+             bos.bosID = ++m_bosIDCounter;
+             bos.relatedPivotID = latestLow.pivotID;
+             bos.direction = TREND_BEARISH;
+             bos.breakPrice = closePrice;
+             bos.pivotPrice = latestLow.price;
+             bos.breakBarIndex = breakBarIndex;
+             bos.pivotBarIndex = latestLow.barIndex;
+             bos.breakTime = iTime(_Symbol, _Period, breakBarIndex);
+             bos.pivotTime = latestLow.time;
+             bos.confirmed = true;
+             bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
+             bos.breakDistance = MathAbs(closePrice - latestLow.price);
+             bos.barsSincePivot = breakBarIndex - latestLow.barIndex;
+             bos.bufferUsed = bufferPoints;
+             bos.closePrice = closePrice;
+             
+              // Track BOS creation
+              TrackBOSCreation(bos, latestLow, false);
+              
+               // Store and visualize
+               StoreBOSEvent(bos);
+              DrawBOSLine(bos);
+              LogBOSDetected(bos);
+              
+              // Mark pivot as consumed
+              MarkPivotConsumed(latestLow.pivotID);
+             
+             //--- SPRINT 4.8: Track pivot lifecycle ---
+             if(m_swingDetector != NULL)
+             {
+                m_swingDetector.IncrementSPLBroken();
+             }
+          }
+          else
+          {
+             LogBOSRejected(latestLow, breakBarIndex, rejectionReason);
+          }
+       }
+    }
    
-   //+------------------------------------------------------------------+
-   //| Scan for BOS on new bar                                          |
-   //+------------------------------------------------------------------+
-   void ScanForBOS()
-   {
-      if(!m_initialized || !m_initialScanDone) return;
-      
-      int currentBar = Bars(_Symbol, _Period);
-      int breakBarIndex = currentBar - 1; // Most recent closed bar
-      
-      if(breakBarIndex < 0) return;
-      
-      double closePrice = iClose(_Symbol, _Period, breakBarIndex);
-      double bufferPoints = SMA_BOS_BUFFER_POINTS * _Point;
-      
-      // Check for bullish BOS (break above structural high)
-      SwingPoint latestHigh = FindLatestStructuralPivot(TREND_BULLISH);
-      if(latestHigh.time != 0)
+    //+------------------------------------------------------------------+
+    //| Initial historical scan                                          |
+    //+------------------------------------------------------------------+
+    void InitialScan()
+    {
+       if(!m_initialized) return;
+       
+        int totalBars = Bars(_Symbol, _Period);
+        int scanStart = 4 + 2;  // SWING_STRENGTH = 4
+        int scanEnd = totalBars - 4 - 2;  // SWING_STRENGTH = 4
+       
+       if(scanEnd < scanStart) return;
+       
+        m_logger.Debug("Starting BOS initial scan...");
+       
+        // Scan each closed bar from OLDEST to NEWEST (decrementing MQL5 index)
+        // MQL5: bar 0 = newest, bar N-1 = oldest
+        // Decrementing loop: oldest bars first, moving forward in time
+        for(int barIndex = scanEnd; barIndex >= scanStart; barIndex--)
+       {
+          double closePrice = iClose(_Symbol, _Period, barIndex);
+          double bufferPoints = SMA_BOS_BUFFER_POINTS * _Point;
+          
+          // Check bullish BOS
+          datetime breakTime = iTime(_Symbol, _Period, barIndex);
+          SwingPoint latestHigh = FindLatestStructuralPivotAtBar(TREND_BULLISH, barIndex, breakTime);
+          if(latestHigh.time != 0 && !IsPivotConsumed(latestHigh.pivotID))
+          {
+             string rejectionReason = ValidateBOSRulesHistorical(latestHigh, barIndex, closePrice, bufferPoints);
+             
+             if(rejectionReason == "")
+             {
+                BOSEvent bos;
+                bos.bosID = ++m_bosIDCounter;
+                bos.relatedPivotID = latestHigh.pivotID;
+                bos.direction = TREND_BULLISH;
+                bos.breakPrice = closePrice;
+                bos.pivotPrice = latestHigh.price;
+                bos.breakBarIndex = barIndex;
+                bos.pivotBarIndex = latestHigh.barIndex;
+                bos.breakTime = iTime(_Symbol, _Period, barIndex);
+                bos.pivotTime = latestHigh.time;
+                bos.confirmed = true;
+                bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
+                bos.breakDistance = MathAbs(closePrice - latestHigh.price);
+                bos.barsSincePivot = latestHigh.barIndex - barIndex;
+                bos.bufferUsed = bufferPoints;
+                bos.closePrice = closePrice;
+                
+                 // Track BOS creation
+                 TrackBOSCreation(bos, latestHigh, true);
+                 
+                 StoreBOSEvent(bos);
+                 MarkPivotConsumed(latestHigh.pivotID);
+             }
+          }
+          
+          // Check bearish BOS
+          SwingPoint latestLow = FindLatestStructuralPivotAtBar(TREND_BEARISH, barIndex, breakTime);
+          if(latestLow.time != 0 && !IsPivotConsumed(latestLow.pivotID))
+          {
+             string rejectionReason = ValidateBOSRulesHistorical(latestLow, barIndex, closePrice, bufferPoints);
+             
+             if(rejectionReason == "")
+             {
+                BOSEvent bos;
+                bos.bosID = ++m_bosIDCounter;
+                bos.relatedPivotID = latestLow.pivotID;
+                bos.direction = TREND_BEARISH;
+                bos.breakPrice = closePrice;
+                bos.pivotPrice = latestLow.price;
+                bos.breakBarIndex = barIndex;
+                bos.pivotBarIndex = latestLow.barIndex;
+                bos.breakTime = iTime(_Symbol, _Period, barIndex);
+                bos.pivotTime = latestLow.time;
+                bos.confirmed = true;
+                bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
+                bos.breakDistance = MathAbs(closePrice - latestLow.price);
+                bos.barsSincePivot = latestLow.barIndex - barIndex;
+                bos.bufferUsed = bufferPoints;
+                bos.closePrice = closePrice;
+                
+                 // Track BOS creation
+                 TrackBOSCreation(bos, latestLow, true);
+                 
+                 StoreBOSEvent(bos);
+                 MarkPivotConsumed(latestLow.pivotID);
+             }
+          }
+       }
+       
+        m_logger.Debug("BOS initial scan complete - found " + IntegerToString(m_bosCount) + " BOS events");
+    }
+   
+      //+------------------------------------------------------------------+
+      //| Find latest structural pivot at specific bar (for historical)    |
+      //+------------------------------------------------------------------+
+      SwingPoint FindLatestStructuralPivotAtBar(ENUM_TREND_STATE type, int upToBar, datetime breakTime)
       {
-         // Validate all rules
-         string rejectionReason = ValidateBOSRules(latestHigh, breakBarIndex, closePrice, bufferPoints);
+         SwingPoint empty = {0};
          
-         if(rejectionReason == "")
+         if(type == TREND_BULLISH)
          {
-            // BOS confirmed - create event
-            BOSEvent bos;
-            bos.bosID = ++m_bosIDCounter;
-            bos.relatedPivotID = latestHigh.pivotID;
-            bos.direction = TREND_BULLISH;
-            bos.breakPrice = closePrice;
-            bos.pivotPrice = latestHigh.price;
-            bos.breakBarIndex = breakBarIndex;
-            bos.pivotBarIndex = latestHigh.barIndex;
-            bos.breakTime = iTime(_Symbol, _Period, breakBarIndex);
-            bos.pivotTime = latestHigh.time;
-            bos.confirmed = true;
-            bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
-            bos.breakDistance = MathAbs(closePrice - latestHigh.price);
-            bos.barsSincePivot = breakBarIndex - latestHigh.barIndex;
-            bos.bufferUsed = bufferPoints;
-            bos.closePrice = closePrice;
-            
-            // SPRINT 5.1.9: Track BOS creation
-            TrackBOSCreation(bos, latestHigh, false);
-            
-             // SPRINT 5.1.10: TASK 2 - Assignment Audit
-             m_logger.Error("TASK 2 - ASSIGNMENT AUDIT (BOS#" + IntegerToString(bos.bosID) + "):");
-             m_logger.Error("  File: BOSDetector.mqh");
-             m_logger.Error("  Function: ScanForBOS()");
-             m_logger.Error("  Line: ~449");
-             m_logger.Error("  Statement: bos.pivotTime = latestHigh.time;");
-             m_logger.Error("  Value: " + TimeToString(bos.pivotTime));
-             m_logger.Error("  Source: latestHigh.time = " + TimeToString(latestHigh.time));
-             m_logger.Error("  Match: " + ((bos.pivotTime == latestHigh.time) ? "PASS" : "FAIL"));
-             
-             // Store and visualize
-             StoreBOSEvent(bos);
-             DrawBOSLine(bos);
-             LogBOSDetected(bos);
-             
-             // Mark pivot as consumed
-             MarkPivotConsumed(latestHigh.pivotID);
-            
-            //--- SPRINT 4.8: Track pivot lifecycle ---
-            if(m_swingDetector != NULL)
+            for(int i = m_swingDetector.GetSwingHighCount() - 1; i >= 0; i--)
             {
-               m_swingDetector.IncrementSPHBroken();
+               SwingPoint sp = m_swingDetector.GetSwingHigh(i);
+               
+               // Check: structural pivot, older bar, not consumed, valid chronology
+               if(sp.isStructuralPivot && sp.barIndex > upToBar && !IsPivotConsumed(sp.pivotID))
+               {
+                  if(sp.time > breakTime)
+                     continue;
+                  
+                  return sp;
+               }
             }
          }
          else
          {
-            LogBOSRejected(latestHigh, breakBarIndex, rejectionReason);
-         }
-      }
-      
-      // Check for bearish BOS (break below structural low)
-      SwingPoint latestLow = FindLatestStructuralPivot(TREND_BEARISH);
-      if(latestLow.time != 0)
-      {
-         // Validate all rules
-         string rejectionReason = ValidateBOSRules(latestLow, breakBarIndex, closePrice, bufferPoints);
-         
-         if(rejectionReason == "")
-         {
-            // BOS confirmed - create event
-            BOSEvent bos;
-            bos.bosID = ++m_bosIDCounter;
-            bos.relatedPivotID = latestLow.pivotID;
-            bos.direction = TREND_BEARISH;
-            bos.breakPrice = closePrice;
-            bos.pivotPrice = latestLow.price;
-            bos.breakBarIndex = breakBarIndex;
-            bos.pivotBarIndex = latestLow.barIndex;
-            bos.breakTime = iTime(_Symbol, _Period, breakBarIndex);
-            bos.pivotTime = latestLow.time;
-            bos.confirmed = true;
-            bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
-            bos.breakDistance = MathAbs(closePrice - latestLow.price);
-            bos.barsSincePivot = breakBarIndex - latestLow.barIndex;
-            bos.bufferUsed = bufferPoints;
-            bos.closePrice = closePrice;
-            
-            // SPRINT 5.1.9: Track BOS creation
-            TrackBOSCreation(bos, latestLow, false);
-            
-             // SPRINT 5.1.10: TASK 2 - Assignment Audit
-             m_logger.Error("TASK 2 - ASSIGNMENT AUDIT (BOS#" + IntegerToString(bos.bosID) + "):");
-             m_logger.Error("  File: BOSDetector.mqh");
-             m_logger.Error("  Function: ScanForBOS()");
-             m_logger.Error("  Line: ~499");
-             m_logger.Error("  Statement: bos.pivotTime = latestLow.time;");
-             m_logger.Error("  Value: " + TimeToString(bos.pivotTime));
-             m_logger.Error("  Source: latestLow.time = " + TimeToString(latestLow.time));
-             m_logger.Error("  Match: " + ((bos.pivotTime == latestLow.time) ? "PASS" : "FAIL"));
-             
-             // Store and visualize
-             StoreBOSEvent(bos);
-             DrawBOSLine(bos);
-             LogBOSDetected(bos);
-             
-             // Mark pivot as consumed
-             MarkPivotConsumed(latestLow.pivotID);
-            
-            //--- SPRINT 4.8: Track pivot lifecycle ---
-            if(m_swingDetector != NULL)
+            for(int i = m_swingDetector.GetSwingLowCount() - 1; i >= 0; i--)
             {
-               m_swingDetector.IncrementSPLBroken();
-            }
-         }
-         else
-         {
-            LogBOSRejected(latestLow, breakBarIndex, rejectionReason);
-         }
-      }
-   }
-   
-   //+------------------------------------------------------------------+
-   //| Initial historical scan                                          |
-   //+------------------------------------------------------------------+
-   void InitialScan()
-   {
-      if(!m_initialized) return;
-      
-       int totalBars = Bars(_Symbol, _Period);
-       int scanStart = 4 + 2;  // SWING_STRENGTH = 4
-       int scanEnd = totalBars - 4 - 2;  // SWING_STRENGTH = 4
-      
-      if(scanEnd < scanStart) return;
-      
-       m_logger.Debug("Starting BOS initial scan...");
-      
-       // Scan each closed bar from OLDEST to NEWEST (decrementing MQL5 index)
-       // MQL5: bar 0 = newest, bar N-1 = oldest
-       // Decrementing loop: oldest bars first, moving forward in time
-       for(int barIndex = scanEnd; barIndex >= scanStart; barIndex--)
-      {
-         double closePrice = iClose(_Symbol, _Period, barIndex);
-         double bufferPoints = SMA_BOS_BUFFER_POINTS * _Point;
-         
-         // Check bullish BOS
-         SwingPoint latestHigh = FindLatestStructuralPivotAtBar(TREND_BULLISH, barIndex);
-         if(latestHigh.time != 0 && !IsPivotConsumed(latestHigh.pivotID))
-         {
-            string rejectionReason = ValidateBOSRulesHistorical(latestHigh, barIndex, closePrice, bufferPoints);
-            
-            if(rejectionReason == "")
-            {
-               BOSEvent bos;
-               bos.bosID = ++m_bosIDCounter;
-               bos.relatedPivotID = latestHigh.pivotID;
-               bos.direction = TREND_BULLISH;
-               bos.breakPrice = closePrice;
-               bos.pivotPrice = latestHigh.price;
-               bos.breakBarIndex = barIndex;
-               bos.pivotBarIndex = latestHigh.barIndex;
-               bos.breakTime = iTime(_Symbol, _Period, barIndex);
-               bos.pivotTime = latestHigh.time;
-               bos.confirmed = true;
-               bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
-               bos.breakDistance = MathAbs(closePrice - latestHigh.price);
-               bos.barsSincePivot = latestHigh.barIndex - barIndex;
-               bos.bufferUsed = bufferPoints;
-               bos.closePrice = closePrice;
+               SwingPoint sp = m_swingDetector.GetSwingLow(i);
                
-                // SPRINT 5.1.10: TASK 2 - Assignment Audit
-                m_logger.Error("TASK 2 - ASSIGNMENT AUDIT (BOS#" + IntegerToString(bos.bosID) + "):");
-                m_logger.Error("  File: BOSDetector.mqh");
-                m_logger.Error("  Function: InitialScan()");
-                m_logger.Error("  Line: ~569");
-                m_logger.Error("  Statement: bos.pivotTime = latestHigh.time;");
-                m_logger.Error("  Value: " + TimeToString(bos.pivotTime));
-                m_logger.Error("  Source: latestHigh.time = " + TimeToString(latestHigh.time));
-                m_logger.Error("  Match: " + ((bos.pivotTime == latestHigh.time) ? "PASS" : "FAIL"));
-                
-                // SPRINT 5.1.9: Track BOS creation
-                TrackBOSCreation(bos, latestHigh, true);
-                
-                // SPRINT 5.1.12: Temporary chronology verification
-                if(bos.pivotTime > bos.breakTime)
-                {
-                   m_logger.Error("------------------------------------");
-                   m_logger.Error("INVALID HISTORICAL BOS");
-                   m_logger.Error("Pivot ID: PIVOT-" + IntegerToString(bos.relatedPivotID));
-                   m_logger.Error("Pivot Time: " + TimeToString(bos.pivotTime));
-                   m_logger.Error("Break Time: " + TimeToString(bos.breakTime));
-                   m_logger.Error("Pivot Bar: " + IntegerToString(bos.pivotBarIndex));
-                   m_logger.Error("Break Bar: " + IntegerToString(bos.breakBarIndex));
-                   m_logger.Error("------------------------------------");
-                }
-                
-                StoreBOSEvent(bos);
-                MarkPivotConsumed(latestHigh.pivotID);
+               // Check: structural pivot, older bar, not consumed, valid chronology
+               if(sp.isStructuralPivot && sp.barIndex > upToBar && !IsPivotConsumed(sp.pivotID))
+               {
+                  if(sp.time > breakTime)
+                     continue;
+                  
+                  return sp;
+               }
             }
          }
          
-         // Check bearish BOS
-         SwingPoint latestLow = FindLatestStructuralPivotAtBar(TREND_BEARISH, barIndex);
-         if(latestLow.time != 0 && !IsPivotConsumed(latestLow.pivotID))
-         {
-            string rejectionReason = ValidateBOSRulesHistorical(latestLow, barIndex, closePrice, bufferPoints);
-            
-            if(rejectionReason == "")
-            {
-               BOSEvent bos;
-               bos.bosID = ++m_bosIDCounter;
-               bos.relatedPivotID = latestLow.pivotID;
-               bos.direction = TREND_BEARISH;
-               bos.breakPrice = closePrice;
-               bos.pivotPrice = latestLow.price;
-               bos.breakBarIndex = barIndex;
-               bos.pivotBarIndex = latestLow.barIndex;
-               bos.breakTime = iTime(_Symbol, _Period, barIndex);
-               bos.pivotTime = latestLow.time;
-               bos.confirmed = true;
-               bos.objectName = MakeBOSObjectName(bos.bosID, bos.relatedPivotID);
-               bos.breakDistance = MathAbs(closePrice - latestLow.price);
-               bos.barsSincePivot = latestLow.barIndex - barIndex;
-               bos.bufferUsed = bufferPoints;
-               bos.closePrice = closePrice;
-               
-                // SPRINT 5.1.10: TASK 2 - Assignment Audit
-                m_logger.Error("TASK 2 - ASSIGNMENT AUDIT (BOS#" + IntegerToString(bos.bosID) + "):");
-                m_logger.Error("  File: BOSDetector.mqh");
-                m_logger.Error("  Function: InitialScan()");
-                m_logger.Error("  Line: ~602");
-                m_logger.Error("  Statement: bos.pivotTime = latestLow.time;");
-                m_logger.Error("  Value: " + TimeToString(bos.pivotTime));
-                m_logger.Error("  Source: latestLow.time = " + TimeToString(latestLow.time));
-                m_logger.Error("  Match: " + ((bos.pivotTime == latestLow.time) ? "PASS" : "FAIL"));
-                
-                // SPRINT 5.1.9: Track BOS creation
-                TrackBOSCreation(bos, latestLow, true);
-                
-                // SPRINT 5.1.12: Temporary chronology verification
-                if(bos.pivotTime > bos.breakTime)
-                {
-                   m_logger.Error("------------------------------------");
-                   m_logger.Error("INVALID HISTORICAL BOS");
-                   m_logger.Error("Pivot ID: PIVOT-" + IntegerToString(bos.relatedPivotID));
-                   m_logger.Error("Pivot Time: " + TimeToString(bos.pivotTime));
-                   m_logger.Error("Break Time: " + TimeToString(bos.breakTime));
-                   m_logger.Error("Pivot Bar: " + IntegerToString(bos.pivotBarIndex));
-                   m_logger.Error("Break Bar: " + IntegerToString(bos.breakBarIndex));
-                   m_logger.Error("------------------------------------");
-                }
-                
-                StoreBOSEvent(bos);
-                MarkPivotConsumed(latestLow.pivotID);
-            }
-         }
+         return empty;
       }
-      
-       m_logger.Debug("BOS initial scan complete - found " + IntegerToString(m_bosCount) + " BOS events");
-   }
    
-   //+------------------------------------------------------------------+
-   //| Find latest structural pivot at specific bar (for historical)    |
-   //+------------------------------------------------------------------+
-   //+------------------------------------------------------------------+
-   //| Find structural pivot OLDER than the given bar (for historical)  |
-   //+------------------------------------------------------------------+
-   // MQL5: bar 0 = newest, bar N-1 = oldest
-   // sp.barIndex > upToBar means the pivot is at an older bar (larger index)
-   // than the current scanning position, guaranteeing pivot existed BEFORE
-   // the break bar in chronological time.
-   SwingPoint FindLatestStructuralPivotAtBar(ENUM_TREND_STATE type, int upToBar)
-   {
-      SwingPoint empty = {0};
-      
-      if(type == TREND_BULLISH)
-      {
-         for(int i = m_swingDetector.GetSwingHighCount() - 1; i >= 0; i--)
-         {
-            SwingPoint sp = m_swingDetector.GetSwingHigh(i);
-            if(sp.isStructuralPivot && sp.barIndex > upToBar && !IsPivotConsumed(sp.pivotID))
-            {
-               return sp;
-            }
-         }
-      }
-      else
-      {
-         for(int i = m_swingDetector.GetSwingLowCount() - 1; i >= 0; i--)
-         {
-            SwingPoint sp = m_swingDetector.GetSwingLow(i);
-            if(sp.isStructuralPivot && sp.barIndex > upToBar && !IsPivotConsumed(sp.pivotID))
-            {
-               return sp;
-            }
-         }
-      }
-      
-      return empty;
-   }
-   
-   //+------------------------------------------------------------------+
-   //| Validate BOS rules for historical scan (allows any closed bar)   |
-   //+------------------------------------------------------------------+
-   string ValidateBOSRulesHistorical(const SwingPoint &pivot, int breakBarIndex, double breakPrice, double bufferPoints)
-   {
-      // Rule 1: Structural Pivot exists
-      if(!pivot.isStructuralPivot)
-         return "Structural pivot does not exist";
-      
-      // Rule 2: Pivot confirmed
-      if(!pivot.confirmed)
-         return "Pivot not confirmed";
-      
-      // Rule 3: Pivot not consumed
-      if(IsPivotConsumed(pivot.pivotID))
-      {
-         m_statConsumedPivots++;
-         return "Pivot already consumed";
-      }
-      
-      // Rule 4: Close breaks pivot
-      bool breaksPivot = false;
-      if(pivot.type == TREND_BULLISH && breakPrice > pivot.price)
-         breaksPivot = true;
-      else if(pivot.type == TREND_BEARISH && breakPrice < pivot.price)
-         breaksPivot = true;
-      
-      if(!breaksPivot)
-         return "Close does not break pivot";
-      
-      // Rule 5: Buffer satisfied
-      double breakDistance = MathAbs(breakPrice - pivot.price);
-      double breakDistancePoints = breakDistance / _Point;
-      
-      if(breakDistancePoints < bufferPoints)
-      {
-         m_statBufferFailures++;
-         return StringFormat("Buffer not satisfied (%.1f < %.1f points)", 
-                            breakDistancePoints, bufferPoints);
-      }
-      
-      // Rule 6: Body close only (implicitly satisfied)
-      
-      // Rule 7: Candle closed (all historical bars are closed)
-      
-      // Rule 8: BOS not duplicated
-      if(IsDuplicateBOS(pivot.pivotID, pivot.type))
-      {
-         m_statDuplicatePrevention++;
-         return "Duplicate BOS detected";
-      }
-      
-      return "";
-   }
+    //+------------------------------------------------------------------+
+    //| Validate BOS rules for historical scan (allows any closed bar)   |
+    //+------------------------------------------------------------------+
+    string ValidateBOSRulesHistorical(const SwingPoint &pivot, int breakBarIndex, double breakPrice, double bufferPoints)
+    {
+       // Rule 1: Structural Pivot exists
+       if(!pivot.isStructuralPivot)
+          return "Structural pivot does not exist";
+       
+       // Rule 2: Pivot confirmed
+       if(!pivot.confirmed)
+          return "Pivot not confirmed";
+       
+       // Rule 3: Pivot not consumed
+       if(IsPivotConsumed(pivot.pivotID))
+       {
+          m_statConsumedPivots++;
+          return "Pivot already consumed";
+       }
+       
+       // Rule 4: Close breaks pivot
+       bool breaksPivot = false;
+       if(pivot.type == TREND_BULLISH && breakPrice > pivot.price)
+          breaksPivot = true;
+       else if(pivot.type == TREND_BEARISH && breakPrice < pivot.price)
+          breaksPivot = true;
+       
+       if(!breaksPivot)
+          return "Close does not break pivot";
+       
+       // Rule 5: Buffer satisfied
+       double breakDistance = MathAbs(breakPrice - pivot.price);
+       double breakDistancePoints = breakDistance / _Point;
+       
+       if(breakDistancePoints < bufferPoints)
+       {
+          m_statBufferFailures++;
+          return StringFormat("Buffer not satisfied (%.1f < %.1f points)", 
+                             breakDistancePoints, bufferPoints);
+       }
+       
+       // Rule 6: Body close only (implicitly satisfied)
+       
+       // Rule 7: Candle closed (all historical bars are closed)
+       
+       // Rule 8: BOS not duplicated
+       if(IsDuplicateBOS(pivot.pivotID, pivot.type))
+       {
+          m_statDuplicatePrevention++;
+          return "Duplicate BOS detected";
+       }
+       
+       return "";
+    }
    
 public:
    //+------------------------------------------------------------------+
@@ -966,7 +859,9 @@ public:
       for(int i = m_bosCount - 1; i >= 0; i--)
       {
          if(m_bosEvents[i].direction == TREND_BULLISH)
+         {
             return m_bosEvents[i];
+         }
       }
       return empty;
    }
@@ -980,10 +875,40 @@ public:
       for(int i = m_bosCount - 1; i >= 0; i--)
       {
          if(m_bosEvents[i].direction == TREND_BEARISH)
+         {
             return m_bosEvents[i];
+         }
       }
       return empty;
    }
+   
+   //+------------------------------------------------------------------+
+   //| Get BOS event by pivot ID                                        |
+   //+------------------------------------------------------------------+
+   BOSEvent GetBOSByPivotID(int pivotID)
+   {
+      BOSEvent empty = {0};
+      for(int i = 0; i < m_bosCount; i++)
+      {
+         if(m_bosEvents[i].relatedPivotID == pivotID)
+         {
+            return m_bosEvents[i];
+         }
+      }
+      return empty;
+   }
+   
+   //+------------------------------------------------------------------+
+   //| Get statistics getters                                           |
+   //+------------------------------------------------------------------+
+   int GetStructuralHighCount() { return m_statTotalStructuralHighs; }
+   int GetStructuralLowCount() { return m_statTotalStructuralLows; }
+   int GetBullishBOSCount() { return m_statBullishBOS; }
+   int GetBearishBOSCount() { return m_statBearishBOS; }
+   int GetRejectedBOSCount() { return m_statRejectedBOS; }
+   int GetDuplicatePreventionCount() { return m_statDuplicatePrevention; }
+   int GetBufferFailureCount() { return m_statBufferFailures; }
+   int GetConsumedPivotCount() { return m_statConsumedPivots; }
    
    //+------------------------------------------------------------------+
    //| Check if initialized                                              |
@@ -991,22 +916,17 @@ public:
    bool IsInitialized() { return m_initialized; }
    
    //+------------------------------------------------------------------+
-   //| Clear all BOS data and chart objects                             |
+   //| Clear all BOS data                                               |
    //+------------------------------------------------------------------+
    void Clear()
    {
-      // Delete all BOS chart objects
-      Helpers::DeleteObjectsByPrefix(SMA_OBJ_BOS);
-      
-      // Reset arrays
       m_bosCount = 0;
       m_bosIDCounter = 0;
-       ArrayResize(m_bosEvents, MAX_BOS_EVENTS);
-       
-       // Reset pivot map
-      InitPivotMap();
+      m_initialScanDone = false;
+      ArrayResize(m_bosEvents, MAX_BOS_EVENTS);
+      ArrayResize(m_pivotConsumedMap, MAX_PIVOT_MAP);
+      ArrayInitialize(m_pivotConsumedMap, false);
       
-      // Reset statistics
       m_statTotalStructuralHighs = 0;
       m_statTotalStructuralLows = 0;
       m_statBullishBOS = 0;
@@ -1015,24 +935,24 @@ public:
       m_statDuplicatePrevention = 0;
       m_statBufferFailures = 0;
       m_statConsumedPivots = 0;
-      
-      m_initialized = false;
-      m_initialScanDone = false;
    }
    
-    //+------------------------------------------------------------------+
-    //| Get swing detector reference                                     |
-    //+------------------------------------------------------------------+
-    SwingDetector* GetSwingDetector() { return m_swingDetector; }
-    
-    //+------------------------------------------------------------------+
-    //| SPRINT 4.3: Getter methods for validation report                |
-    //+------------------------------------------------------------------+
-    int GetBullishBOSCount() { return m_statBullishBOS; }
-    int GetBearishBOSCount() { return m_statBearishBOS; }
-    int GetDuplicatePreventionCount() { return m_statDuplicatePrevention; }
-    int GetConsumedPivotCount() { return m_statConsumedPivots; }
-    int GetStructuralHighCount() { return m_statTotalStructuralHighs; }
-    int GetStructuralLowCount() { return m_statTotalStructuralLows; }
+   //+------------------------------------------------------------------+
+   //| Print BOS validation report                                      |
+   //+------------------------------------------------------------------+
+   void PrintValidationReport()
+   {
+      m_logger.Info("===============================");
+      m_logger.Info("BOS VALIDATION REPORT");
+      m_logger.Info("===============================");
+      m_logger.Info("Total BOS Events: " + IntegerToString(m_bosCount));
+      m_logger.Info("Bullish BOS: " + IntegerToString(m_statBullishBOS));
+      m_logger.Info("Bearish BOS: " + IntegerToString(m_statBearishBOS));
+      m_logger.Info("Rejected BOS: " + IntegerToString(m_statRejectedBOS));
+      m_logger.Info("Duplicate Prevention: " + IntegerToString(m_statDuplicatePrevention));
+      m_logger.Info("Buffer Failures: " + IntegerToString(m_statBufferFailures));
+      m_logger.Info("Consumed Pivots: " + IntegerToString(m_statConsumedPivots));
+      m_logger.Info("===============================");
+   }
 };
 //+------------------------------------------------------------------+

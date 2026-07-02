@@ -175,22 +175,13 @@ private:
       return valid;
    }
 
-    //+------------------------------------------------------------------+
-    //| SPRINT 5.1.4: Validate CHOCH chronology (Model A)                |
-    //+------------------------------------------------------------------+
+     //+------------------------------------------------------------------+
+     //| SPRINT 5.1.4: Validate CHOCH chronology (Model A)                |
+     //+------------------------------------------------------------------+
      bool ValidateCHOCHChronology(const CHOCHEvent &choch, datetime pivotTime, datetime bosTime)
      {
         // Verify: Pivot Time <= BOS Time <= CHOCH Time
         // Model A: BOS and CHOCH occur on same closed candle
-        
-        // SPRINT 5.1.10: TASK 6 - Validator Input Audit
-        m_logger.Error("TASK 6 - VALIDATOR INPUT AUDIT:");
-        m_logger.Error("  pivotTime: " + TimeToString(pivotTime));
-        m_logger.Error("  bosTime: " + TimeToString(bosTime));
-        m_logger.Error("  chochTime: " + TimeToString(choch.breakTime));
-        m_logger.Error("  pivotBar: (from pivotTime)");
-        m_logger.Error("  bosBar: (from bosTime)");
-        m_logger.Error("  chochBar: (from chochTime)");
         
         bool valid = true;
         
@@ -216,55 +207,6 @@ private:
            m_validationChronologyErrors++;
            m_logger.Error("CHRONOLOGY ERROR: Pivot time >= CHOCH time");
            valid = false;
-        }
-        
-        // SPRINT 5.1.10: TASK 1 - CHOCH Forensic Report for failing events
-        if(!valid)
-        {
-           m_logger.Error("====================================");
-           m_logger.Error("CHOCH FORENSIC REPORT");
-           m_logger.Error("====================================");
-           m_logger.Error("CHOCH Index: " + IntegerToString(m_chochCount - 1));
-           m_logger.Error("CHOCH Direction: " + (choch.direction == TREND_BULLISH ? "BULLISH" : "BEARISH"));
-           m_logger.Error("");
-           m_logger.Error("Source BOS ID: BOS-" + IntegerToString(choch.sourceBOSEvent));
-           m_logger.Error("Source Pivot ID: PIVOT-" + IntegerToString(choch.relatedPivotID));
-           m_logger.Error("");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("PIVOT");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("ID: PIVOT-" + IntegerToString(choch.relatedPivotID));
-           m_logger.Error("Price: (from pivot)");
-           m_logger.Error("Time: " + TimeToString(pivotTime));
-           m_logger.Error("Bar Index: (from pivotTime)");
-           m_logger.Error("");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("BOS");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("Break Price: (from BOS)");
-           m_logger.Error("Break Time: " + TimeToString(bosTime));
-           m_logger.Error("Break Bar Index: (from bosTime)");
-           m_logger.Error("");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("CHOCH");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("Break Time: " + TimeToString(choch.breakTime));
-           m_logger.Error("Break Bar Index: (from chochTime)");
-           m_logger.Error("");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("RULE VALIDATION");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("Rule 1 (Pivot <= BOS): " + (pivotTime <= bosTime ? "PASS" : "FAIL"));
-           m_logger.Error("Rule 2 (BOS <= CHOCH): " + (bosTime <= choch.breakTime ? "PASS" : "FAIL"));
-           m_logger.Error("Rule 3 (Pivot <= CHOCH): " + (pivotTime < choch.breakTime ? "PASS" : "FAIL"));
-           m_logger.Error("");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("TIME DIFFERENCES");
-           m_logger.Error("------------------------------------");
-           m_logger.Error("Pivot → BOS: " + IntegerToString((int)(bosTime - pivotTime)) + " seconds");
-           m_logger.Error("BOS → CHOCH: " + IntegerToString((int)(choch.breakTime - bosTime)) + " seconds");
-           m_logger.Error("Pivot → CHOCH: " + IntegerToString((int)(choch.breakTime - pivotTime)) + " seconds");
-           m_logger.Error("====================================");
         }
         
         return valid;
