@@ -1,0 +1,48 @@
+# MetaTrader 5 Compiled Files
+*.ex5
+*.ex4
+*.dll
+*.so
+*.dylib
+
+# MetaTrader 5 Logs
+*.log
+logs/
+
+# MetaTrader 5 Tester Artifacts
+Tester/
+bases/
+
+# Python Analysis Scripts (temporary investigation tools)
+analyze_*.py
+audit_*.py
+extract_*.py
+investigate_*.py
+search_*.py
+verify_*.py
+
+# Compile Logs
+compile_log.txt
+
+# Backup Files
+*_backup.*
+*.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Documentation (keep release reports, remove investigation docs)
+# SPRINT_*.md (keep release and planning docs)
+# RELEASE_*.md (keep)
+# SPRINT_5.2_*.md (keep)
+
+# Temporary Files
+*.tmp
+*.temp
