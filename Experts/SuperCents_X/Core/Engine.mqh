@@ -18,6 +18,7 @@
 #include "../Structure/ProtectedPointManager.mqh"
 #include "../Structure/CHOCHDetector.mqh"
 #include "../Structure/OrderBlockDetector.mqh"
+#include "../Structure/FVGDetector.mqh"
 
 // Forward declarations for modules to be added later
 class CEntryEngine;
@@ -48,6 +49,7 @@ private:
     // Module pointers (will be initialized in later sprints)
     CCHOCHDetector *m_chochDetector;
     COrderBlockDetector *m_orderBlockDetector;
+    CFVGDetector *m_fvgDetector;
     CEntryEngine *m_entryEngine;
 
     //--- Internal helpers
@@ -88,6 +90,7 @@ CEngine::CEngine(void)
     m_protectedPointManager = NULL;
     m_chochDetector = NULL;
     m_orderBlockDetector = NULL;
+    m_fvgDetector = NULL;
     m_entryEngine = NULL;
 }
 
@@ -230,7 +233,16 @@ void CEngine::InitializeModules(void)
         m_orderBlockDetector = NULL;
     }
 
-    // Sprint 7+: Additional modules will be initialized here
+    //--- Sprint 9: Initialize FVG Detector
+    m_fvgDetector = new CFVGDetector();
+    if(!m_fvgDetector.Init())
+    {
+        m_logger.LogError("Failed to initialize FVGDetector");
+        delete m_fvgDetector;
+        m_fvgDetector = NULL;
+    }
+
+    // Sprint 10+: Additional modules will be initialized here
 }
 
 void CEngine::UpdateModules(const double &open[], const double &high[], const double &low[], const double &close[], const datetime &time[], int rates_total)
@@ -281,6 +293,12 @@ void CEngine::UpdateModules(const double &open[], const double &high[], const do
     {
         m_orderBlockDetector.Update(m_chochDetector, m_trendState, m_protectedPointManager,
                                     open, high, low, close, time, rates_total);
+    }
+
+    //--- Sprint 9: Update FVG Detector
+    if(m_fvgDetector != NULL)
+    {
+        m_fvgDetector.Update(open, high, low, close, time, rates_total);
     }
 }
 
@@ -344,7 +362,15 @@ void CEngine::ShutdownModules(void)
         m_orderBlockDetector = NULL;
     }
 
-    // Sprint 7+: Shutdown additional modules here
+    //--- Sprint 9: Shutdown FVG Detector
+    if(m_fvgDetector != NULL)
+    {
+        m_fvgDetector.Shutdown();
+        delete m_fvgDetector;
+        m_fvgDetector = NULL;
+    }
+
+    // Sprint 10+: Shutdown additional modules here
 }
 
 bool CEngine::CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[])

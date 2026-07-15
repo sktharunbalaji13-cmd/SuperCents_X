@@ -82,6 +82,21 @@ struct OrderBlock
     double      qualityScore;
 };
 
+//--- Sprint 9: Fair Value Gap struct
+struct FairValueGap
+{
+    int         id;
+    bool        bullish;
+    datetime    time;
+    int         candleIndex;
+    double      upper;
+    double      lower;
+    bool        filled;
+    datetime    fillTime;
+    int         chochId;
+    double      qualityScore;
+};
+
 //--- Legacy Swing struct (for future SMC components)
 struct Swing
 {
