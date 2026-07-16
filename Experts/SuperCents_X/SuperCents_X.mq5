@@ -26,8 +26,13 @@
 #include "Visualization/BOSRenderer.mqh"
 #include "Visualization/CHOCHRenderer.mqh"
 #include "Visualization/ProtectedRenderer.mqh"
+#include "Confluence/ConfluenceEngine.mqh"
+#include "Entry/EntrySetup.mqh"
+#include "Entry/EntrySetupBuilder.mqh"
+#include "Entry/EntryValidator.mqh"
 #include "Entry/EntryEngine.mqh"
 #include "Entry/RiskManager.mqh"
+#include "Entry/ExecutionManager.mqh"
 
 //--- Global engine instance
 CEngine g_engine;

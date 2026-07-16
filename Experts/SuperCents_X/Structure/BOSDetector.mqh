@@ -42,6 +42,10 @@ private:
     int m_duplicatePrevented;
     int m_skippedUnlocked;
     
+    //--- Locked pivot change tracking (for one-time logging)
+    int m_lastLoggedLockedHighId;
+    int m_lastLoggedLockedLowId;
+    
     //--- Next BOS ID
     int m_nextBOSId;
 
@@ -79,6 +83,8 @@ CBOSDetector::CBOSDetector(void)
     , m_brokenLowCount(0)
     , m_duplicatePrevented(0)
     , m_skippedUnlocked(0)
+    , m_lastLoggedLockedHighId(-1)
+    , m_lastLoggedLockedLowId(-1)
     , m_nextBOSId(1)
 {
     ArrayResize(m_bosIds, 256);
@@ -128,7 +134,10 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
 {
     int pivotCount = pivotEngine.GetPivotCount();
     if(pivotCount == 0)
+    {
+        m_logger.LogDebug("CheckBOS: pivotCount=0, no pivots to evaluate");
         return;
+    }
 
     // Find the latest LOCKED pivot for each type (isProtected == true)
     int latestLockedHighId = -1;
@@ -156,6 +165,22 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
             latestLockedLowId = pivot.id;
             latestLockedLowPrice = pivot.price;
         }
+    }
+
+    // Log one-time when a new pivot becomes locked
+    if(latestLockedHighId >= 0 && latestLockedHighId != m_lastLoggedLockedHighId)
+    {
+        m_lastLoggedLockedHighId = latestLockedHighId;
+        m_logger.LogInfo(StringFormat(
+            "Locked HIGH pivot ID:%d Price:%.5f",
+            latestLockedHighId, latestLockedHighPrice));
+    }
+    if(latestLockedLowId >= 0 && latestLockedLowId != m_lastLoggedLockedLowId)
+    {
+        m_lastLoggedLockedLowId = latestLockedLowId;
+        m_logger.LogInfo(StringFormat(
+            "Locked LOW pivot ID:%d Price:%.5f",
+            latestLockedLowId, latestLockedLowPrice));
     }
 
     // Check each closed bar (skip bar 0 - Rule 1)
@@ -193,11 +218,17 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
                 m_bullishBOSCount++;
                 m_brokenHighCount++;
 
-                string msg = StringFormat("BOS Confirmed\nID: %d\nDirection: Bullish\nBroken Pivot: %d\nBar: %d\nTime: %s\nPivot Price: %.5f\nClose Price: %.5f",
-                    m_bosIds[idx], m_brokenPivotIds[idx], m_bosBars[idx], 
-                    TimeToString(m_bosTimes[idx], TIME_DATE | TIME_MINUTES),
-                    m_bosPivotPrices[idx], m_bosClosePrices[idx]);
-                m_logger.LogInfo(msg);
+                m_logger.LogInfo(StringFormat(
+                    "BOS CONFIRMED #%d Bullish Bar:%d Time:%s Close:%.5f > Pivot:%.5f",
+                    m_bosIds[idx], bar, TimeToString(time[bar], TIME_DATE|TIME_MINUTES),
+                    barClose, latestLockedHighPrice));
+            }
+            else if(latestLockedHighPrice - barClose < 50 * _Point)
+            {
+                m_logger.LogDebug(StringFormat(
+                    "BOS CHECK Bullish REJECTED Bar:%d Close:%.5f <= Pivot:%.5f (gap:%.1fpips)",
+                    bar, barClose, latestLockedHighPrice,
+                    (latestLockedHighPrice - barClose) / _Point));
             }
         }
         else if(latestLockedHighId >= 0 && IsPivotBroken(latestLockedHighId))
@@ -235,11 +266,17 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
                 m_bearishBOSCount++;
                 m_brokenLowCount++;
 
-                string msg = StringFormat("BOS Confirmed\nID: %d\nDirection: Bearish\nBroken Pivot: %d\nBar: %d\nTime: %s\nPivot Price: %.5f\nClose Price: %.5f",
-                    m_bosIds[idx], m_brokenPivotIds[idx], m_bosBars[idx], 
-                    TimeToString(m_bosTimes[idx], TIME_DATE | TIME_MINUTES),
-                    m_bosPivotPrices[idx], m_bosClosePrices[idx]);
-                m_logger.LogInfo(msg);
+                m_logger.LogInfo(StringFormat(
+                    "BOS CONFIRMED #%d Bearish Bar:%d Time:%s Close:%.5f < Pivot:%.5f",
+                    m_bosIds[idx], bar, TimeToString(time[bar], TIME_DATE|TIME_MINUTES),
+                    barClose, latestLockedLowPrice));
+            }
+            else if(barClose - latestLockedLowPrice < 50 * _Point)
+            {
+                m_logger.LogDebug(StringFormat(
+                    "BOS CHECK Bearish REJECTED Bar:%d Close:%.5f >= Pivot:%.5f (gap:%.1fpips)",
+                    bar, barClose, latestLockedLowPrice,
+                    (barClose - latestLockedLowPrice) / _Point));
             }
         }
         else if(latestLockedLowId >= 0 && IsPivotBroken(latestLockedLowId))
@@ -285,6 +322,8 @@ void CBOSDetector::Clear(void)
     m_brokenLowCount = 0;
     m_duplicatePrevented = 0;
     m_skippedUnlocked = 0;
+    m_lastLoggedLockedHighId = -1;
+    m_lastLoggedLockedLowId = -1;
 }
 
 bool CBOSDetector::GetBOS(int index, BOSEvent &out) const

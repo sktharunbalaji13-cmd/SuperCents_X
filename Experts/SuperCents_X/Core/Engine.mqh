@@ -19,9 +19,14 @@
 #include "../Structure/CHOCHDetector.mqh"
 #include "../Structure/OrderBlockDetector.mqh"
 #include "../Structure/FVGDetector.mqh"
-
-// Forward declarations for modules to be added later
-class CEntryEngine;
+#include "../Visualization/VisualizationManager.mqh"
+#include "../Confluence/ConfluenceEngine.mqh"
+#include "../Entry/EntrySetup.mqh"
+#include "../Entry/EntrySetupBuilder.mqh"
+#include "../Entry/EntryValidator.mqh"
+#include "../Entry/EntryEngine.mqh"
+#include "../Entry/RiskManager.mqh"
+#include "../Entry/ExecutionManager.mqh"
 
 class CEngine
 {
@@ -50,7 +55,15 @@ private:
     CCHOCHDetector *m_chochDetector;
     COrderBlockDetector *m_orderBlockDetector;
     CFVGDetector *m_fvgDetector;
+    CVisualizationManager *m_visualizationManager;
+    CConfluenceEngine *m_confluenceEngine;
     CEntryEngine *m_entryEngine;
+
+    //--- Sprint 12: Entry Pipeline
+    CEntrySetupBuilder *m_entrySetupBuilder;
+    CEntryValidator    *m_entryValidator;
+    CRiskManager       *m_riskManager;
+    CExecutionManager  *m_executionManager;
 
     //--- Internal helpers
     bool CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[]);
@@ -71,6 +84,15 @@ public:
     CSwingDetector *GetSwingDetector(void) const { return m_swingDetector; }
     CStructuralPivotEngine *GetStructuralPivotEngine(void) const { return m_structuralPivotEngine; }
     CBOSDetector *GetBOSDetector(void) const { return m_bosDetector; }
+    CProtectedPointManager *GetProtectedPointManager(void) const { return m_protectedPointManager; }
+    COrderBlockDetector *GetOrderBlockDetector(void) const { return m_orderBlockDetector; }
+    CFVGDetector *GetFVGDetector(void) const { return m_fvgDetector; }
+    CTrendState *GetTrendState(void) const { return m_trendState; }
+    CCHOCHDetector *GetCHOCHDetector(void) const { return m_chochDetector; }
+    CConfluenceEngine *GetConfluenceEngine(void) const { return m_confluenceEngine; }
+    CEntryEngine *GetEntryEngine(void) const { return m_entryEngine; }
+    CRiskManager *GetRiskManager(void) const { return m_riskManager; }
+    CExecutionManager *GetExecutionManager(void) const { return m_executionManager; }
 
 private:
     void InitializeModules(void);
@@ -91,7 +113,13 @@ CEngine::CEngine(void)
     m_chochDetector = NULL;
     m_orderBlockDetector = NULL;
     m_fvgDetector = NULL;
+    m_visualizationManager = NULL;
+    m_confluenceEngine = NULL;
     m_entryEngine = NULL;
+    m_entrySetupBuilder = NULL;
+    m_entryValidator = NULL;
+    m_riskManager = NULL;
+    m_executionManager = NULL;
 }
 
 CEngine::~CEngine(void)
@@ -135,6 +163,8 @@ void CEngine::Update(void)
     if(!IsNewBar())
         return;
 
+    ulong t0 = GetMicrosecondCount();
+
     //--- Copy OHLC data from MT5
     double open[];
     double high[];
@@ -144,11 +174,16 @@ void CEngine::Update(void)
 
     if(!CopyOHLCArrays(open, high, low, close, time))
         return;
+    ulong t1 = GetMicrosecondCount();
 
     int rates_total = ArraySize(high);
 
     //--- Update all modules
     UpdateModules(open, high, low, close, time, rates_total);
+    ulong t2 = GetMicrosecondCount();
+
+    PrintFormat("PERF Copy(%d bars)=%llu us  Update=%llu us  Total=%llu us",
+        rates_total, t1 - t0, t2 - t1, t2 - t0);
 }
 
 void CEngine::Shutdown(void)
@@ -242,63 +277,193 @@ void CEngine::InitializeModules(void)
         m_fvgDetector = NULL;
     }
 
-    // Sprint 10+: Additional modules will be initialized here
+    //--- Sprint 10: Initialize Visualization Manager
+    m_visualizationManager = new CVisualizationManager();
+    if(!m_visualizationManager.Init())
+    {
+        m_logger.LogError("Failed to initialize VisualizationManager");
+        delete m_visualizationManager;
+        m_visualizationManager = NULL;
+    }
+    if(m_visualizationManager != NULL)
+    {
+        m_visualizationManager.SetSwingDetector(m_swingDetector);
+        m_visualizationManager.SetPivotEngine(m_structuralPivotEngine);
+        m_visualizationManager.SetBOSDetector(m_bosDetector);
+        m_visualizationManager.SetCHOCHDetector(m_chochDetector);
+        m_visualizationManager.SetProtectedPointManager(m_protectedPointManager);
+        m_visualizationManager.SetOrderBlockDetector(m_orderBlockDetector);
+        m_visualizationManager.SetFVGDetector(m_fvgDetector);
+    }
+
+    //--- Sprint 11: Initialize Confluence Engine
+    m_confluenceEngine = new CConfluenceEngine();
+    if(!m_confluenceEngine.Init())
+    {
+        m_logger.LogError("Failed to initialize ConfluenceEngine");
+        delete m_confluenceEngine;
+        m_confluenceEngine = NULL;
+    }
+    if(m_confluenceEngine != NULL)
+    {
+        m_confluenceEngine.SetTrendState(m_trendState);
+        m_confluenceEngine.SetBOSDetector(m_bosDetector);
+        m_confluenceEngine.SetCHOCHDetector(m_chochDetector);
+        m_confluenceEngine.SetOrderBlockDetector(m_orderBlockDetector);
+        m_confluenceEngine.SetFVGDetector(m_fvgDetector);
+        m_confluenceEngine.SetProtectedPointManager(m_protectedPointManager);
+    }
+
+    //--- Sprint 12: Initialize Entry components
+    m_entrySetupBuilder = new CEntrySetupBuilder();
+    if(m_entrySetupBuilder != NULL)
+    {
+        m_entrySetupBuilder.Init();
+        m_entrySetupBuilder.SetBOSDetector(m_bosDetector);
+        m_entrySetupBuilder.SetCHOCHDetector(m_chochDetector);
+        m_entrySetupBuilder.SetOBDetector(m_orderBlockDetector);
+        m_entrySetupBuilder.SetFVGDetector(m_fvgDetector);
+        m_entrySetupBuilder.SetPPManager(m_protectedPointManager);
+    }
+
+    m_entryValidator = new CEntryValidator();
+    if(m_entryValidator != NULL)
+        m_entryValidator.Init();
+
+    m_entryEngine = new CEntryEngine();
+    if(!m_entryEngine.Init())
+    {
+        m_logger.LogError("Failed to initialize EntryEngine");
+        delete m_entryEngine;
+        m_entryEngine = NULL;
+    }
+
+    m_riskManager = new CRiskManager();
+    if(!m_riskManager.Init())
+    {
+        m_logger.LogError("Failed to initialize RiskManager");
+        delete m_riskManager;
+        m_riskManager = NULL;
+    }
+
+    m_executionManager = new CExecutionManager();
+    if(!m_executionManager.Init())
+    {
+        m_logger.LogError("Failed to initialize ExecutionManager");
+        delete m_executionManager;
+        m_executionManager = NULL;
+    }
+    if(m_executionManager != NULL)
+    {
+        m_executionManager.SetMagicNumber(m_config.GetMagicNumber());
+    }
 }
 
 void CEngine::UpdateModules(const double &open[], const double &high[], const double &low[], const double &close[], const datetime &time[], int rates_total)
 {
+    ulong s, e;
+    string perf = "";
+
     //--- Sprint 2: Update Swing Detector
+    s = GetMicrosecondCount();
     if(m_swingDetector != NULL)
-    {
         m_swingDetector.Update(high, low, time, rates_total);
-    }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" Swing:%llu", e - s);
 
     //--- Sprint 3: Update Structural Pivot Engine
+    s = GetMicrosecondCount();
     if(m_structuralPivotEngine != NULL && m_swingDetector != NULL)
-    {
         m_structuralPivotEngine.Update(m_swingDetector);
-    }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" Pivot:%llu", e - s);
 
     //--- Sprint 4: Update BOS Detector
+    s = GetMicrosecondCount();
     if(m_bosDetector != NULL && m_structuralPivotEngine != NULL)
-    {
         m_bosDetector.Update(m_structuralPivotEngine, close, time, rates_total);
-    }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" BOS:%llu", e - s);
 
     //--- Sprint 5: Update Trend State Machine
+    s = GetMicrosecondCount();
     if(m_trendState != NULL && m_bosDetector != NULL)
-    {
         m_trendState.Update(m_bosDetector);
-    }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" Trend:%llu", e - s);
 
     //--- Sprint 6: Update Protected Point Manager
-    // Use iTime() to get the current bar time (CopyTime returns non-series array)
+    s = GetMicrosecondCount();
     if(m_protectedPointManager != NULL && m_structuralPivotEngine != NULL)
     {
         datetime currentBarTime[];
-        int currentBars = 1;
-        ArrayResize(currentBarTime, currentBars);
-        currentBarTime[0] = iTime(_Symbol, _Period, 0);  // Current bar being processed
+        ArrayResize(currentBarTime, 1);
+        currentBarTime[0] = iTime(_Symbol, _Period, 0);
         m_protectedPointManager.Update(m_structuralPivotEngine, m_bosDetector, m_trendState, currentBarTime);
     }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" PP:%llu", e - s);
 
     //--- Sprint 7: Update CHOCH Detector
+    s = GetMicrosecondCount();
     if(m_chochDetector != NULL && m_trendState != NULL && m_protectedPointManager != NULL)
-    {
         m_chochDetector.Update(m_trendState, m_protectedPointManager, close, time, rates_total);
-    }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" CHOCH:%llu", e - s);
 
     //--- Sprint 8: Update Order Block Detector
+    s = GetMicrosecondCount();
     if(m_orderBlockDetector != NULL && m_chochDetector != NULL)
-    {
         m_orderBlockDetector.Update(m_chochDetector, m_trendState, m_protectedPointManager,
                                     open, high, low, close, time, rates_total);
-    }
+    e = GetMicrosecondCount();
+    perf += StringFormat(" OB:%llu", e - s);
 
     //--- Sprint 9: Update FVG Detector
+    s = GetMicrosecondCount();
     if(m_fvgDetector != NULL)
-    {
         m_fvgDetector.Update(open, high, low, close, time, rates_total);
+    e = GetMicrosecondCount();
+    perf += StringFormat(" FVG:%llu", e - s);
+
+    //--- Sprint 10: Update Visualization Manager
+    s = GetMicrosecondCount();
+    if(m_visualizationManager != NULL)
+        m_visualizationManager.Update();
+    e = GetMicrosecondCount();
+    perf += StringFormat(" Viz:%llu", e - s);
+
+    Print("PERF" + perf);
+    if(m_confluenceEngine != NULL)
+    {
+        m_confluenceEngine.Update();
+    }
+
+    //--- Sprint 12: Build, validate, and arm entry setups
+    if(m_confluenceEngine != NULL && m_entrySetupBuilder != NULL &&
+       m_entryValidator != NULL && m_entryEngine != NULL)
+    {
+        ConfluenceSignal latestSignal;
+        if(m_confluenceEngine.GetLatestSignal(latestSignal))
+        {
+            EntrySetup setup;
+            if(m_entrySetupBuilder.Build(latestSignal, setup) &&
+               m_entryValidator.IsValid(setup))
+            {
+                m_entryEngine.Arm(setup);
+
+                if(m_riskManager != NULL && m_executionManager != NULL)
+                {
+                    PositionSizing sizing = m_riskManager.Calculate(setup);
+                    ExecutionResult execResult = m_executionManager.Execute(setup, sizing.lots);
+                    if(!execResult.success)
+                    {
+                        m_logger.LogWarn(StringFormat("Execution failed: %s (retcode=%u)",
+                            execResult.description, execResult.retcode));
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -370,7 +535,57 @@ void CEngine::ShutdownModules(void)
         m_fvgDetector = NULL;
     }
 
-    // Sprint 10+: Shutdown additional modules here
+    //--- Sprint 10: Shutdown Visualization Manager
+    if(m_visualizationManager != NULL)
+    {
+        m_visualizationManager.Shutdown();
+        delete m_visualizationManager;
+        m_visualizationManager = NULL;
+    }
+
+    //--- Sprint 11: Shutdown Confluence Engine
+    if(m_confluenceEngine != NULL)
+    {
+        m_confluenceEngine.Shutdown();
+        delete m_confluenceEngine;
+        m_confluenceEngine = NULL;
+    }
+
+    //--- Sprint 12: Shutdown Entry Pipeline
+    if(m_entryEngine != NULL)
+    {
+        m_entryEngine.Shutdown();
+        delete m_entryEngine;
+        m_entryEngine = NULL;
+    }
+
+    if(m_riskManager != NULL)
+    {
+        m_riskManager.Shutdown();
+        delete m_riskManager;
+        m_riskManager = NULL;
+    }
+
+    if(m_entryValidator != NULL)
+    {
+        m_entryValidator.Shutdown();
+        delete m_entryValidator;
+        m_entryValidator = NULL;
+    }
+
+    if(m_entrySetupBuilder != NULL)
+    {
+        m_entrySetupBuilder.Shutdown();
+        delete m_entrySetupBuilder;
+        m_entrySetupBuilder = NULL;
+    }
+
+    if(m_executionManager != NULL)
+    {
+        m_executionManager.Shutdown();
+        delete m_executionManager;
+        m_executionManager = NULL;
+    }
 }
 
 bool CEngine::CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[])
