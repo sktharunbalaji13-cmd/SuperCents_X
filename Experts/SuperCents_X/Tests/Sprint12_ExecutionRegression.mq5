@@ -23,6 +23,7 @@
 #include "../Entry/EntryEngine.mqh"
 #include "../Entry/RiskManager.mqh"
 #include "../Entry/ExecutionManager.mqh"
+#include "../Entry/PositionManager.mqh"
 
 //--- Test globals
 CLogger g_log(MODULE_UNKNOWN, "ExecReg");
@@ -44,6 +45,7 @@ CEntryValidator       g_validator;
 CEntryEngine          g_engine;
 CRiskManager          g_risk;
 CExecutionManager     g_exec;
+CPositionManager      g_pm;
 
 //--- Synthetic bar data
 struct SynthBar { double o, h, l, c; datetime t; };
@@ -197,7 +199,9 @@ void InitAllModules(void)
     g_validator.Init();
     g_engine.Init();
     g_risk.Init();
+    g_pm.Init();
     g_exec.Init();
+    g_exec.SetPositionManager(&g_pm);
 }
 
 //+------------------------------------------------------------------+
@@ -235,6 +239,7 @@ void RunFullPipeline(void)
 void ShutdownAll(void)
 {
     g_exec.Shutdown();
+    g_pm.Shutdown();
     g_risk.Shutdown();
     g_engine.Shutdown();
     g_validator.Shutdown();
@@ -450,7 +455,9 @@ void Test_ExecutionManager(void)
 {
     g_log.LogInfo("--- TEST 5: ExecutionManager guards ---");
 
+    g_pm.Init();
     g_exec.Init();
+    g_exec.SetPositionManager(&g_pm);
 
     EntrySetup setup;
     setup.valid = true;
@@ -477,6 +484,7 @@ void Test_ExecutionManager(void)
 
     PrintSummary("TEST 5");
     g_exec.Shutdown();
+    g_pm.Shutdown();
 }
 
 //+------------------------------------------------------------------+
@@ -561,7 +569,9 @@ void Test_ExecutionResultRejections(void)
 {
     g_log.LogInfo("--- TEST 9: ExecutionResult rejection paths ---");
 
+    g_pm.Init();
     g_exec.Init();
+    g_exec.SetPositionManager(&g_pm);
 
     EntrySetup setup;
     setup.valid = true;
@@ -610,6 +620,7 @@ void Test_ExecutionResultRejections(void)
 
     PrintSummary("TEST 9");
     g_exec.Shutdown();
+    g_pm.Shutdown();
 }
 
 //+------------------------------------------------------------------+

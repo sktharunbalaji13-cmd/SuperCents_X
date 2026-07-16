@@ -27,6 +27,7 @@
 #include "../Entry/EntryEngine.mqh"
 #include "../Entry/RiskManager.mqh"
 #include "../Entry/ExecutionManager.mqh"
+#include "../Entry/PositionManager.mqh"
 
 class CEngine
 {
@@ -64,6 +65,7 @@ private:
     CEntryValidator    *m_entryValidator;
     CRiskManager       *m_riskManager;
     CExecutionManager  *m_executionManager;
+    CPositionManager   *m_positionManager;
 
     //--- Internal helpers
     bool CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[]);
@@ -93,6 +95,7 @@ public:
     CEntryEngine *GetEntryEngine(void) const { return m_entryEngine; }
     CRiskManager *GetRiskManager(void) const { return m_riskManager; }
     CExecutionManager *GetExecutionManager(void) const { return m_executionManager; }
+    CPositionManager *GetPositionManager(void) const { return m_positionManager; }
 
 private:
     void InitializeModules(void);
@@ -120,6 +123,7 @@ CEngine::CEngine(void)
     m_entryValidator = NULL;
     m_riskManager = NULL;
     m_executionManager = NULL;
+    m_positionManager = NULL;
 }
 
 CEngine::~CEngine(void)
@@ -357,6 +361,19 @@ void CEngine::InitializeModules(void)
     {
         m_executionManager.SetMagicNumber(m_config.GetMagicNumber());
     }
+
+    //--- Sprint 13: Initialize Position Manager
+    m_positionManager = new CPositionManager();
+    if(!m_positionManager.Init())
+    {
+        m_logger.LogError("Failed to initialize PositionManager");
+        delete m_positionManager;
+        m_positionManager = NULL;
+    }
+    if(m_executionManager != NULL && m_positionManager != NULL)
+    {
+        m_executionManager.SetPositionManager(m_positionManager);
+    }
 }
 
 void CEngine::UpdateModules(const double &open[], const double &high[], const double &low[], const double &close[], const datetime &time[], int rates_total)
@@ -585,6 +602,14 @@ void CEngine::ShutdownModules(void)
         m_executionManager.Shutdown();
         delete m_executionManager;
         m_executionManager = NULL;
+    }
+
+    //--- Sprint 13: Shutdown Position Manager
+    if(m_positionManager != NULL)
+    {
+        m_positionManager.Shutdown();
+        delete m_positionManager;
+        m_positionManager = NULL;
     }
 }
 

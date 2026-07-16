@@ -11,6 +11,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "EntrySetup.mqh"
+#include "PositionManager.mqh"
 
 enum ENUM_EXECUTION_STYLE
 {
@@ -22,14 +23,12 @@ enum ENUM_EXECUTION_STYLE
 class CExecutionManager
 {
 private:
-    CLogger m_logger;
-    CTrade  m_trade;
-    bool    m_isInitialized;
-    int     m_magicNumber;
-    string  m_symbol;
-
-    bool HasOpenPosition(void);
-    bool HasPendingOrder(void);
+    CLogger          m_logger;
+    CTrade           m_trade;
+    CPositionManager *m_positionManager;
+    bool             m_isInitialized;
+    int              m_magicNumber;
+    string           m_symbol;
 
     ExecutionResult ValidateTradingAllowed(void);
     ExecutionResult ValidateVolume(double lotSize);
@@ -54,10 +53,13 @@ public:
 
     void SetMagicNumber(int magic) { m_magicNumber = magic; }
     int  GetMagicNumber(void) const { return m_magicNumber; }
+
+    void SetPositionManager(CPositionManager *pm) { m_positionManager = pm; }
 };
 
 CExecutionManager::CExecutionManager(void)
     : m_logger(MODULE_EXECUTION_MANAGER, "ExecutionManager")
+    , m_positionManager(NULL)
     , m_isInitialized(false)
     , m_magicNumber(0)
     , m_symbol(_Symbol) {}
@@ -114,18 +116,21 @@ ExecutionResult CExecutionManager::Execute(const EntrySetup &setup, double lotSi
         return result;
     }
 
-    if(HasOpenPosition())
+    if(m_positionManager != NULL && m_positionManager.IsInitialized())
     {
-        result.status = EXEC_STATUS_REJECTED_OPEN_POSITION;
-        result.description = "Open position exists for this symbol/magic";
-        return result;
-    }
+        if(m_positionManager.HasPosition(m_symbol, m_magicNumber))
+        {
+            result.status = EXEC_STATUS_REJECTED_OPEN_POSITION;
+            result.description = "Open position exists for this symbol/magic";
+            return result;
+        }
 
-    if(HasPendingOrder())
-    {
-        result.status = EXEC_STATUS_REJECTED_PENDING_ORDER;
-        result.description = "Pending order exists for this symbol/magic";
-        return result;
+        if(m_positionManager.HasPendingOrder(m_symbol, m_magicNumber))
+        {
+            result.status = EXEC_STATUS_REJECTED_PENDING_ORDER;
+            result.description = "Pending order exists for this symbol/magic";
+            return result;
+        }
     }
 
     ENUM_EXECUTION_STYLE style = GetExecutionStyle(setup.type);
@@ -392,54 +397,6 @@ bool CExecutionManager::CancelPending(void)
 
     m_logger.LogInfo("CancelPending: no pending orders to cancel");
     return true;
-}
-
-//+------------------------------------------------------------------+
-//| Position and order queries                                        |
-//+------------------------------------------------------------------+
-bool CExecutionManager::HasOpenPosition(void)
-{
-    if(!m_isInitialized)
-        return false;
-
-    for(int i = PositionsTotal() - 1; i >= 0; i--)
-    {
-        if(PositionSelect(PositionGetSymbol(i)))
-        {
-            if(PositionGetInteger(POSITION_MAGIC) == m_magicNumber
-            && PositionGetString(POSITION_SYMBOL) == m_symbol)
-            {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-bool CExecutionManager::HasPendingOrder(void)
-{
-    if(!m_isInitialized)
-        return false;
-
-    for(int i = OrdersTotal() - 1; i >= 0; i--)
-    {
-        if(OrderSelect(OrderGetTicket(i)))
-        {
-            if(OrderGetInteger(ORDER_MAGIC) == m_magicNumber
-            && OrderGetString(ORDER_SYMBOL) == m_symbol)
-            {
-                ENUM_ORDER_TYPE type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
-                if(type == ORDER_TYPE_BUY_LIMIT  || type == ORDER_TYPE_BUY_STOP
-                || type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP)
-                {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
 }
 
 //+------------------------------------------------------------------+
