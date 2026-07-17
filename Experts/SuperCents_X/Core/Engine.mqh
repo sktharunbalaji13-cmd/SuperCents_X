@@ -28,6 +28,7 @@
 #include "../Entry/RiskManager.mqh"
 #include "../Entry/ExecutionManager.mqh"
 #include "../Entry/PositionManager.mqh"
+#include "../Entry/TradeManager.mqh"
 
 class CEngine
 {
@@ -66,6 +67,7 @@ private:
     CRiskManager       *m_riskManager;
     CExecutionManager  *m_executionManager;
     CPositionManager   *m_positionManager;
+    CTradeManager      *m_tradeManager;
 
     //--- Internal helpers
     bool CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[]);
@@ -96,6 +98,7 @@ public:
     CRiskManager *GetRiskManager(void) const { return m_riskManager; }
     CExecutionManager *GetExecutionManager(void) const { return m_executionManager; }
     CPositionManager *GetPositionManager(void) const { return m_positionManager; }
+    CTradeManager *GetTradeManager(void) const { return m_tradeManager; }
 
 private:
     void InitializeModules(void);
@@ -124,6 +127,7 @@ CEngine::CEngine(void)
     m_riskManager = NULL;
     m_executionManager = NULL;
     m_positionManager = NULL;
+    m_tradeManager = NULL;
 }
 
 CEngine::~CEngine(void)
@@ -322,17 +326,32 @@ void CEngine::InitializeModules(void)
     m_entrySetupBuilder = new CEntrySetupBuilder();
     if(m_entrySetupBuilder != NULL)
     {
-        m_entrySetupBuilder.Init();
-        m_entrySetupBuilder.SetBOSDetector(m_bosDetector);
-        m_entrySetupBuilder.SetCHOCHDetector(m_chochDetector);
-        m_entrySetupBuilder.SetOBDetector(m_orderBlockDetector);
-        m_entrySetupBuilder.SetFVGDetector(m_fvgDetector);
-        m_entrySetupBuilder.SetPPManager(m_protectedPointManager);
+        if(!m_entrySetupBuilder.Init())
+        {
+            m_logger.LogError("Failed to initialize EntrySetupBuilder");
+            delete m_entrySetupBuilder;
+            m_entrySetupBuilder = NULL;
+        }
+        else
+        {
+            m_entrySetupBuilder.SetBOSDetector(m_bosDetector);
+            m_entrySetupBuilder.SetCHOCHDetector(m_chochDetector);
+            m_entrySetupBuilder.SetOBDetector(m_orderBlockDetector);
+            m_entrySetupBuilder.SetFVGDetector(m_fvgDetector);
+            m_entrySetupBuilder.SetPPManager(m_protectedPointManager);
+        }
     }
 
     m_entryValidator = new CEntryValidator();
     if(m_entryValidator != NULL)
-        m_entryValidator.Init();
+    {
+        if(!m_entryValidator.Init())
+        {
+            m_logger.LogError("Failed to initialize EntryValidator");
+            delete m_entryValidator;
+            m_entryValidator = NULL;
+        }
+    }
 
     m_entryEngine = new CEntryEngine();
     if(!m_entryEngine.Init())
@@ -373,6 +392,20 @@ void CEngine::InitializeModules(void)
     if(m_executionManager != NULL && m_positionManager != NULL)
     {
         m_executionManager.SetPositionManager(m_positionManager);
+    }
+
+    //--- Sprint 13.1: Initialize Trade Manager
+    m_tradeManager = new CTradeManager();
+    if(!m_tradeManager.Init())
+    {
+        m_logger.LogError("Failed to initialize TradeManager");
+        delete m_tradeManager;
+        m_tradeManager = NULL;
+    }
+    if(m_tradeManager != NULL && m_positionManager != NULL)
+    {
+        m_tradeManager.SetPositionManager(m_positionManager);
+        m_tradeManager.SetMagicNumber(m_config.GetMagicNumber());
     }
 }
 
@@ -415,7 +448,7 @@ void CEngine::UpdateModules(const double &open[], const double &high[], const do
     {
         datetime currentBarTime[];
         ArrayResize(currentBarTime, 1);
-        currentBarTime[0] = iTime(_Symbol, _Period, 0);
+        currentBarTime[0] = (rates_total >= 2) ? time[1] : time[0];
         m_protectedPointManager.Update(m_structuralPivotEngine, m_bosDetector, m_trendState, currentBarTime);
     }
     e = GetMicrosecondCount();
@@ -482,6 +515,10 @@ void CEngine::UpdateModules(const double &open[], const double &high[], const do
             }
         }
     }
+
+    //--- Sprint 13.1: TradeManager (break-even, trailing stop, position modification)
+    if(m_tradeManager != NULL)
+        m_tradeManager.Update();
 }
 
 void CEngine::ShutdownModules(void)
@@ -610,6 +647,14 @@ void CEngine::ShutdownModules(void)
         m_positionManager.Shutdown();
         delete m_positionManager;
         m_positionManager = NULL;
+    }
+
+    //--- Sprint 13.1: Shutdown Trade Manager
+    if(m_tradeManager != NULL)
+    {
+        m_tradeManager.Shutdown();
+        delete m_tradeManager;
+        m_tradeManager = NULL;
     }
 }
 
