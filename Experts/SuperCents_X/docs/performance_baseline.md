@@ -7,6 +7,27 @@
 **Binary:** `SuperCents_X.ex5`
 **Test:** 2-month EURUSD M15, Every Tick
 
+## v1.4 Execution Planner (Sprint 13.5)
+
+**Date:** 2026-07-26
+**Tag:** `v1.4-execution-planner`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+| Plan Metric | Value |
+|-------------|-------|
+| Plans Created | 3,918 |
+| Executable | 0 |
+| Rejected | 3,918 |
+
+All rejected due to policy interaction (OB retest entry + OB side stop = 3 pip stop < 10 pip min).
+Validation logic is correct; policy tuning deferred.
+
+### Invariants (unchanged from v1.3)
+- Confluence: 3,935 signals, 3,517 expired ✅
+- Candidate: 3,918 created, 4 expired ✅
+- Decision: 3,918 qualified, 4 expired ✅
+
 ## v1.3 Entry Decision Engine (Sprint 13.4)
 
 **Date:** 2026-07-26

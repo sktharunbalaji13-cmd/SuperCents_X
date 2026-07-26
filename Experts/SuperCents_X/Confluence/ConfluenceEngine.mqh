@@ -15,6 +15,7 @@
 #include "ConfluenceRules.mqh"
 #include "TradeCandidateBuilder.mqh"
 #include "../Entry/EntryDecisionEngine.mqh"
+#include "../Entry/ExecutionPlanner.mqh"
 
 #define EXPIRY_REASON_COUNT 7
 
@@ -35,6 +36,7 @@ private:
 
     CTradeCandidateBuilder  m_candidateBuilder;
     CEntryDecisionEngine    m_entryDecisionEngine;
+    CExecutionPlanner       m_executionPlanner;
 
     ConfluenceSignal    m_signals[];
     int                 m_signalCount;
@@ -135,6 +137,7 @@ bool CConfluenceEngine::Init(void)
     }
 
     m_entryDecisionEngine.Init();
+    m_executionPlanner.Init();
 
     m_isInitialized = true;
 
@@ -277,6 +280,7 @@ void CConfluenceEngine::Update(void)
 
     m_candidateBuilder.Update(results, 7);
     m_entryDecisionEngine.Update(m_candidateBuilder);
+    m_executionPlanner.Update(m_entryDecisionEngine, m_candidateBuilder);
 }
 
 void CConfluenceEngine::CheckSignalLifecycles(void)
@@ -410,6 +414,7 @@ void CConfluenceEngine::Shutdown(void)
     if(!m_isInitialized)
         return;
 
+    m_executionPlanner.Shutdown();
     m_entryDecisionEngine.Shutdown();
     m_candidateBuilder.Shutdown();
 
@@ -481,6 +486,7 @@ void CConfluenceEngine::SetBOSDetector(CBOSDetector *bosDetector)
 {
     m_bosDetector = bosDetector;
     m_candidateBuilder.SetBOSDetector(bosDetector);
+    m_executionPlanner.SetBOSDetector(bosDetector);
 }
 
 void CConfluenceEngine::SetCHOCHDetector(CCHOCHDetector *chochDetector)
@@ -493,23 +499,27 @@ void CConfluenceEngine::SetOrderBlockDetector(COrderBlockDetector *orderBlockDet
 {
     m_orderBlockDetector = orderBlockDetector;
     m_candidateBuilder.SetOrderBlockDetector(orderBlockDetector);
+    m_executionPlanner.SetOBDetector(orderBlockDetector);
 }
 
 void CConfluenceEngine::SetFVGDetector(CFVGDetector *fvgDetector)
 {
     m_fvgDetector = fvgDetector;
     m_candidateBuilder.SetFVGDetector(fvgDetector);
+    m_executionPlanner.SetFVGDetector(fvgDetector);
 }
 
 void CConfluenceEngine::SetProtectedPointManager(CProtectedPointManager *protectedPointManager)
 {
     m_protectedPointManager = protectedPointManager;
+    m_executionPlanner.SetProtectedPointManager(protectedPointManager);
 }
 
 void CConfluenceEngine::SetLiquidityDetector(CLiquidityDetector *liquidityDetector)
 {
     m_liquidityDetector = liquidityDetector;
     m_candidateBuilder.SetLiquidityDetector(liquidityDetector);
+    m_executionPlanner.SetLiquidityDetector(liquidityDetector);
 }
 
 bool CConfluenceEngine::GetSignal(int index, ConfluenceSignal &out) const
