@@ -16,6 +16,19 @@
 #include "StopLossResolver.mqh"
 #include "TargetResolver.mqh"
 
+struct PolicyComboResult
+{
+    ExecutionPlanConfig config;
+    string              label;
+    int                 total;
+    int                 executable;
+    int                 rejected;
+    double              avgRR;
+    double              avgStopPips;
+    double              avgTargetPips;
+    int                 rejectionDetails[8];
+};
+
 class CExecutionPlanner
 {
 private:
@@ -32,6 +45,9 @@ private:
     CProtectedPointManager   *m_ppManager;
     CBOSDetector             *m_bosDetector;
 
+    CTradeCandidateBuilder   *m_candidateBuilder;
+    CEntryDecisionEngine     *m_decisionEngine;
+
     int     m_totalCreated;
     int     m_totalExecutable;
     int     m_totalRejected;
@@ -45,6 +61,9 @@ private:
     double  m_point;
 
     void    BuildPlan(const TradeCandidate &candidate, const EntryDecision &decision);
+    void    EvaluateSingleCombo(int idx, const ExecutionPlanConfig &cfg, const string &label,
+                               CEntryDecisionEngine &decisionEngine, PolicyComboResult &result);
+    void    EvaluatePolicyCombos(CEntryDecisionEngine &decisionEngine);
 
 public:
     CExecutionPlanner(void);
@@ -55,6 +74,7 @@ public:
     void Shutdown(void);
 
     void SetConfig(const ExecutionPlanConfig &cfg);
+    void SetCandidateBuilder(CTradeCandidateBuilder *cb);
     void SetOBDetector(COrderBlockDetector *ob);
     void SetFVGDetector(CFVGDetector *fvg);
     void SetLiquidityDetector(CLiquidityDetector *liq);
@@ -74,6 +94,8 @@ CExecutionPlanner::CExecutionPlanner(void)
     , m_liqDetector(NULL)
     , m_ppManager(NULL)
     , m_bosDetector(NULL)
+    , m_candidateBuilder(NULL)
+    , m_decisionEngine(NULL)
     , m_totalCreated(0)
     , m_totalExecutable(0)
     , m_totalRejected(0)
@@ -139,6 +161,7 @@ void CExecutionPlanner::SetFVGDetector(CFVGDetector *fvg) { m_fvgDetector = fvg;
 void CExecutionPlanner::SetLiquidityDetector(CLiquidityDetector *liq) { m_liqDetector = liq; }
 void CExecutionPlanner::SetProtectedPointManager(CProtectedPointManager *pp) { m_ppManager = pp; }
 void CExecutionPlanner::SetBOSDetector(CBOSDetector *bos) { m_bosDetector = bos; }
+void CExecutionPlanner::SetCandidateBuilder(CTradeCandidateBuilder *cb) { m_candidateBuilder = cb; }
 
 void CExecutionPlanner::Update(CEntryDecisionEngine &decisionEngine, CTradeCandidateBuilder &candidateBuilder)
 {
@@ -147,6 +170,9 @@ void CExecutionPlanner::Update(CEntryDecisionEngine &decisionEngine, CTradeCandi
         m_logger.LogWarn("Update called but ExecutionPlanner is not initialized");
         return;
     }
+
+    m_candidateBuilder = &candidateBuilder;
+    m_decisionEngine = &decisionEngine;
 
     int decisionCount = decisionEngine.GetDecisionCount();
     if(decisionCount <= m_lastDecisionCount)
@@ -324,10 +350,220 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
     }
 }
 
+void CExecutionPlanner::EvaluateSingleCombo(int idx, const ExecutionPlanConfig &cfg, const string &label,
+                                            CEntryDecisionEngine &decisionEngine, PolicyComboResult &result)
+{
+    result.config = cfg;
+    result.label = label;
+    result.total = 0;
+    result.executable = 0;
+    result.rejected = 0;
+    result.avgRR = 0;
+    result.avgStopPips = 0;
+    result.avgTargetPips = 0;
+    for(int i = 0; i < 8; i++)
+        result.rejectionDetails[i] = 0;
+
+    if(m_candidateBuilder == NULL)
+        return;
+
+    int decisionCount = decisionEngine.GetDecisionCount();
+    for(int d = 0; d < decisionCount; d++)
+    {
+        EntryDecision decision;
+        if(!decisionEngine.GetDecision(d, decision))
+            continue;
+        if(decision.status != DECISION_QUALIFIED)
+            continue;
+
+        TradeCandidate candidate;
+        bool found = false;
+        int candidateCount = m_candidateBuilder.GetCandidateCount();
+        for(int c = 0; c < candidateCount; c++)
+        {
+            if(m_candidateBuilder.GetCandidate(c, candidate) && candidate.id == decision.candidateId)
+            {
+                found = true;
+                break;
+            }
+        }
+        if(!found)
+            continue;
+
+        double entryPrice = 0, stopLoss = 0, takeProfit = 0;
+        string entryPol = "", stopPol = "", targetPol = "";
+
+        ResolveEntryPrice(candidate, cfg.entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, entryPrice, entryPol);
+        ResolveStopLoss(candidate, cfg.stopPolicy, entryPrice,
+                        cfg.stopBufferPips, cfg.minStopDistancePips,
+                        m_obDetector, m_liqDetector, m_ppManager,
+                        stopLoss, stopPol);
+        ResolveTakeProfit(candidate, cfg.targetPolicy, entryPrice, stopLoss,
+                          cfg.targetRR, m_obDetector, m_fvgDetector,
+                          m_liqDetector, m_bosDetector,
+                          takeProfit, targetPol);
+
+        double stopDist = MathAbs(entryPrice - stopLoss);
+        double targetDist = MathAbs(takeProfit - entryPrice);
+        double rr = (stopDist > 0) ? (targetDist / stopDist) : 0;
+
+        result.total++;
+
+        double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * m_point;
+        double minStopDist = cfg.minStopDistancePips * 10.0 * m_point;
+        bool valid = true;
+
+        if(entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0)
+        {
+            result.rejected++;
+            result.rejectionDetails[4]++;
+        }
+        else if(stopDist < spread * 2)
+        {
+            result.rejected++;
+            result.rejectionDetails[6]++;
+        }
+        else if(stopDist < minStopDist)
+        {
+            result.rejected++;
+            result.rejectionDetails[2]++;
+        }
+        else if(targetDist < spread)
+        {
+            result.rejected++;
+            result.rejectionDetails[7]++;
+        }
+        else if(rr < 1.0)
+        {
+            result.rejected++;
+            result.rejectionDetails[5]++;
+        }
+        else
+        {
+            result.executable++;
+            result.avgRR += rr;
+            result.avgStopPips += stopDist;
+            result.avgTargetPips += targetDist;
+        }
+    }
+
+    if(result.executable > 0)
+    {
+        result.avgRR /= result.executable;
+        result.avgStopPips = result.avgStopPips / result.executable / m_point / 10.0;
+        result.avgTargetPips = result.avgTargetPips / result.executable / m_point / 10.0;
+    }
+}
+
+void CExecutionPlanner::EvaluatePolicyCombos(CEntryDecisionEngine &decisionEngine)
+{
+    m_logger.LogInfo("");
+    m_logger.LogInfo("==================== POLICY MATRIX EVALUATION ====================");
+
+    PolicyComboResult results[20];
+    int comboCount = 0;
+
+    ExecutionPlanConfig base;
+    base.entryPolicy = ENTRY_OB_RETEST;
+    base.stopPolicy = STOP_PROTECTED_POINT;
+    base.targetPolicy = TARGET_FIXED_RR;
+    base.targetRR = 2.0;
+    base.stopBufferPips = 3.0;
+    base.minStopDistancePips = 10.0;
+
+    ExecutionPlanConfig cfg;
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST;
+    EvaluateSingleCombo(comboCount, cfg, "Entry: OB Retest", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_FVG_MIDPOINT;
+    EvaluateSingleCombo(comboCount, cfg, "Entry: FVG Midpoint", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_LIQUIDITY_LEVEL;
+    EvaluateSingleCombo(comboCount, cfg, "Entry: Liquidity Level", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_CURRENT_PRICE;
+    EvaluateSingleCombo(comboCount, cfg, "Entry: Current Price", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_OB_SIDE;
+    EvaluateSingleCombo(comboCount, cfg, "Stop: OB Side", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_LIQUIDITY_SIDE;
+    EvaluateSingleCombo(comboCount, cfg, "Stop: Liquidity Side", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT;
+    EvaluateSingleCombo(comboCount, cfg, "Stop: Protected Point", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_BROKER_MINIMUM;
+    EvaluateSingleCombo(comboCount, cfg, "Stop: Broker Minimum", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_OPPOSING_LIQUIDITY;
+    EvaluateSingleCombo(comboCount, cfg, "Target: Opposing Liq", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_OPPOSING_OB;
+    EvaluateSingleCombo(comboCount, cfg, "Target: Opposing OB", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_OPPOSING_FVG;
+    EvaluateSingleCombo(comboCount, cfg, "Target: Opposing FVG", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_FIXED_RR; cfg.targetRR = 2.0;
+    EvaluateSingleCombo(comboCount, cfg, "Target: Fixed RR 2.0", decisionEngine, results[comboCount++]);
+
+    cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_PREVIOUS_SWING;
+    EvaluateSingleCombo(comboCount, cfg, "Target: Prev Swing", decisionEngine, results[comboCount++]);
+
+    {   double bufs[3]; bufs[0] = 1.0; bufs[1] = 3.0; bufs[2] = 5.0;
+        for(int b = 0; b < 3 && comboCount < 20; b++)
+        {
+            cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_FIXED_RR; cfg.targetRR = 2.0;
+            cfg.stopBufferPips = bufs[b];
+            cfg.minStopDistancePips = 10.0;
+            EvaluateSingleCombo(comboCount, cfg, StringFormat("Buf: %.0f pip%s", bufs[b], (bufs[b] == 1.0 ? "" : "s")), decisionEngine, results[comboCount++]);
+        }
+    }
+
+    {   double mins[3]; mins[0] = 5.0; mins[1] = 10.0; mins[2] = 20.0;
+        for(int m = 0; m < 3 && comboCount < 20; m++)
+        {
+            cfg = base; cfg.entryPolicy = ENTRY_OB_RETEST; cfg.stopPolicy = STOP_PROTECTED_POINT; cfg.targetPolicy = TARGET_FIXED_RR; cfg.targetRR = 2.0;
+            cfg.stopBufferPips = 3.0;
+            cfg.minStopDistancePips = mins[m];
+            EvaluateSingleCombo(comboCount, cfg, StringFormat("MinStop: %.0f pips", mins[m]), decisionEngine, results[comboCount++]);
+        }
+    }
+
+    m_logger.LogInfo("");  m_logger.LogInfo(StringFormat("%-24s %6s %6s %6s  %8s  %8s  %8s   %s",
+        "COMBO", "TOTAL", "EXEC", "REJ", "AvgRR", "StopPip", "TgtPip", "RejDetail"));
+    m_logger.LogInfo(StringFormat("%-24s %6s %6s %6s  %8s  %8s  %8s   %s",
+        "------", "-----", "----", "---", "-----", "-------", "-------", "---------"));
+
+    for(int i = 0; i < comboCount; i++)
+    {
+        string detail = "";
+        for(int k = 0; k < 8; k++)
+        {
+            if(results[i].rejectionDetails[k] > 0)
+            {
+                if(detail != "") detail += " ";
+                detail += StringFormat("%s=%d", m_rejectionLabels[k], results[i].rejectionDetails[k]);
+            }
+        }
+        double execPct = (results[i].total > 0) ? (100.0 * results[i].executable / results[i].total) : 0;
+        m_logger.LogInfo(StringFormat("%-24s %6d %6d %5d(%4.0f%%)  %6.2f  %6.1f  %6.1f   %s",
+            results[i].label, results[i].total, results[i].executable, results[i].rejected, execPct,
+            results[i].avgRR, results[i].avgStopPips, results[i].avgTargetPips, detail));
+    }
+
+    m_logger.LogInfo("====================================================================");
+}
+
 void CExecutionPlanner::Shutdown(void)
 {
     if(!m_isInitialized)
         return;
+
+    if(m_decisionEngine != NULL)
+        EvaluatePolicyCombos(*m_decisionEngine);
 
     m_logger.LogInfo("========================== EXECUTION PLAN SUMMARY =========================");
     m_logger.LogInfo(StringFormat("  %-35s %5d", "Plans Created",             m_totalCreated));
@@ -350,6 +586,8 @@ void CExecutionPlanner::Shutdown(void)
 
     ArrayFree(m_plans);
     m_planCount = 0;
+    m_decisionEngine = NULL;
+    m_candidateBuilder = NULL;
     m_isInitialized = false;
     m_logger.LogInfo("ExecutionPlanner shutdown complete");
 }

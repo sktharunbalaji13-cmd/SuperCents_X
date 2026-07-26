@@ -7,6 +7,56 @@
 **Binary:** `SuperCents_X.ex5`
 **Test:** 2-month EURUSD M15, Every Tick
 
+## v1.4.1 Policy Tuning (Sprint 13.5a)
+
+**Date:** 2026-07-26
+**Tag:** `v1.4.1-policy-tuning`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+### Default Config Change
+
+| Parameter | Old | New |
+|-----------|-----|-----|
+| `stopPolicy` | `STOP_OB_SIDE` | `STOP_PROTECTED_POINT` |
+| `targetPolicy` | `TARGET_OPPOSING_LIQUIDITY` | `TARGET_OPPOSING_LIQUIDITY` |
+| `minStopDistancePips` | 10.0 | 5.0 |
+
+### Execution Plan Summary (new defaults)
+
+| Metric | Value |
+|--------|-------|
+| Plans Created | 3,918 |
+| Executable | 1,330 (34%) |
+| Rejected | 2,588 |
+| Avg RR | 2.83 |
+| Avg Stop | 13.8 pips |
+| Avg Target | 35.1 pips |
+
+### Rejection Breakdown
+
+| Reason | Count |
+|--------|-------|
+| Broker Min Stop | 2,259 |
+| RR Below Minimum | 215 |
+| Stop Too Close | 96 |
+| Target Too Close | 18 |
+
+### Policy Matrix (top findings)
+
+| Combo | Exec | RR | Notes |
+|-------|------|-----|-------|
+| OB Retest + PP + Opp Liq | 37% | 2.14 | Original target sweep |
+| FVG Midpoint + PP + FixedRR | 42% | 2.00 | Best entry |
+| OB Retest + Liq Side + FixedRR | 19% | 2.00 | Wide stops (332 pips) |
+| OB Retest + PP + Prev Swing | 24% | 1.06 | Low RR, many RR rejects |
+
+### Success Criterion for Sprint 13.6
+- **Executable ≥ 20%**: 1,330 (34%) ✅
+- **Avg RR ≥ 1.5**: 2.83 ✅
+- **Multiple rejection reasons exercised**: 4 distinct reasons ✅
+- **All upstream layers unchanged**: 3,935 signals, 3,918 candidates, 3,918 decisions ✅
+
 ## v1.4 Execution Planner (Sprint 13.5)
 
 **Date:** 2026-07-26

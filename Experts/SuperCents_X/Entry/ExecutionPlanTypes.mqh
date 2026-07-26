@@ -46,11 +46,11 @@ struct ExecutionPlanConfig
 
     ExecutionPlanConfig(void)
         : entryPolicy(ENTRY_OB_RETEST)
-        , stopPolicy(STOP_OB_SIDE)
+        , stopPolicy(STOP_PROTECTED_POINT)
         , targetPolicy(TARGET_OPPOSING_LIQUIDITY)
         , targetRR(2.0)
         , stopBufferPips(3.0)
-        , minStopDistancePips(10.0)
+        , minStopDistancePips(5.0)
     {}
 };
 

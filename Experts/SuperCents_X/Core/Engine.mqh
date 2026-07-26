@@ -593,6 +593,14 @@ void CEngine::ShutdownModules(void)
 {
     m_logger.LogInfo("Shutting down modules...");
 
+    //--- Sprint 11: Shutdown Confluence Engine FIRST (planner matrix eval accesses all detectors)
+    if(m_confluenceEngine != NULL)
+    {
+        m_confluenceEngine.Shutdown();
+        delete m_confluenceEngine;
+        m_confluenceEngine = NULL;
+    }
+
     //--- Sprint 2: Shutdown Swing Detector
     if(m_swingDetector != NULL)
     {
@@ -671,14 +679,6 @@ void CEngine::ShutdownModules(void)
         m_visualizationManager.Shutdown();
         delete m_visualizationManager;
         m_visualizationManager = NULL;
-    }
-
-    //--- Sprint 11: Shutdown Confluence Engine
-    if(m_confluenceEngine != NULL)
-    {
-        m_confluenceEngine.Shutdown();
-        delete m_confluenceEngine;
-        m_confluenceEngine = NULL;
     }
 
     //--- Sprint 12: Shutdown Entry Pipeline
