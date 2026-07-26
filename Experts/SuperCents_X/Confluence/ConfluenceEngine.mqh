@@ -75,6 +75,8 @@ public:
     int GetSignalCount(void) const { return m_signalCount; }
     bool GetSignal(int index, ConfluenceSignal &out) const;
     bool GetLatestSignal(ConfluenceSignal &out) const;
+
+    CExecutionPlanner *GetExecutionPlanner(void) { return &m_executionPlanner; }
 };
 
 CConfluenceEngine::CConfluenceEngine(void)
@@ -138,6 +140,7 @@ bool CConfluenceEngine::Init(void)
 
     m_entryDecisionEngine.Init();
     m_executionPlanner.Init();
+    m_executionPlanner.SetCandidateBuilder(&m_candidateBuilder);
 
     m_isInitialized = true;
 

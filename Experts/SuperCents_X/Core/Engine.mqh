@@ -29,7 +29,11 @@
 #include "../Entry/RiskManager.mqh"
 #include "../Entry/ExecutionManager.mqh"
 #include "../Entry/PositionManager.mqh"
-#include "../Entry/TradeManager.mqh"
+#include "../Entry/PositionLifecycleManager.mqh"
+#include "../Trading/TradeExecutionResult.mqh"
+#include "../Trading/TradeRequestBuilder.mqh"
+#include "../Trading/TradeValidation.mqh"
+#include "../Trading/TradeManager.mqh"
 
 class CEngine
 {
@@ -67,9 +71,12 @@ private:
     CEntrySetupBuilder *m_entrySetupBuilder;
     CEntryValidator    *m_entryValidator;
     CRiskManager       *m_riskManager;
-    CExecutionManager  *m_executionManager;
-    CPositionManager   *m_positionManager;
-    CTradeManager      *m_tradeManager;
+    CExecutionManager        *m_executionManager;
+    CPositionManager         *m_positionManager;
+    CPositionLifecycleManager *m_positionLifecycleManager;
+
+    //--- Sprint 13.6: Trade Manager (order submission)
+    CTradeManager            *m_tradeExecutionManager;
 
     // CHOCH-driven trend tracking
     int m_lastCHOCHCount;
@@ -104,7 +111,8 @@ public:
     CRiskManager *GetRiskManager(void) const { return m_riskManager; }
     CExecutionManager *GetExecutionManager(void) const { return m_executionManager; }
     CPositionManager *GetPositionManager(void) const { return m_positionManager; }
-    CTradeManager *GetTradeManager(void) const { return m_tradeManager; }
+    CPositionLifecycleManager *GetPositionLifecycleManager(void) const { return m_positionLifecycleManager; }
+    CTradeManager *GetTradeExecutionManager(void) const { return m_tradeExecutionManager; }
 
 private:
     void InitializeModules(void);
@@ -134,7 +142,8 @@ CEngine::CEngine(void)
     m_riskManager = NULL;
     m_executionManager = NULL;
     m_positionManager = NULL;
-    m_tradeManager = NULL;
+    m_positionLifecycleManager = NULL;
+    m_tradeExecutionManager = NULL;
     m_lastCHOCHCount = 0;
 }
 
@@ -422,18 +431,32 @@ void CEngine::InitializeModules(void)
         m_executionManager.SetPositionManager(m_positionManager);
     }
 
-    //--- Sprint 13.1: Initialize Trade Manager
-    m_tradeManager = new CTradeManager();
-    if(!m_tradeManager.Init())
+    //--- Sprint 13.1: Initialize Position Lifecycle Manager (BE/TS)
+    m_positionLifecycleManager = new CPositionLifecycleManager();
+    if(!m_positionLifecycleManager.Init())
     {
-        m_logger.LogError("Failed to initialize TradeManager");
-        delete m_tradeManager;
-        m_tradeManager = NULL;
+        m_logger.LogError("Failed to initialize PositionLifecycleManager");
+        delete m_positionLifecycleManager;
+        m_positionLifecycleManager = NULL;
     }
-    if(m_tradeManager != NULL && m_positionManager != NULL)
+    if(m_positionLifecycleManager != NULL && m_positionManager != NULL)
     {
-        m_tradeManager.SetPositionManager(m_positionManager);
-        m_tradeManager.SetMagicNumber(m_config.GetMagicNumber());
+        m_positionLifecycleManager.SetPositionManager(m_positionManager);
+        m_positionLifecycleManager.SetMagicNumber(m_config.GetMagicNumber());
+    }
+
+    //--- Sprint 13.6: Initialize Trade Execution Manager
+    m_tradeExecutionManager = new CTradeManager();
+    if(!m_tradeExecutionManager.Init())
+    {
+        m_logger.LogError("Failed to initialize TradeExecutionManager");
+        delete m_tradeExecutionManager;
+        m_tradeExecutionManager = NULL;
+    }
+    if(m_tradeExecutionManager != NULL && m_confluenceEngine != NULL)
+    {
+        m_tradeExecutionManager.SetPlanner(m_confluenceEngine.GetExecutionPlanner());
+        m_tradeExecutionManager.SetMagicNumber(m_config.GetMagicNumber());
     }
 }
 
@@ -557,43 +580,31 @@ void CEngine::UpdateModules(double &open[], double &high[], double &low[], doubl
         m_confluenceEngine.Update();
     }
 
-    //--- Sprint 12: Build, validate, and arm entry setups
-    if(m_confluenceEngine != NULL && m_entrySetupBuilder != NULL &&
-       m_entryValidator != NULL && m_entryEngine != NULL)
+    //--- Sprint 13.6: Submit executable plans as live orders
+    //     (ConfluenceEngine internally builds candidates → decisions → plans)
+    if(m_tradeExecutionManager != NULL)
     {
-        ConfluenceSignal latestSignal;
-        if(m_confluenceEngine.GetLatestSignal(latestSignal))
-        {
-            EntrySetup setup;
-            if(m_entrySetupBuilder.Build(latestSignal, setup) &&
-               m_entryValidator.IsValid(setup))
-            {
-                m_entryEngine.Arm(setup);
-
-                if(m_riskManager != NULL && m_executionManager != NULL)
-                {
-                    PositionSizing sizing = m_riskManager.Calculate(setup);
-                    ExecutionResult execResult = m_executionManager.Execute(setup, sizing.lots);
-                    if(!execResult.success)
-                    {
-                        m_logger.LogWarn(StringFormat("Execution failed: %s (retcode=%u)",
-                            execResult.description, execResult.retcode));
-                    }
-                }
-            }
-        }
+        m_tradeExecutionManager.Update();
     }
 
-    //--- Sprint 13.1: TradeManager (break-even, trailing stop, position modification)
-    if(m_tradeManager != NULL)
-        m_tradeManager.Update();
+    //--- Sprint 13.1: Position lifecycle management (break-even, trailing stop)
+    if(m_positionLifecycleManager != NULL)
+        m_positionLifecycleManager.Update();
 }
 
 void CEngine::ShutdownModules(void)
 {
     m_logger.LogInfo("Shutting down modules...");
 
-    //--- Sprint 11: Shutdown Confluence Engine FIRST (planner matrix eval accesses all detectors)
+    //--- Sprint 13.6: Shutdown Trade Execution Manager FIRST (reads plans from planner)
+    if(m_tradeExecutionManager != NULL)
+    {
+        m_tradeExecutionManager.Shutdown();
+        delete m_tradeExecutionManager;
+        m_tradeExecutionManager = NULL;
+    }
+
+    //--- Sprint 11: Shutdown Confluence Engine (contains internal Candidate→Decision→Plan pipeline)
     if(m_confluenceEngine != NULL)
     {
         m_confluenceEngine.Shutdown();
@@ -725,12 +736,12 @@ void CEngine::ShutdownModules(void)
         m_positionManager = NULL;
     }
 
-    //--- Sprint 13.1: Shutdown Trade Manager
-    if(m_tradeManager != NULL)
+    //--- Sprint 13.1: Shutdown Position Lifecycle Manager
+    if(m_positionLifecycleManager != NULL)
     {
-        m_tradeManager.Shutdown();
-        delete m_tradeManager;
-        m_tradeManager = NULL;
+        m_positionLifecycleManager.Shutdown();
+        delete m_positionLifecycleManager;
+        m_positionLifecycleManager = NULL;
     }
 }
 

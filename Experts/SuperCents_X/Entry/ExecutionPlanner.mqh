@@ -87,7 +87,7 @@ public:
 
 CExecutionPlanner::CExecutionPlanner(void)
     : m_isInitialized(false)
-    , m_logger(MODULE_CONFLUENCE_ENGINE, "ExecutionPlanner")
+    , m_logger(MODULE_EXECUTION_PLANNER, "ExecutionPlanner")
     , m_planCount(0)
     , m_obDetector(NULL)
     , m_fvgDetector(NULL)

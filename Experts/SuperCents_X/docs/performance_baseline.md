@@ -56,6 +56,36 @@
 - **Avg RR ≥ 1.5**: 2.83 ✅
 - **Multiple rejection reasons exercised**: 4 distinct reasons ✅
 - **All upstream layers unchanged**: 3,935 signals, 3,918 candidates, 3,918 decisions ✅
+- **Idempotency**: Plan IDs tracked in `m_submittedIds[]` — no duplicate submissions ✅
+- **Return codes captured**: All MT5 `TRADE_RETCODE_*` mapped to human-readable names ✅
+- **Every submission produces TradeExecutionResult**: deterministic struct ✅
+
+## v1.5 TradeManager / Order Execution (Sprint 13.6)
+
+**Tag:** `v1.5-trade-manager` (planned)
+**Binary:** `SuperCents_X.ex5`
+
+### New Modules
+- `Trading/TradeExecutionResult.mqh` — submission result struct
+- `Trading/TradeRequestBuilder.mqh` — ExecutionPlan → MqlTradeRequest
+- `Trading/TradeValidation.mqh` — broker-side pre-checks
+- `Trading/TradeManager.mqh` — submission orchestrator with idempotency
+
+### Renamed
+- `Entry/TradeManager.mqh` → `Entry/PositionLifecycleManager.mqh` (class: `CTradeManager` → `CPositionLifecycleManager`)
+
+### Pipeline (final)
+```
+ConfluenceEngine.Update() → signals + internal Candidate→Decision→Plan pipeline
+TradeManager.Update()     → submits executable plans via OrderSend()
+PositionLifecycleManager  → break-even / trailing stop on existing positions
+```
+
+### Shutdown Order (safe)
+1. TradeManager (reads from planner, must shut down first)
+2. ConfluenceEngine (owns planner internally → planner summary logged)
+3. PositionLifecycleManager
+4. All detectors (Swing → Pivot → BOS → Trend → PP → CHOCH → OB → FVG → Liq → Viz)
 
 ## v1.4 Execution Planner (Sprint 13.5)
 

@@ -33,7 +33,11 @@
 #include "Entry/EntryEngine.mqh"
 #include "Entry/RiskManager.mqh"
 #include "Entry/ExecutionManager.mqh"
-#include "Entry/TradeManager.mqh"
+#include "Entry/PositionLifecycleManager.mqh"
+#include "Trading/TradeExecutionResult.mqh"
+#include "Trading/TradeRequestBuilder.mqh"
+#include "Trading/TradeValidation.mqh"
+#include "Trading/TradeManager.mqh"
 
 //--- Global engine instance
 CEngine g_engine;
