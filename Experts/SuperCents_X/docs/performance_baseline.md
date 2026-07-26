@@ -283,6 +283,46 @@ Validation logic is correct; policy tuning deferred.
 | Breakaway | 2 |
 | Unknown | 33 |
 
+## v1.6 Position Lifecycle State Machine (Sprint 14.0)
+
+**Date:** 2026-07-26
+**Tag:** `v1.6-position-lifecycle`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+### New Files
+- `Entry/PositionLifecycleTypes.mqh` — `PositionState` enum + `PositionContext` struct
+
+### Rewritten
+- `Entry/PositionLifecycleManager.mqh` — single-ticket tracking → full state machine
+
+### State Machine
+```
+DISCOVERED → OPEN → BREAK_EVEN / TRAILING / PARTIAL → CLOSED
+```
+
+### Lifecycle Summary (2-month test)
+| Metric | Value |
+|--------|-------|
+| Positions Discovered | 124 |
+| Positions Closed | 123 |
+| Active at Shutdown | 1 |
+| Break-even Applied | 0 |
+| Trailing Updates | 0 |
+| Partial Closes | 0 |
+| Average Lifetime | 29,136 sec (~8.1h) |
+| Longest Lifetime | 376,199 sec (~104h) |
+| State Transitions Logged | 311 |
+
+### Invariants Preserved (unchanged from v1.4.1)
+| Layer | Metric | Baseline | Current | Status |
+|-------|--------|----------|---------|--------|
+| Confluence | Total Signals | 3,935 | 3,935 | ✅ |
+| Candidates | Total Created | 3,918 | 3,918 | ✅ |
+| Plans | Plans Created | 3,918 | 3,918 | ✅ |
+| Plans | Plans Executable | 1,330 | 1,330 | ✅ |
+| TradeManager | Submitted | 1,330 | 1,330 | ✅ |
+
 ---
 
 ## System Configuration
