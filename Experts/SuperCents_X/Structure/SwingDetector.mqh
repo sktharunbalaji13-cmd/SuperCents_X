@@ -26,6 +26,12 @@ private:
     int         m_nextId;
     int         m_lastCheckedCenter;   // last bar center index fully evaluated
 
+    //--- Instrumentation counters
+    int         m_totalBarsSeen;
+    int         m_totalCentersScanned;
+    int         m_lastLoggedRatesTotal;
+    int         m_updateCount;
+
     //--- Internal helpers
     bool IsValidBarIndex(int center, int rates_total) const;
     bool IsSwingHigh(const double &high[], int center) const;
@@ -60,6 +66,10 @@ CSwingDetector::CSwingDetector(void)
     , m_lowCount(0)
     , m_nextId(1)
     , m_lastCheckedCenter(-1)
+    , m_totalBarsSeen(0)
+    , m_totalCentersScanned(0)
+    , m_lastLoggedRatesTotal(0)
+    , m_updateCount(0)
 {
     // Reserve initial capacity
     ArrayResize(m_highSwings, 256);
@@ -108,13 +118,32 @@ void CSwingDetector::Update(const double &high[], const double &low[], const dat
         Clear();
     }
 
+    //--- Instrumentation: track when new bars arrive
+    m_updateCount++;
+    if(rates_total != m_lastLoggedRatesTotal)
+    {
+        int barsDelta = (m_lastLoggedRatesTotal == 0) ? rates_total : rates_total - m_lastLoggedRatesTotal;
+        m_totalBarsSeen += (barsDelta > 0) ? barsDelta : 0;
+        m_lastLoggedRatesTotal = rates_total;
+    }
+
     //--- Determine the range of centers to evaluate this update
     int startCenter = m_lastCheckedCenter + 1;
     if(startCenter < 4)
         startCenter = 4;   // first valid center for a 5-bar fractal (needs i-2 through i+2)
 
     if(startCenter > maxCenter)
+    {
+        // Periodic heartbeat: log every 500 updates when idle
+        if(m_updateCount % 500 == 0)
+            m_logger.LogInfo(StringFormat("Heartbeat rates_total=%d lastCenter=%d barsSeen=%d centersScanned=%d",
+                rates_total, m_lastCheckedCenter, m_totalBarsSeen, m_totalCentersScanned));
         return;  // nothing new to evaluate
+    }
+
+    int centersToScan = maxCenter - startCenter + 1;
+    m_logger.LogInfo(StringFormat("SCANNING rates_total=%d centers=[%d,%d] count=%d barsSeen=%d scan#=%d",
+        rates_total, startCenter, maxCenter, centersToScan, m_totalBarsSeen, m_updateCount));
 
     //--- Evaluate each bar center in chronological order
     for(int center = startCenter; center <= maxCenter; center++)
@@ -132,7 +161,10 @@ void CSwingDetector::Update(const double &high[], const double &low[], const dat
         }
     }
 
+    m_totalCentersScanned += (maxCenter - startCenter + 1);
     m_lastCheckedCenter = maxCenter;
+    m_logger.LogInfo(StringFormat("SCAN DONE centersScanned=%d (total=%d) lastCenter=%d highSwings=%d lowSwings=%d",
+        maxCenter - startCenter + 1, m_totalCentersScanned, m_lastCheckedCenter, m_highCount, m_lowCount));
 }
 
 void CSwingDetector::Shutdown(void)
@@ -152,6 +184,10 @@ void CSwingDetector::Clear(void)
     m_lowCount = 0;
     m_nextId = 1;
     m_lastCheckedCenter = -1;
+    m_totalBarsSeen = 0;
+    m_totalCentersScanned = 0;
+    m_lastLoggedRatesTotal = 0;
+    m_updateCount = 0;
 }
 
 bool CSwingDetector::IsValidBarIndex(int center, int rates_total) const

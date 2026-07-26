@@ -82,6 +82,31 @@ struct OrderBlock
     double      qualityScore;
 };
 
+//--- FVG classification enums
+enum FVGClass
+{
+    FVG_CLASS_UNKNOWN      = 0,
+    FVG_CLASS_BREAKAWAY    = 1,
+    FVG_CLASS_CONTINUATION = 2,
+    FVG_CLASS_REVERSAL     = 3
+};
+
+enum FVGSizeCategory
+{
+    FVG_SIZE_UNKNOWN = 0,
+    FVG_SIZE_SMALL,
+    FVG_SIZE_MEDIUM,
+    FVG_SIZE_LARGE
+};
+
+enum FVGStrength
+{
+    FVG_STRENGTH_UNKNOWN = 0,
+    FVG_STRENGTH_WEAK,
+    FVG_STRENGTH_NORMAL,
+    FVG_STRENGTH_STRONG
+};
+
 //--- Sprint 9: Fair Value Gap struct
 struct FairValueGap
 {
@@ -93,8 +118,94 @@ struct FairValueGap
     double      lower;
     bool        filled;
     datetime    fillTime;
+    bool        invalidated;
     int         chochId;
     double      qualityScore;
+
+    // Phase 1 classification (populated by ClassifyFVG)
+    int         fvgClass;            // FVGClass enum
+    int         classEventId;        // BOS or CHOCH ID that triggered classification
+    int         classEventType;      // 1=BOS, 2=CHOCH
+    double      gapSizePips;         // gap size in pips
+    int         sizeCategory;        // FVGSizeCategory enum
+    int         strength;            // FVGStrength enum
+    double      displacementBodyPips;// displacement candle body in pips
+};
+
+//--- Sprint 12: Liquidity enums
+enum LiquidityType
+{
+    LIQUIDITY_UNKNOWN     = 0,
+    LIQUIDITY_EQH,            // Equal Highs
+    LIQUIDITY_EQL,            // Equal Lows
+    LIQUIDITY_EXTERNAL_HH,    // External buy-side (beyond swing high)
+    LIQUIDITY_EXTERNAL_LL,    // External sell-side (beyond swing low)
+    LIQUIDITY_INTERNAL_HH,    // Internal buy-side
+    LIQUIDITY_INTERNAL_LL     // Internal sell-side
+};
+
+enum LiquidityClass
+{
+    LIQUIDITY_CLASS_UNKNOWN  = 0,
+    LIQUIDITY_CLASS_BUY_SIDE,
+    LIQUIDITY_CLASS_SELL_SIDE
+};
+
+enum LiquidityStatus
+{
+    LIQUIDITY_STATUS_UNKNOWN = 0,
+    LIQUIDITY_STATUS_ACTIVE,
+    LIQUIDITY_STATUS_SWEPT,
+    LIQUIDITY_STATUS_MITIGATED,
+    LIQUIDITY_STATUS_INVALIDATED
+};
+
+enum LiquidityOrigin
+{
+    LIQUIDITY_ORIGIN_UNKNOWN      = 0,
+    LIQUIDITY_ORIGIN_EQH,
+    LIQUIDITY_ORIGIN_EQL,
+    LIQUIDITY_ORIGIN_SWING_HIGH,
+    LIQUIDITY_ORIGIN_SWING_LOW,
+    LIQUIDITY_ORIGIN_EXTERNAL_HIGH,
+    LIQUIDITY_ORIGIN_EXTERNAL_LOW,
+    LIQUIDITY_ORIGIN_INTERNAL_HIGH,
+    LIQUIDITY_ORIGIN_INTERNAL_LOW
+};
+
+//--- Sprint 12: Liquidity Level struct
+struct LiquidityLevel
+{
+    int      id;
+    datetime time;
+    double   price;
+    double   averagePrice;
+    int      memberCount;
+
+    LiquidityType   type;
+    LiquidityClass  classification;
+    LiquidityStatus status;
+    LiquidityOrigin origin;
+
+    int      leftSwingId;
+    int      rightSwingId;
+    string   memberIdStr;
+
+    bool     swept;
+    bool     mitigated;
+    bool     invalidated;
+
+    datetime detectedTime;
+    int      detectedBar;
+    datetime sweptTime;
+    int      sweptBar;
+    datetime mitigatedTime;
+    int      mitigatedBar;
+    double   mitigatedPrice;
+    datetime invalidatedTime;
+    int      invalidatedBar;
+    double   invalidatedPrice;
+    string   invalidatedReason;
 };
 
 //--- Legacy Swing struct (for future SMC components)

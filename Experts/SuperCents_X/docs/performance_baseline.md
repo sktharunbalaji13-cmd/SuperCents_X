@@ -1,0 +1,87 @@
+# Performance Baseline — v1.0 Structural Engine
+
+**Date:** 2026-07-26
+**Commit:** `601f4c2`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+---
+
+## Liquidity Detector
+
+| Metric | Value |
+|--------|-------|
+| Total levels created | 2,108 |
+| Total swing members processed | 9,085 |
+| Liquidity clusters | 1,170 |
+| Largest cluster | 58 members |
+| Average cluster size | 7.0 members |
+| Sweep rate (swept/created) | 84.4% |
+| Average sweep delay | 15,923 bars |
+| Maximum sweep delay | 28,666 bars |
+| Lifecycle violations | 0 |
+| Illegal transitions | 0 |
+| Conservation failures | 0 |
+
+## BOS Detector
+
+| Metric | Value |
+|--------|-------|
+| Locked High Pivots | 3,054 |
+| Locked Low Pivots | 3,054 |
+| Bullish BOS | 467 |
+| Bearish BOS | 471 |
+| Duplicate BOS prevented | 208,653,933 |
+
+## CHOCH Detector
+
+| Metric | Value |
+|--------|-------|
+| Bullish CHOCH accepted | 146 |
+| Bearish CHOCH accepted | 154 |
+| Total CHOCH events | 300 |
+| Duplicate rejects | 34 |
+
+## Order Block Detector
+
+| Metric | Value |
+|--------|-------|
+| CHOCH received | 300 |
+| Search attempted | 300 |
+| Search succeeded | 300 |
+| Search failed | 0 |
+| Store success | 300 |
+| Duplicate/invalid rejects | 0 |
+
+## FVG Detector
+
+| Metric | Value |
+|--------|-------|
+| Total FVGs created | 60 |
+| Strong | 22 |
+| Normal | 38 |
+| Weak | 0 |
+| Large | 9 |
+| Medium | 22 |
+| Small | 29 |
+| Continuation | 24 |
+| Reversal | 1 |
+| Breakaway | 2 |
+| Unknown | 33 |
+
+---
+
+## System Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Symbol | EURUSD |
+| Timeframe | M15 |
+| Test range | 2026-01-01 → 2026-03-01 (60 days) |
+| Model | Every Tick |
+| Deposit | 10,000 GBP |
+| Leverage | 1:200 |
+
+---
+
+*Future optimizations should be measured against these baseline values.*

@@ -44,6 +44,7 @@ public:
     Trend GetCurrentTrend(void) const { return m_currentTrend; }
     int GetBullishBOSCount(void) const { return m_bullishBOSCount; }
     int GetBearishBOSCount(void) const { return m_bearishBOSCount; }
+    void ForceTrend(Trend newTrend);
 };
 
 //--- Inline implementation
@@ -140,6 +141,17 @@ void CTrendState::Update(CBOSDetector *bosDetector)
     }
 
     m_lastProcessedBOSId = bosCount;
+}
+
+void CTrendState::ForceTrend(Trend newTrend)
+{
+    if(newTrend == m_currentTrend || newTrend == TREND_UNKNOWN)
+        return;
+    m_logger.LogInfo(StringFormat("Force-trend: %s -> %s",
+        m_currentTrend == TREND_BULLISH ? "BULLISH" : (m_currentTrend == TREND_BEARISH ? "BEARISH" : "UNKNOWN"),
+        newTrend == TREND_BULLISH ? "BULLISH" : "BEARISH"));
+    m_currentTrend = newTrend;
+    m_trendFlipCount++;
 }
 
 void CTrendState::Shutdown(void)

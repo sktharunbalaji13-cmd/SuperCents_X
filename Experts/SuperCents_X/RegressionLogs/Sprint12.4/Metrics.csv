@@ -1,0 +1,29 @@
+Category,Metric,Value
+Liquidity,Total Created,2108
+Liquidity,Total Swing Members,9085
+Liquidity,Clusters,1170
+Liquidity,Largest Cluster,58
+Liquidity,Avg Members per Cluster,7.0
+Liquidity,EQH,581
+Liquidity,EQL,589
+Liquidity,External HH,467
+Liquidity,External LL,471
+Lifecycle,Active,328
+Lifecycle,Swept,0
+Lifecycle,Mitigated,774
+Lifecycle,Invalidated,1006
+Lifecycle,Conservation Total,2108
+Transitions,ACTIVE_to_SWEPT,1780
+Transitions,SWEPT_to_MITIGATED,774
+Transitions,SWEPT_to_INVALIDATED,1006
+Transitions,Rejected,0
+Sweep,EQH Swept,560
+Sweep,EQL Swept,363
+Sweep,External HH Swept,424
+Sweep,External LL Swept,433
+Sweep,Avg Delay (bars),15923.3
+Sweep,Max Delay (bars),28666
+Mitigation,EQH Mitigated,167
+Mitigation,EQL Mitigated,182
+Mitigation,External HH Mitigated,225
+Mitigation,External LL Mitigated,200

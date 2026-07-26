@@ -33,6 +33,7 @@
 #include "Entry/EntryEngine.mqh"
 #include "Entry/RiskManager.mqh"
 #include "Entry/ExecutionManager.mqh"
+#include "Entry/TradeManager.mqh"
 
 //--- Global engine instance
 CEngine g_engine;

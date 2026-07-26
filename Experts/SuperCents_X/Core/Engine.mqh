@@ -19,6 +19,7 @@
 #include "../Structure/CHOCHDetector.mqh"
 #include "../Structure/OrderBlockDetector.mqh"
 #include "../Structure/FVGDetector.mqh"
+#include "../Structure/LiquidityDetector.mqh"
 #include "../Visualization/VisualizationManager.mqh"
 #include "../Confluence/ConfluenceEngine.mqh"
 #include "../Entry/EntrySetup.mqh"
@@ -57,6 +58,7 @@ private:
     CCHOCHDetector *m_chochDetector;
     COrderBlockDetector *m_orderBlockDetector;
     CFVGDetector *m_fvgDetector;
+    CLiquidityDetector *m_liquidityDetector;
     CVisualizationManager *m_visualizationManager;
     CConfluenceEngine *m_confluenceEngine;
     CEntryEngine *m_entryEngine;
@@ -68,6 +70,9 @@ private:
     CExecutionManager  *m_executionManager;
     CPositionManager   *m_positionManager;
     CTradeManager      *m_tradeManager;
+
+    // CHOCH-driven trend tracking
+    int m_lastCHOCHCount;
 
     //--- Internal helpers
     bool CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[]);
@@ -91,6 +96,7 @@ public:
     CProtectedPointManager *GetProtectedPointManager(void) const { return m_protectedPointManager; }
     COrderBlockDetector *GetOrderBlockDetector(void) const { return m_orderBlockDetector; }
     CFVGDetector *GetFVGDetector(void) const { return m_fvgDetector; }
+    CLiquidityDetector *GetLiquidityDetector(void) const { return m_liquidityDetector; }
     CTrendState *GetTrendState(void) const { return m_trendState; }
     CCHOCHDetector *GetCHOCHDetector(void) const { return m_chochDetector; }
     CConfluenceEngine *GetConfluenceEngine(void) const { return m_confluenceEngine; }
@@ -102,7 +108,7 @@ public:
 
 private:
     void InitializeModules(void);
-    void UpdateModules(const double &open[], const double &high[], const double &low[], const double &close[], const datetime &time[], int rates_total);
+    void UpdateModules(double &open[], double &high[], double &low[], double &close[], datetime &time[], int rates_total);
     void ShutdownModules(void);
 };
 
@@ -119,6 +125,7 @@ CEngine::CEngine(void)
     m_chochDetector = NULL;
     m_orderBlockDetector = NULL;
     m_fvgDetector = NULL;
+    m_liquidityDetector = NULL;
     m_visualizationManager = NULL;
     m_confluenceEngine = NULL;
     m_entryEngine = NULL;
@@ -128,6 +135,7 @@ CEngine::CEngine(void)
     m_executionManager = NULL;
     m_positionManager = NULL;
     m_tradeManager = NULL;
+    m_lastCHOCHCount = 0;
 }
 
 CEngine::~CEngine(void)
@@ -284,6 +292,25 @@ void CEngine::InitializeModules(void)
         delete m_fvgDetector;
         m_fvgDetector = NULL;
     }
+    if(m_fvgDetector != NULL)
+    {
+        m_fvgDetector.SetBOSDetector(m_bosDetector);
+        m_fvgDetector.SetCHOCHDetector(m_chochDetector);
+    }
+
+    //--- Sprint 12: Initialize Liquidity Detector
+    m_liquidityDetector = new CLiquidityDetector();
+    if(!m_liquidityDetector.Init())
+    {
+        m_logger.LogError("Failed to initialize LiquidityDetector");
+        delete m_liquidityDetector;
+        m_liquidityDetector = NULL;
+    }
+    if(m_liquidityDetector != NULL)
+    {
+        m_liquidityDetector.SetSwingDetector(m_swingDetector);
+        m_liquidityDetector.SetBOSDetector(m_bosDetector);
+    }
 
     //--- Sprint 10: Initialize Visualization Manager
     m_visualizationManager = new CVisualizationManager();
@@ -409,7 +436,7 @@ void CEngine::InitializeModules(void)
     }
 }
 
-void CEngine::UpdateModules(const double &open[], const double &high[], const double &low[], const double &close[], const datetime &time[], int rates_total)
+void CEngine::UpdateModules(double &open[], double &high[], double &low[], double &close[], datetime &time[], int rates_total)
 {
     ulong s, e;
     string perf = "";
@@ -420,6 +447,26 @@ void CEngine::UpdateModules(const double &open[], const double &high[], const do
         m_swingDetector.Update(high, low, time, rates_total);
     e = GetMicrosecondCount();
     perf += StringFormat(" Swing:%llu", e - s);
+
+    // ------------------------------------------------------------------
+    // ARRAY CONTRACT — DO NOT CHANGE WITHOUT VALIDATING ALL MODULES
+    //
+    // SwingDetector (Sprint 2):
+    //     0 = oldest (natural MT5 CopyRates order)
+    //     Incremental scan assumes new bars appended at rates_total-1.
+    //
+    // PivotEngine / BOSDetector / PPM / CHOCHDetector / OBDetector / FVGDetector:
+    //     0 = newest (series / "as series" order)
+    //     All downstream modules index bar 0 as the current/closed bar.
+    //
+    // The ArraySetAsSeries(true) boundary MUST remain exactly here:
+    // after Sprint 2, before Sprint 3.
+    // ------------------------------------------------------------------
+    ArraySetAsSeries(open, true);
+    ArraySetAsSeries(high, true);
+    ArraySetAsSeries(low, true);
+    ArraySetAsSeries(close, true);
+    ArraySetAsSeries(time, true);
 
     //--- Sprint 3: Update Structural Pivot Engine
     s = GetMicrosecondCount();
@@ -457,9 +504,22 @@ void CEngine::UpdateModules(const double &open[], const double &high[], const do
     //--- Sprint 7: Update CHOCH Detector
     s = GetMicrosecondCount();
     if(m_chochDetector != NULL && m_trendState != NULL && m_protectedPointManager != NULL)
-        m_chochDetector.Update(m_trendState, m_protectedPointManager, close, time, rates_total);
+        m_chochDetector.Update(m_trendState, m_protectedPointManager, close, time, rates_total, _Point);
     e = GetMicrosecondCount();
     perf += StringFormat(" CHOCH:%llu", e - s);
+
+    //--- Flip trend on new CHOCH (Sprint 7.5)
+    if(m_chochDetector != NULL && m_trendState != NULL)
+    {
+        int currentCHOCHCount = m_chochDetector.GetCHOCHCount();
+        if(currentCHOCHCount > m_lastCHOCHCount)
+        {
+            m_lastCHOCHCount = currentCHOCHCount;
+            Trend currentTrend = m_trendState.GetCurrentTrend();
+            Trend newTrend = (currentTrend == TREND_BULLISH) ? TREND_BEARISH : TREND_BULLISH;
+            m_trendState.ForceTrend(newTrend);
+        }
+    }
 
     //--- Sprint 8: Update Order Block Detector
     s = GetMicrosecondCount();
@@ -472,9 +532,16 @@ void CEngine::UpdateModules(const double &open[], const double &high[], const do
     //--- Sprint 9: Update FVG Detector
     s = GetMicrosecondCount();
     if(m_fvgDetector != NULL)
-        m_fvgDetector.Update(open, high, low, close, time, rates_total);
+        m_fvgDetector.Update(open, high, low, close, time, rates_total, m_trendState);
     e = GetMicrosecondCount();
     perf += StringFormat(" FVG:%llu", e - s);
+
+    //--- Sprint 12: Update Liquidity Detector
+    s = GetMicrosecondCount();
+    if(m_liquidityDetector != NULL)
+        m_liquidityDetector.Update(high, low, time, rates_total);
+    e = GetMicrosecondCount();
+    perf += StringFormat(" Liq:%llu", e - s);
 
     //--- Sprint 10: Update Visualization Manager
     s = GetMicrosecondCount();
@@ -587,6 +654,14 @@ void CEngine::ShutdownModules(void)
         m_fvgDetector.Shutdown();
         delete m_fvgDetector;
         m_fvgDetector = NULL;
+    }
+
+    //--- Sprint 12: Shutdown Liquidity Detector
+    if(m_liquidityDetector != NULL)
+    {
+        m_liquidityDetector.Shutdown();
+        delete m_liquidityDetector;
+        m_liquidityDetector = NULL;
     }
 
     //--- Sprint 10: Shutdown Visualization Manager

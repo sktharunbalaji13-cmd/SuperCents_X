@@ -1,0 +1,71 @@
+{
+  "sprint": "12.4-Liquidity-Lifecycle",
+  "date": "2026-07-26",
+  "commit": "601f4c2",
+  "binary": "SuperCents_X.ex5",
+  "configuration": {
+    "symbol": "EURUSD",
+    "period": "M15",
+    "from": "2026-01-01",
+    "to": "2026-03-01",
+    "model": "Every Tick",
+    "deposit": 10000,
+    "currency": "GBP"
+  },
+  "summary": {
+    "lines_scanned": 325193,
+    "total_created": 2108,
+    "total_swept": 1780,
+    "total_mitigated": 774,
+    "total_invalidated": 1006
+  },
+  "transitions": {
+    "ACTIVE_to_SWEPT": 1780,
+    "SWEPT_to_MITIGATED": 774,
+    "SWEPT_to_INVALIDATED": 1006,
+    "rejected": 0
+  },
+  "conservation": {
+    "active": 328,
+    "swept": 0,
+    "mitigated": 774,
+    "invalidated": 1006,
+    "total": 2108,
+    "status": "OK"
+  },
+  "clusters": {
+    "total": 1170,
+    "largest": 58,
+    "avg_members": 7.0,
+    "total_swing_members": 9085
+  },
+  "cluster_types": {
+    "EQH": 581,
+    "EQL": 589,
+    "External_HH": 467,
+    "External_LL": 471,
+    "Internal_HH": 0,
+    "Internal_LL": 0
+  },
+  "sweep_breakdown": {
+    "EQH": 560,
+    "EQL": 363,
+    "External_HH": 424,
+    "External_LL": 433,
+    "avg_delay_bars": 15923.3,
+    "max_delay_bars": 28666
+  },
+  "mitigation_breakdown": {
+    "EQH": 167,
+    "EQL": 182,
+    "External_HH": 225,
+    "External_LL": 200
+  },
+  "validation": {
+    "result": "PASS",
+    "duplicate_events": 0,
+    "illegal_transitions": 0,
+    "conservation_failures": 0,
+    "invariant_violations": 0
+  }
+}

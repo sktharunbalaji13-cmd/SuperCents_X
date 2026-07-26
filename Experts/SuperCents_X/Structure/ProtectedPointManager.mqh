@@ -35,6 +35,10 @@ private:
     Trend m_lastTrend;
     int m_lastProcessedBOSId;
 
+    // PP lifecycle audit tracking
+    int m_lastLoggedLowCandidatePivotId;
+    int m_lastLoggedHighCandidatePivotId;
+
 public:
     CProtectedPointManager(void);
     ~CProtectedPointManager(void);
@@ -46,6 +50,7 @@ public:
     bool IsInitialized(void) const { return m_isInitialized; }
     int GetProtectedPointCount(void) const { return m_pointCount; }
     bool GetProtectedPoint(int index, ProtectedPoint &out) const;
+    bool GetProtectedPointByID(int id, ProtectedPoint &out) const;
 
     // Query active points
     bool GetActiveHigh(ProtectedPoint &out) const;
@@ -66,6 +71,8 @@ CProtectedPointManager::CProtectedPointManager(void)
     , m_activeLowId(-1)
     , m_lastTrend(TREND_UNKNOWN)
     , m_lastProcessedBOSId(0)
+    , m_lastLoggedLowCandidatePivotId(-1)
+    , m_lastLoggedHighCandidatePivotId(-1)
 {
     ArrayResize(m_protectedPoints, 256);
 }
@@ -107,6 +114,30 @@ void CProtectedPointManager::Update(CStructuralPivotEngine *pivotEngine, CBOSDet
         ProcessCurrentTrend(pivotEngine, currentTrend, time[0]);
         m_lastTrend = currentTrend;
     }
+
+    //--- PP Lifecycle audit: check if newer locked pivots exist but are not activated
+    if(m_pointCount > 0)
+    {
+        ProtectedPoint candidate;
+        int cid = -1;
+        FindLatestLockedPivot(pivotEngine, false, cid, candidate);
+        int curL = m_activeLowId >= 0 ? m_protectedPoints[m_activeLowId].pivotID : -1;
+        if(cid >= 0 && cid != curL && cid != m_lastLoggedLowCandidatePivotId)
+        {
+            m_lastLoggedLowCandidatePivotId = cid;
+            m_logger.LogInfo(StringFormat("LIFECYCLE: newer locked LOW pivot #%d (%.5f) avail — active=%d",
+                cid, candidate.price, curL));
+        }
+
+        FindLatestLockedPivot(pivotEngine, true, cid, candidate);
+        int curH = m_activeHighId >= 0 ? m_protectedPoints[m_activeHighId].pivotID : -1;
+        if(cid >= 0 && cid != curH && cid != m_lastLoggedHighCandidatePivotId)
+        {
+            m_lastLoggedHighCandidatePivotId = cid;
+            m_logger.LogInfo(StringFormat("LIFECYCLE: newer locked HIGH pivot #%d (%.5f) avail — active=%d",
+                cid, candidate.price, curH));
+        }
+    }
 }
 
 void CProtectedPointManager::ProcessCurrentTrend(CStructuralPivotEngine *pivotEngine, Trend trend, datetime currentBarTime)
@@ -114,104 +145,58 @@ void CProtectedPointManager::ProcessCurrentTrend(CStructuralPivotEngine *pivotEn
     ProtectedPoint buffer;
     int pivotId = -1;
 
+    // Reset both active IDs on any trend change so a fresh PP with a unique ID
+    // is always created, preventing the CHOCH duplicate lock when the same pivot
+    // is re-selected after a flip-back.
+    if(m_activeHighId >= 0 && m_activeHighId < m_pointCount)
+        m_protectedPoints[m_activeHighId].active = false;
+    if(m_activeLowId >= 0 && m_activeLowId < m_pointCount)
+        m_protectedPoints[m_activeLowId].active = false;
+    m_activeHighId = -1;
+    m_activeLowId = -1;
+
     if(trend == TREND_BULLISH)
     {
-        // Find latest locked LOW for protected low
         FindLatestLockedPivot(pivotEngine, false, pivotId, buffer);
-        
         if(pivotId >= 0)
         {
-            // Deactivate old protected high
-            if(m_activeHighId >= 0 && m_activeHighId < m_pointCount)
-            {
-                m_protectedPoints[m_activeHighId].active = false;
-            }
-            
-            // Check if this is a new protected low
-            if(m_activeLowId < 0 || m_protectedPoints[m_activeLowId].pivotID != pivotId)
-            {
-                // Deactivate old protected low
-                if(m_activeLowId >= 0 && m_activeLowId < m_pointCount)
-                {
-                    m_protectedPoints[m_activeLowId].active = false;
-                }
-                
-                // Add or activate the protected low
-                if(m_pointCount >= ArraySize(m_protectedPoints))
-                {
-                    int newSize = ArraySize(m_protectedPoints) + 256;
-                    ArrayResize(m_protectedPoints, newSize);
-                }
-                
-                m_protectedPoints[m_pointCount].id = m_nextPointId++;
-                m_protectedPoints[m_pointCount].pivotID = pivotId;
-                m_protectedPoints[m_pointCount].isHigh = false;
-                m_protectedPoints[m_pointCount].time = buffer.time;
-                m_protectedPoints[m_pointCount].price = buffer.price;
-                m_protectedPoints[m_pointCount].barIndex = buffer.barIndex;
-                m_protectedPoints[m_pointCount].activationTime = currentBarTime;  // Set activation time
-                m_protectedPoints[m_pointCount].active = true;
-                m_activeLowId = m_pointCount;
-                m_pointCount++;
-
-                m_logger.LogInfo(StringFormat("Protected Low Activated\nID: %d\nPivot: %d\nPrice: %.5f\nTime: %s\nActivation: %s",
-                    m_protectedPoints[m_activeLowId].id, 
-                    m_protectedPoints[m_activeLowId].pivotID,
-                    m_protectedPoints[m_activeLowId].price,
-                    TimeToString(m_protectedPoints[m_activeLowId].time, TIME_DATE | TIME_MINUTES),
-                    TimeToString(m_protectedPoints[m_activeLowId].activationTime, TIME_DATE | TIME_MINUTES)));
-            }
+            if(m_pointCount >= ArraySize(m_protectedPoints))
+                ArrayResize(m_protectedPoints, ArraySize(m_protectedPoints) + 256);
+            m_protectedPoints[m_pointCount].id = m_nextPointId++;
+            m_protectedPoints[m_pointCount].pivotID = pivotId;
+            m_protectedPoints[m_pointCount].isHigh = false;
+            m_protectedPoints[m_pointCount].time = buffer.time;
+            m_protectedPoints[m_pointCount].price = buffer.price;
+            m_protectedPoints[m_pointCount].barIndex = buffer.barIndex;
+            m_protectedPoints[m_pointCount].activationTime = currentBarTime;
+            m_protectedPoints[m_pointCount].active = true;
+            m_activeLowId = m_pointCount;
+            m_pointCount++;
         }
     }
     else if(trend == TREND_BEARISH)
     {
-        // Find latest locked HIGH for protected high
         FindLatestLockedPivot(pivotEngine, true, pivotId, buffer);
-        
         if(pivotId >= 0)
         {
-            // Deactivate old protected low
-            if(m_activeLowId >= 0 && m_activeLowId < m_pointCount)
-            {
-                m_protectedPoints[m_activeLowId].active = false;
-            }
-            
-            // Check if this is a new protected high
-            if(m_activeHighId < 0 || m_protectedPoints[m_activeHighId].pivotID != pivotId)
-            {
-                // Deactivate old protected high
-                if(m_activeHighId >= 0 && m_activeHighId < m_pointCount)
-                {
-                    m_protectedPoints[m_activeHighId].active = false;
-                }
-                
-                // Add or activate the protected high
-                if(m_pointCount >= ArraySize(m_protectedPoints))
-                {
-                    int newSize = ArraySize(m_protectedPoints) + 256;
-                    ArrayResize(m_protectedPoints, newSize);
-                }
-                
-                m_protectedPoints[m_pointCount].id = m_nextPointId++;
-                m_protectedPoints[m_pointCount].pivotID = pivotId;
-                m_protectedPoints[m_pointCount].isHigh = true;
-                m_protectedPoints[m_pointCount].time = buffer.time;
-                m_protectedPoints[m_pointCount].price = buffer.price;
-                m_protectedPoints[m_pointCount].barIndex = buffer.barIndex;
-                m_protectedPoints[m_pointCount].activationTime = currentBarTime;  // Set activation time
-                m_protectedPoints[m_pointCount].active = true;
-                m_activeHighId = m_pointCount;
-                m_pointCount++;
-
-                m_logger.LogInfo(StringFormat("Protected High Activated\nID: %d\nPivot: %d\nPrice: %.5f\nTime: %s\nActivation: %s",
-                    m_protectedPoints[m_activeHighId].id, 
-                    m_protectedPoints[m_activeHighId].pivotID,
-                    m_protectedPoints[m_activeHighId].price,
-                    TimeToString(m_protectedPoints[m_activeHighId].time, TIME_DATE | TIME_MINUTES),
-                    TimeToString(m_protectedPoints[m_activeHighId].activationTime, TIME_DATE | TIME_MINUTES)));
-            }
+            if(m_pointCount >= ArraySize(m_protectedPoints))
+                ArrayResize(m_protectedPoints, ArraySize(m_protectedPoints) + 256);
+            m_protectedPoints[m_pointCount].id = m_nextPointId++;
+            m_protectedPoints[m_pointCount].pivotID = pivotId;
+            m_protectedPoints[m_pointCount].isHigh = true;
+            m_protectedPoints[m_pointCount].time = buffer.time;
+            m_protectedPoints[m_pointCount].price = buffer.price;
+            m_protectedPoints[m_pointCount].barIndex = buffer.barIndex;
+            m_protectedPoints[m_pointCount].activationTime = currentBarTime;
+            m_protectedPoints[m_pointCount].active = true;
+            m_activeHighId = m_pointCount;
+            m_pointCount++;
         }
     }
+    m_logger.LogInfo(StringFormat("ProcessCurrentTrend -> trend=%s activeHigh=%d activeLow=%d",
+        trend == TREND_BULLISH ? "BULLISH" : "BEARISH",
+        m_activeHighId >= 0 ? m_protectedPoints[m_activeHighId].id : -1,
+        m_activeLowId >= 0 ? m_protectedPoints[m_activeLowId].id : -1));
 }
 
 void CProtectedPointManager::FindLatestLockedPivot(CStructuralPivotEngine *pivotEngine, bool isHigh, int &pivotId, ProtectedPoint &buffer)
@@ -280,6 +265,19 @@ bool CProtectedPointManager::GetActiveLow(ProtectedPoint &out) const
         
     out = m_protectedPoints[m_activeLowId];
     return true;
+}
+
+bool CProtectedPointManager::GetProtectedPointByID(int id, ProtectedPoint &out) const
+{
+    for(int i = 0; i < m_pointCount; i++)
+    {
+        if(m_protectedPoints[i].id == id)
+        {
+            out = m_protectedPoints[i];
+            return true;
+        }
+    }
+    return false;
 }
 
 #endif // __PROTECTED_POINT_MANAGER_MQH__

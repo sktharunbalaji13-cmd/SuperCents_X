@@ -1,0 +1,25 @@
+; Sprint 11 - FVG Lifecycle Validation Test
+; Generated 2026-07-21 — FVG lifecycle fix (UpdateLifecycle + renderer sync)
+;
+; Usage:
+;   MT5 → Strategy Tester → Expert: SuperCents_X → Open inputs → Load from file
+;   Set dates: 2026.01.01 → 2026.03.01, M15, Open prices, Visual mode
+;
+ShowSwings=true||false||0||true||N
+ShowPivots=true||false||0||true||N
+ShowBOS=true||false||0||true||N
+ShowCHOCH=true||false||0||true||N
+ShowProtectedPoints=true||false||0||true||N
+ShowOrderBlocks=false||false||0||true||N
+ShowFVG=true||false||0||true||N
+MaxHistoricalSwings=50||10||1||500||N
+MaxHistoricalPivots=50||10||1||500||N
+MaxHistoricalBOS=30||10||1||300||N
+MaxHistoricalCHOCH=30||30||1||300||N
+MaxHistoricalPP=20||10||1||200||N
+MaxHistoricalOB=20||10||1||200||N
+MaxHistoricalFVG=30||10||1||300||N
+ShowInactiveProtectedPoints=false||false||0||true||N
+CompactLabels=true||false||0||true||N
+VisualDiagnosticMode=0||0||0||2||N
+VisualDiagnosticFreq=100||100||1||1000||N

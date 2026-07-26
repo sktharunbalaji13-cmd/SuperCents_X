@@ -37,6 +37,7 @@ struct VisualCommand
     int                  lineStyle;      // STYLE_SOLID, STYLE_DASH, STYLE_DASHDOT
     datetime             labelTime;      // 0 = auto-calculate from time1 + period/2
     double               labelPrice;     // 0 = use price1
+    bool                 freezeLockLabel; // if true, freeze preserves label position
 };
 
 enum EVisualState
@@ -190,8 +191,11 @@ private:
         {
             if(cmd.textColor != 0)
                 ObjectSetInteger(0, cmd.textName, OBJPROP_COLOR, cmd.textColor);
-            ObjectSetInteger(0, cmd.textName, OBJPROP_TIME, cmd.time2);
-            ObjectSetDouble(0, cmd.textName, OBJPROP_PRICE, cmd.price2);
+            if(!cmd.freezeLockLabel)
+            {
+                ObjectSetInteger(0, cmd.textName, OBJPROP_TIME, cmd.time2);
+                ObjectSetDouble(0, cmd.textName, OBJPROP_PRICE, cmd.price2);
+            }
         }
     }
 

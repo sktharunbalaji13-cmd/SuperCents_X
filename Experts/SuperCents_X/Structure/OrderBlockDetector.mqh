@@ -13,6 +13,21 @@
 #include "TrendState.mqh"
 #include "ProtectedPointManager.mqh"
 
+struct OBStats
+{
+    int chochReceived;
+    int searchAttempted;
+    int searchSucceeded;
+    int searchFailed;
+    int storeAttempted;
+    int storeSucceeded;
+    int rejectedDuplicate;
+    int rejectedCapacity;
+    int rejectedInvalid;
+    void Reset(void) { chochReceived=0; searchAttempted=0; searchSucceeded=0; searchFailed=0;
+                       storeAttempted=0; storeSucceeded=0; rejectedDuplicate=0; rejectedCapacity=0; rejectedInvalid=0; }
+};
+
 class COrderBlockDetector
 {
 private:
@@ -23,6 +38,7 @@ private:
     int m_orderBlockCount;
     int m_nextId;
     int m_lastProcessedCHOCHIndex;
+    OBStats m_stats;
 
 public:
     COrderBlockDetector(void);
@@ -44,9 +60,10 @@ private:
                         const double &open[], const double &high[], const double &low[],
                         const double &close[], const datetime &time[], int rates_total);
     bool FindOrderBlock(bool bullishCHOCH,
-                       const double &open[], const double &high[], const double &low[],
-                       const double &close[], const datetime &time[], int rates_total,
-                       OrderBlock &out);
+                        const double &open[], const double &high[], const double &low[],
+                        const double &close[], const datetime &time[], int rates_total,
+                        OrderBlock &out, int displacementBarIndex = 1);
+    void UpdateLifecycle(CTrendState *trendState, const double &close[]);
 };
 
 COrderBlockDetector::COrderBlockDetector(void)
@@ -57,6 +74,7 @@ COrderBlockDetector::COrderBlockDetector(void)
     , m_lastProcessedCHOCHIndex(0)
 {
     ArrayResize(m_orderBlocks, 256);
+    m_stats.Reset();
 }
 
 COrderBlockDetector::~COrderBlockDetector(void)
@@ -95,16 +113,24 @@ void COrderBlockDetector::Update(CCHOCHDetector *chochDetector, CTrendState *tre
     if(chochCount <= m_lastProcessedCHOCHIndex)
         return;
 
+    int newCHOCHs = chochCount - m_lastProcessedCHOCHIndex;
+    m_logger.LogInfo(StringFormat("OB-STATS Update: totalCHOCHs=%d lastProcessed=%d new=%d",
+        chochCount, m_lastProcessedCHOCHIndex, newCHOCHs));
+
     for(int i = m_lastProcessedCHOCHIndex; i < chochCount; i++)
     {
         CHOCHEvent choch;
         if(!chochDetector.GetCHOCH(i, choch))
             continue;
 
+        m_stats.chochReceived++;
         ProcessNewCHOCH(choch, open, high, low, close, time, rates_total);
     }
 
     m_lastProcessedCHOCHIndex = chochCount;
+
+    //--- Update lifecycle on existing OBs (mitigation, invalidation)
+    UpdateLifecycle(trendState, close);
 }
 
 void COrderBlockDetector::ProcessNewCHOCH(const CHOCHEvent &choch,
@@ -112,8 +138,15 @@ void COrderBlockDetector::ProcessNewCHOCH(const CHOCHEvent &choch,
                                           const double &close[], const datetime &time[], int rates_total)
 {
     OrderBlock ob;
-    if(!FindOrderBlock(choch.bullish, open, high, low, close, time, rates_total, ob))
+    m_stats.searchAttempted++;
+    if(!FindOrderBlock(choch.bullish, open, high, low, close, time, rates_total, ob, choch.barIndex))
+    {
+        m_stats.searchFailed++;
+        m_logger.LogInfo(StringFormat("OB-STATS CHOCH #%d (%s) -> FindOrderBlock FAILED",
+            choch.id, choch.bullish ? "BULLISH" : "BEARISH"));
         return;
+    }
+    m_stats.searchSucceeded++;
 
     ob.id = m_nextId++;
     ob.chochID = choch.id;
@@ -128,8 +161,10 @@ void COrderBlockDetector::ProcessNewCHOCH(const CHOCHEvent &choch,
         ArrayResize(m_orderBlocks, newSize);
     }
 
+    m_stats.storeAttempted++;
     m_orderBlocks[m_orderBlockCount] = ob;
     m_orderBlockCount++;
+    m_stats.storeSucceeded++;
 
     string directionStr = ob.bullish ? "Bullish" : "Bearish";
     m_logger.LogInfo(StringFormat("Order Block Created\nID: %d\nCHOCH: %d\nDirection: %s\nTime: %s\nOpen: %.5f\nHigh: %.5f\nLow: %.5f\nClose: %.5f\nCandle Index: %d",
@@ -138,39 +173,146 @@ void COrderBlockDetector::ProcessNewCHOCH(const CHOCHEvent &choch,
         ob.open, ob.high, ob.low, ob.close, ob.candleIndex));
 }
 
+void COrderBlockDetector::UpdateLifecycle(CTrendState *trendState, const double &close[])
+{
+    if(trendState == NULL || m_orderBlockCount == 0)
+        return;
+
+    Trend currentTrend = trendState.GetCurrentTrend();
+
+    for(int i = 0; i < m_orderBlockCount; i++)
+    {
+        if(m_orderBlocks[i].invalidated)
+            continue;
+
+        //--- Check mitigation: last completed bar close entered the OB zone
+        if(!m_orderBlocks[i].mitigated)
+        {
+            double lastClose = close[1];  // 0=newest (current), 1=last completed
+            double obLow  = m_orderBlocks[i].low;
+            double obHigh = m_orderBlocks[i].high;
+
+            if(lastClose >= obLow && lastClose <= obHigh)
+            {
+                m_orderBlocks[i].mitigated = true;
+                m_logger.LogInfo(StringFormat(
+                    "OB #%d MITIGATED close=%.5f entered zone [%.5f, %.5f]",
+                    m_orderBlocks[i].id, lastClose, obLow, obHigh));
+            }
+        }
+
+        //--- Check invalidation: trend opposes OB direction
+        if(!m_orderBlocks[i].mitigated)
+        {
+            bool trendOpposes = (m_orderBlocks[i].bullish && currentTrend == TREND_BEARISH) ||
+                                (!m_orderBlocks[i].bullish && currentTrend == TREND_BULLISH);
+
+            if(trendOpposes)
+            {
+                m_orderBlocks[i].invalidated = true;
+                m_logger.LogInfo(StringFormat(
+                    "OB #%d INVALIDATED (trend flip: OB=%s trend=%s)",
+                    m_orderBlocks[i].id,
+                    m_orderBlocks[i].bullish ? "BULLISH" : "BEARISH",
+                    currentTrend == TREND_BULLISH ? "BULLISH" : "BEARISH"));
+            }
+        }
+    }
+}
+
 bool COrderBlockDetector::FindOrderBlock(bool bullishCHOCH,
                                          const double &open[], const double &high[], const double &low[],
                                          const double &close[], const datetime &time[], int rates_total,
-                                         OrderBlock &out)
+                                         OrderBlock &out, int displacementBarIndex)
 {
-    int maxSearch = rates_total;
-    if(maxSearch > 500)
-        maxSearch = 500;
+    // ──── DIAGNOSTIC: Array Shape ────
+    m_logger.LogInfo(StringFormat(
+        "OB-SEARCH BEGIN\n"
+        "displacementBarIndex=%d\n"
+        "rates_total=%d\n"
+        "Bars()=%d\n"
+        "time[0]=%s\n"
+        "time[1]=%s\n"
+        "time[2]=%s\n"
+        "time[3]=%s\n"
+        "time[rates_total-4]=%s\n"
+        "time[rates_total-3]=%s\n"
+        "time[rates_total-2]=%s\n"
+        "time[rates_total-1]=%s",
+        displacementBarIndex,
+        rates_total,
+        Bars(_Symbol, _Period),
+        TimeToString(time[0], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[1], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[2], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[3], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[rates_total-4], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[rates_total-3], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[rates_total-2], TIME_DATE|TIME_MINUTES),
+        TimeToString(time[rates_total-1], TIME_DATE|TIME_MINUTES)));
 
-    // Start from index 1 (the bar immediately before the displacement at index 0)
-    for(int i = 1; i < maxSearch; i++)
+    // ──── Search Bounds ────
+    int rawMaxSearch = rates_total;
+    int maxSearch = rates_total;
+    if(maxSearch > displacementBarIndex + 500)
+        maxSearch = displacementBarIndex + 500;
+
+    int startIndex = displacementBarIndex + 1;
+
+    m_logger.LogInfo(StringFormat(
+        "OB-SEARCH BOUNDS\n"
+        "rawMaxSearch=%d\n"
+        "maxSearch=%d\n"
+        "startIndex=%d\n"
+        "500-bar limit applied: %s\n"
+        "Candidate range: indices [%d..%d)\n"
+        "Range time[%d]=%s  to  time[%d]=%s",
+        rawMaxSearch,
+        maxSearch,
+        startIndex,
+        (maxSearch < rawMaxSearch) ? "YES" : "NO",
+        startIndex, maxSearch,
+        startIndex, TimeToString(time[startIndex], TIME_DATE|TIME_MINUTES),
+        maxSearch-1, TimeToString(time[maxSearch-1], TIME_DATE|TIME_MINUTES)));
+
+    // ──── Search Loop ────
+    for(int i = startIndex; i < maxSearch; i++)
     {
         // Validation: candle must have a valid body
         if(open[i] == close[i])
+        {
+            m_logger.LogInfo(StringFormat(
+                "OB-CANDIDATE i=%d time=%s  SKIP (doji)",
+                i, TimeToString(time[i], TIME_DATE|TIME_MINUTES)));
             continue;
+        }
 
         bool isBullish = close[i] > open[i];
         bool isBearish = close[i] < open[i];
+        bool accepted = false;
+        string matchType = "";
 
-        // Bullish CHOCH -> find LAST bearish candle before displacement
-        // Bearish CHOCH -> find LAST bullish candle before displacement
         if(bullishCHOCH && isBearish)
         {
-            out.time = time[i];
-            out.open = open[i];
-            out.high = high[i];
-            out.low = low[i];
-            out.close = close[i];
-            out.candleIndex = i;
-            return true;
+            accepted = true;
+            matchType = "bullishCHOCH + bearish_candle";
+        }
+        else if(!bullishCHOCH && isBullish)
+        {
+            accepted = true;
+            matchType = "bearishCHOCH + bullish_candle";
         }
 
-        if(!bullishCHOCH && isBullish)
+        m_logger.LogInfo(StringFormat(
+            "OB-CANDIDATE i=%d time=%s open=%.5f close=%.5f high=%.5f low=%.5f "
+            "target=%s match=%s %s",
+            i, TimeToString(time[i], TIME_DATE|TIME_MINUTES),
+            open[i], close[i], high[i], low[i],
+            bullishCHOCH ? "bearish" : "bullish",
+            isBearish ? "bearish" : (isBullish ? "bullish" : "doji"),
+            accepted ? "← ACCEPTED" : "rejected"));
+
+        if(accepted)
         {
             out.time = time[i];
             out.open = open[i];
@@ -178,10 +320,25 @@ bool COrderBlockDetector::FindOrderBlock(bool bullishCHOCH,
             out.low = low[i];
             out.close = close[i];
             out.candleIndex = i;
+
+            m_logger.LogInfo(StringFormat(
+                "OB-SEARCH RESULT\n"
+                "SelectedIndex=%d\n"
+                "SelectedTime=%s\n"
+                "YearCheck: %s\n"
+                "Index-is-in-series-array=%s\n"
+                "Index-is-relative-to-history-start=%s",
+                i,
+                TimeToString(time[i], TIME_DATE|TIME_MINUTES),
+                (time[i] < D'2026.01.01') ? "2025 (or earlier) ← CHECK" : "2026+ (OK)",
+                "yes (0=newest bar)",
+                "no (series: 0=newest, N=oldest)"));
+
             return true;
         }
     }
 
+    m_logger.LogInfo("OB-SEARCH FAILED  no suitable candle found in range");
     return false;
 }
 
@@ -192,7 +349,22 @@ void COrderBlockDetector::Shutdown(void)
 
     m_logger.LogInfo("Shutting down OrderBlockDetector...");
 
-    m_logger.LogInfo(StringFormat("Order Blocks Total: %d", m_orderBlockCount));
+    m_logger.LogInfo("===================================");
+    m_logger.LogInfo("ORDER BLOCK SUMMARY");
+    m_logger.LogInfo("===================================");
+    m_logger.LogInfo(StringFormat("CHOCH Received        : %d", m_stats.chochReceived));
+    m_logger.LogInfo(StringFormat("Search Attempted      : %d", m_stats.searchAttempted));
+    m_logger.LogInfo(StringFormat("Search Succeeded      : %d", m_stats.searchSucceeded));
+    m_logger.LogInfo(StringFormat("Search Failed         : %d", m_stats.searchFailed));
+    m_logger.LogInfo("-----------------------------------");
+    m_logger.LogInfo(StringFormat("Store Attempted       : %d", m_stats.storeAttempted));
+    m_logger.LogInfo(StringFormat("Store Success         : %d", m_stats.storeSucceeded));
+    m_logger.LogInfo(StringFormat("Rejected Duplicate    : %d", m_stats.rejectedDuplicate));
+    m_logger.LogInfo(StringFormat("Rejected Invalid      : %d", m_stats.rejectedInvalid));
+    m_logger.LogInfo(StringFormat("Rejected Capacity     : %d", m_stats.rejectedCapacity));
+    m_logger.LogInfo("===================================");
+    m_logger.LogInfo(StringFormat("Order Blocks Total    : %d", m_orderBlockCount));
+    m_logger.LogInfo("===================================");
 
     m_orderBlockCount = 0;
     m_isInitialized = false;

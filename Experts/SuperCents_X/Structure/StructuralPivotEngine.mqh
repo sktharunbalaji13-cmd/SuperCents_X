@@ -45,6 +45,7 @@ public:
     bool IsInitialized(void) const { return m_isInitialized; }
     int  GetPivotCount(void) const { return m_pivotCount; }
     bool GetPivot(int index, StructuralPivot &out) const;
+    bool GetPivotByID(int id, StructuralPivot &out) const;
 
 private:
     //--- Internal processing
@@ -308,6 +309,19 @@ bool CStructuralPivotEngine::GetPivot(int index, StructuralPivot &out) const
 
     out = m_pivots[index];
     return true;
+}
+
+bool CStructuralPivotEngine::GetPivotByID(int id, StructuralPivot &out) const
+{
+    for(int i = 0; i < m_pivotCount; i++)
+    {
+        if(m_pivots[i].id == id)
+        {
+            out = m_pivots[i];
+            return true;
+        }
+    }
+    return false;
 }
 
 #endif // __STRUCTURAL_PIVOT_ENGINE_MQH__

@@ -145,6 +145,10 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
     double latestLockedHighPrice = 0.0;
     double latestLockedLowPrice = 0.0;
 
+    // Reset debug counters before counting
+    m_lockedHighCount = 0;
+    m_lockedLowCount = 0;
+
     // Count locked pivots and find latest
     for(int i = 0; i < pivotCount; i++)
     {
@@ -164,6 +168,10 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
             m_lockedLowCount++;
             latestLockedLowId = pivot.id;
             latestLockedLowPrice = pivot.price;
+        }
+        else
+        {
+            m_skippedUnlocked++;
         }
     }
 

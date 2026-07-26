@@ -95,6 +95,26 @@ PositionSizing CRiskManager::Calculate(const EntrySetup &setup)
 
     result.stopDistance = MathAbs(setup.entryPrice - setup.stopLoss) / _Point;
 
+    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+    result.riskMoney = balance * (m_riskPercent / 100.0);
+
+    double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+    double tickSize  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+    if(tickValue > 0.0 && tickSize > 0.0 && result.stopDistance > 0.0)
+    {
+        double riskPerLot = (result.stopDistance * tickValue) / (tickSize / _Point);
+        if(riskPerLot > 0.0)
+        {
+            result.lots = result.riskMoney / riskPerLot;
+            double volMin  = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+            double volStep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+            if(volStep > 0.0)
+                result.lots = MathFloor(result.lots / volStep) * volStep;
+            if(result.lots < volMin)
+                result.lots = volMin;
+        }
+    }
+
     m_logger.LogDebug(StringFormat("Calculate: entry=%.5f SL=%.5f dist=%.0f pts lots=%s risk=%.1f%%",
         setup.entryPrice, setup.stopLoss, result.stopDistance,
         DoubleToString(result.lots, 2), m_riskPercent));
