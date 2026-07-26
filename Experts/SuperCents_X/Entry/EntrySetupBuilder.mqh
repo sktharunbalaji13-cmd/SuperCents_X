@@ -91,12 +91,12 @@ bool CEntrySetupBuilder::Build(const ConfluenceSignal &signal, EntrySetup &out)
     if(!m_isInitialized)
         return false;
 
-    if(!signal.bullish && !signal.bearish)
+    if(signal.direction == CONFLUENCE_NONE)
         return false;
 
     out.valid              = false;
     out.signalTime         = signal.time;
-    out.confluenceScore    = signal.score;
+    out.confluenceScore    = signal.score.total;
     out.riskRewardRatio    = m_riskRewardRatio;
     out.bosId              = signal.bosId;
     out.chochId            = signal.chochId;
@@ -104,7 +104,7 @@ bool CEntrySetupBuilder::Build(const ConfluenceSignal &signal, EntrySetup &out)
     out.fvgId              = signal.fvgId;
     out.protectedPointId   = signal.protectedPointId;
 
-    if(signal.bullish)
+    if(signal.direction == CONFLUENCE_BULLISH)
         out.direction = TREND_BULLISH;
     else
         out.direction = TREND_BEARISH;
@@ -172,7 +172,7 @@ bool CEntrySetupBuilder::BuildBOS(const BOSEvent &bos, const ConfluenceSignal &s
 
     m_logger.LogInfo(StringFormat("BOS setup #%d: %s entry=%.5f SL=%.5f TP=%.5f RR=%.1f score=%d",
         bos.id, (out.direction == TREND_BULLISH ? "BUY" : "SELL"),
-        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score));
+        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score.total));
     return true;
 }
 
@@ -196,7 +196,7 @@ bool CEntrySetupBuilder::BuildCHOCH(const CHOCHEvent &choch, const ConfluenceSig
 
     m_logger.LogInfo(StringFormat("CHOCH setup #%d: %s entry=%.5f SL=%.5f TP=%.5f RR=%.1f score=%d",
         choch.id, (out.direction == TREND_BULLISH ? "BUY" : "SELL"),
-        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score));
+        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score.total));
     return true;
 }
 
@@ -218,7 +218,7 @@ bool CEntrySetupBuilder::BuildOB(const OrderBlock &ob, const ConfluenceSignal &s
 
     m_logger.LogInfo(StringFormat("OB setup #%d: %s entry=%.5f SL=%.5f TP=%.5f RR=%.1f score=%d",
         ob.id, (out.direction == TREND_BULLISH ? "BUY" : "SELL"),
-        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score));
+        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score.total));
     return true;
 }
 
@@ -240,7 +240,7 @@ bool CEntrySetupBuilder::BuildFVG(const FairValueGap &fvg, const ConfluenceSigna
 
     m_logger.LogInfo(StringFormat("FVG setup #%d: %s entry=%.5f SL=%.5f TP=%.5f RR=%.1f score=%d",
         fvg.id, (out.direction == TREND_BULLISH ? "BUY" : "SELL"),
-        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score));
+        out.entryPrice, out.stopLoss, out.takeProfit, m_riskRewardRatio, signal.score.total));
     return true;
 }
 

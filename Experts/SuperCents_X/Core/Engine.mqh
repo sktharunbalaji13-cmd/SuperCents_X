@@ -347,6 +347,7 @@ void CEngine::InitializeModules(void)
         m_confluenceEngine.SetOrderBlockDetector(m_orderBlockDetector);
         m_confluenceEngine.SetFVGDetector(m_fvgDetector);
         m_confluenceEngine.SetProtectedPointManager(m_protectedPointManager);
+        m_confluenceEngine.SetLiquidityDetector(m_liquidityDetector);
     }
 
     //--- Sprint 12: Initialize Entry components
