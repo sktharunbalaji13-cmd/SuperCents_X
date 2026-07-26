@@ -14,6 +14,7 @@
 #include "ScoreCalculator.mqh"
 #include "ConfluenceRules.mqh"
 #include "TradeCandidateBuilder.mqh"
+#include "../Entry/EntryDecisionEngine.mqh"
 
 #define EXPIRY_REASON_COUNT 7
 
@@ -33,6 +34,7 @@ private:
     CLiquidityDetector       *m_liquidityDetector;
 
     CTradeCandidateBuilder  m_candidateBuilder;
+    CEntryDecisionEngine    m_entryDecisionEngine;
 
     ConfluenceSignal    m_signals[];
     int                 m_signalCount;
@@ -131,6 +133,8 @@ bool CConfluenceEngine::Init(void)
         m_ruleMatchCounts[i] = 0;
         m_ruleRejectCounts[i] = 0;
     }
+
+    m_entryDecisionEngine.Init();
 
     m_isInitialized = true;
 
@@ -272,6 +276,7 @@ void CConfluenceEngine::Update(void)
                                     sig.currentRule.EvidenceIdsToString()));
 
     m_candidateBuilder.Update(results, 7);
+    m_entryDecisionEngine.Update(m_candidateBuilder);
 }
 
 void CConfluenceEngine::CheckSignalLifecycles(void)
@@ -405,6 +410,7 @@ void CConfluenceEngine::Shutdown(void)
     if(!m_isInitialized)
         return;
 
+    m_entryDecisionEngine.Shutdown();
     m_candidateBuilder.Shutdown();
 
     m_logger.LogInfo("========================= CONFLUENCE SUMMARY =========================");
@@ -468,6 +474,7 @@ void CConfluenceEngine::SetTrendState(CTrendState *trendState)
 {
     m_trendState = trendState;
     m_candidateBuilder.SetTrendState(trendState);
+    m_entryDecisionEngine.SetTrendState(trendState);
 }
 
 void CConfluenceEngine::SetBOSDetector(CBOSDetector *bosDetector)

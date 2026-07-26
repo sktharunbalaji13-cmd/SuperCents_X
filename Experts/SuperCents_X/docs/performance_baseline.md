@@ -7,6 +7,29 @@
 **Binary:** `SuperCents_X.ex5`
 **Test:** 2-month EURUSD M15, Every Tick
 
+## v1.3 Entry Decision Engine (Sprint 13.4)
+
+**Date:** 2026-07-26
+**Tag:** `v1.3-entry-decision`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+| Decision Metric | Value |
+|-----------------|-------|
+| Candidates Evaluated | 3,918 |
+| Qualified | 3,918 |
+| Rejected | 0 |
+| Expired | 4 |
+| Avg Score | 80.50 |
+| Avg Confidence | 0.84 |
+| Avg Evidence Count | 2.35 |
+| Avg Rule Count | 1.34 |
+
+### Invariants (unchanged from v1.2)
+- Confluence: 3,935 signals, 3,517 expired, 418 active ✅
+- Candidate: 3,918 created, 4 expired, 3,914 active ✅
+- Detectors: BOS 467/471, CHOCH 300, OB 300, FVG 60, Liquidity 2108 ✅
+
 ## v1.2 Trade Candidate Engine (Sprint 13.3)
 
 **Date:** 2026-07-26
