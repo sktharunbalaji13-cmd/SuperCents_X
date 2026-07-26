@@ -62,8 +62,10 @@
 
 ## v1.5 TradeManager / Order Execution (Sprint 13.6)
 
-**Tag:** `v1.5-trade-manager` (planned)
+**Date:** 2026-07-26
+**Tag:** `v1.5-trade-manager`
 **Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
 
 ### New Modules
 - `Trading/TradeExecutionResult.mqh` — submission result struct
@@ -80,6 +82,33 @@ ConfluenceEngine.Update() → signals + internal Candidate→Decision→Plan pip
 TradeManager.Update()     → submits executable plans via OrderSend()
 PositionLifecycleManager  → break-even / trailing stop on existing positions
 ```
+
+### TradeManager Results (live against demo broker on tester)
+
+| Metric | Value |
+|--------|-------|
+| Execution Plans Received | 2,605,321 (across all ticks) |
+| Submitted (unique) | 1,330 |
+| Succeeded (OrderSend=true) | 892 |
+| Failed (OrderSend=false) | 438 |
+| Duplicate Prevented | 2,603,991 |
+| Avg Fill Price | 1.17869 |
+
+### Invariants Preserved (unchanged from v1.4.1)
+| Layer | Metric | Baseline | Current | Status |
+|-------|--------|----------|---------|--------|
+| Confluence | Total Signals | 3,935 | 3,935 | ✅ |
+| Confluence | Signals Expired | 3,517 | 3,517 | ✅ |
+| Confluence | Active Remaining | 418 | 418 | ✅ |
+| Confluence | Bullish | 1,792 | 1,792 | ✅ |
+| Confluence | Bearish | 1,726 | 1,726 | ✅ |
+| Candidates | Total Created | 3,918 | 3,918 | ✅ |
+| Candidates | Total Expired | 4 | 4 | ✅ |
+| Candidates | Active Remaining | 3,914 | 3,914 | ✅ |
+| Candidates | Bullish | 1,951 | 1,951 | ✅ |
+| Candidates | Bearish | 1,967 | 1,967 | ✅ |
+| Plans | Plans Created | 3,918 | 3,918 | ✅ |
+| Plans | Plans Executable | 1,330 | 1,330 | ✅ |
 
 ### Shutdown Order (safe)
 1. TradeManager (reads from planner, must shut down first)

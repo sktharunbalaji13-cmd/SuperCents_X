@@ -284,16 +284,18 @@ string CTradeManager::RetcodeToString(uint retcode)
         case TRADE_RETCODE_PRICE_OFF:            return "PRICE_OFF";
         case TRADE_RETCODE_INVALID_EXPIRATION:   return "INVALID_EXPIRATION";
         case TRADE_RETCODE_ORDER_CHANGED:        return "ORDER_CHANGED";
-        case TRADE_RETCODE_TOO_MANY_ORDERS:      return "TOO_MANY_ORDERS";
+        case TRADE_RETCODE_TOO_MANY_REQUESTS:    return "TOO_MANY_REQUESTS";
         case TRADE_RETCODE_NO_CHANGES:           return "NO_CHANGES";
         case TRADE_RETCODE_SERVER_DISABLES_AT:   return "SERVER_DISABLES_AT";
-        case TRADE_RETCODE_UNKNOWN_FOREX:        return "UNKNOWN_FOREX";
-        case TRADE_RETCODE_UNKNOWN_SYMBOL:       return "UNKNOWN_SYMBOL";
-        case TRADE_RETCODE_ORDER_LOCKED:         return "ORDER_LOCKED";
-        case TRADE_RETCODE_LONG_ONLY:            return "LONG_ONLY";
-        case TRADE_RETCODE_SHORT_ONLY:           return "SHORT_ONLY";
-        case TRADE_RETCODE_CLOSE_ONLY:           return "CLOSE_ONLY";
-        case TRADE_RETCODE_FIFO_ERROR:           return "FIFO_ERROR";
+        case TRADE_RETCODE_CLIENT_DISABLES_AT:   return "CLIENT_DISABLES_AT";
+        case TRADE_RETCODE_LOCKED:               return "LOCKED";
+        case TRADE_RETCODE_FROZEN:               return "FROZEN";
+        case TRADE_RETCODE_INVALID_FILL:         return "INVALID_FILL";
+        case TRADE_RETCODE_CONNECTION:           return "CONNECTION";
+        case TRADE_RETCODE_ONLY_REAL:            return "ONLY_REAL";
+        case TRADE_RETCODE_LIMIT_ORDERS:         return "LIMIT_ORDERS";
+        case TRADE_RETCODE_LIMIT_VOLUME:         return "LIMIT_VOLUME";
+        case TRADE_RETCODE_INVALID_ORDER:        return "INVALID_ORDER";
         default:                                 return StringFormat("UNKNOWN(%u)", retcode);
     }
 }
