@@ -2,6 +2,8 @@
 #define __SIGNAL_TYPES_MQH__
 
 #define MAX_EVIDENCE_IDS 5
+#define MAX_CANDIDATE_RULES 7
+#define MAX_CANDIDATE_EVIDENCE 20
 
 enum ConfluenceDirection
 {
@@ -37,6 +39,48 @@ enum RuleType
     RULE_LIQUIDITY_BOS_BULLISH,
     RULE_LIQUIDITY_BOS_BEARISH,
     RULE_CHOCH_OB_REVERSAL
+};
+
+enum CandidateStatus
+{
+    CANDIDATE_CREATED = 0,
+    CANDIDATE_ACTIVE,
+    CANDIDATE_EXPIRED
+};
+
+struct TradeCandidate
+{
+    int                 id;
+    ConfluenceDirection direction;
+    int                 score;
+    double              confidence;
+    RuleType            matchedRules[MAX_CANDIDATE_RULES];
+    int                 ruleCount;
+    int                 evidenceIds[MAX_CANDIDATE_EVIDENCE];
+    int                 evidenceCount;
+    datetime            createdTime;
+    CandidateStatus     status;
+    string              rationale;
+
+    bool hasBOS;
+    bool hasCHOCH;
+    bool hasOB;
+    bool hasFVG;
+    bool hasLiquidity;
+    int  bosId;
+    int  chochId;
+    int  obId;
+    int  fvgId;
+    int  liquidityId;
+
+    string ToString(void) const
+    {
+        return StringFormat("CANDIDATE #%d dir=%s score=%d conf=%.2f rules=%d ev=%d %s",
+                            id,
+                            (direction == CONFLUENCE_BULLISH ? "BULL" :
+                             direction == CONFLUENCE_BEARISH ? "BEAR" : "NONE"),
+                            score, confidence, ruleCount, evidenceCount, rationale);
+    }
 };
 
 struct ScoreLayer
