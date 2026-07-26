@@ -1,9 +1,70 @@
-# Performance Baseline — v1.0 Structural Engine
+# Performance Baseline
+
+## v1.0 Structural Engine
 
 **Date:** 2026-07-26
 **Commit:** `601f4c2`
 **Binary:** `SuperCents_X.ex5`
 **Test:** 2-month EURUSD M15, Every Tick
+
+## v1.2 Trade Candidate Engine (Sprint 13.3)
+
+**Date:** 2026-07-26
+**Tag:** `v1.2-trade-candidate-engine`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+| Candidate Metric | Value |
+|------------------|-------|
+| Total Created | 3,918 |
+| Total Expired | 4 |
+| Active Remaining | 3,914 |
+| Bullish | 1,951 |
+| Bearish | 1,967 |
+| Avg Score | 80 |
+| Avg Confidence | 0.84 |
+| Max Evidence Set | 4 |
+| Max Rule Set | 3 |
+
+### Invariants
+- Direction balance: 1951 + 1967 = 3918 = Total Created ✅
+- Active + Expired: 3914 + 4 = 3918 = Total Created ✅
+
+## v1.1 Rule Evaluation Engine (Sprint 13.2)
+
+**Date:** 2026-07-26
+**Tag:** `v1.1-rule-evaluation`
+**Binary:** `SuperCents_X.ex5`
+**Test:** 2-month EURUSD M15, Every Tick
+
+| Signal Metric | Value |
+|---------------|-------|
+| Total Signals Created | 3,935 |
+| Total Signals Expired | 3,517 |
+| Active Remaining | 418 |
+| Bullish | 1,792 |
+| Bearish | 1,726 |
+| None | 417 |
+
+| Rule | Matches | Rejects |
+|------|---------|---------|
+| BOS + OB Bullish | 302 | 3,633 |
+| BOS + OB Bearish | 362 | 3,573 |
+| OB + FVG Bullish | 1,660 | 2,275 |
+| OB + FVG Bearish | 1,711 | 2,224 |
+| Liquidity + BOS Bullish | 487 | 3,448 |
+| Liquidity + BOS Bearish | 606 | 3,329 |
+| CHOCH + OB Reversal | 125 | 3,810 |
+| **Total** | **5,253** | **22,292** |
+
+| Expiry Reason | Count |
+|---------------|-------|
+| FVG Filled | 2,056 |
+| OB Mitigated | 47 |
+| OB Invalidated | 235 |
+| Liquidity Mitigated | 194 |
+| Liquidity Invalidated | 625 |
+| Trend Reversal | 360 |
 
 ---
 
