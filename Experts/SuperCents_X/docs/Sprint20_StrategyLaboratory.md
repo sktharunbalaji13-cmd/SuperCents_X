@@ -606,7 +606,7 @@ For any recommendation, it must be possible to walk the provenance chain back to
 | `BenchmarkEngine.mqh` | `LaboratoryTypes.mqh`, `ArtifactRepository.mqh` |
 | `KnowledgeGraph.mqh` | `LaboratoryTypes.mqh` |
 | `RecommendationEngine.mqh` | `LaboratoryTypes.mqh`, `RankingEngine.mqh`, `StatisticalAnalyzer.mqh` |
-| `ReportComposer.mqh` | `LaboratoryTypes.mqh`, `ReportComposer.mqh`, `BenchmarkEngine.mqh`, `StatisticalAnalyzer.mqh`, `RecommendationEngine.mqh` |
+| `ReportComposer.mqh` | `LaboratoryTypes.mqh`, `LaboratoryManifest.mqh`, `BenchmarkEngine.mqh`, `StatisticalAnalyzer.mqh`, `RecommendationEngine.mqh` |
 | `LaboratoryReport.mqh` | `LaboratoryTypes.mqh` |
 | `LaboratoryManifest.mqh` | `LaboratoryTypes.mqh` |
 
