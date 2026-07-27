@@ -30,6 +30,20 @@ No ownership changes. No layer boundary modifications.
 - `StructureConfidence` — market structure reliability score
 - `DetectionEvidence` — structured evidence accompanying every score
 
+**Score semantics:**
+
+All quality and confidence scores follow a 0–100 scale with explicit interpretation:
+
+| Range | Label | Meaning |
+|-------|-------|---------|
+| 0–20 | Very Weak | Minimal supporting evidence; high uncertainty |
+| 21–40 | Weak | Below-average supporting evidence |
+| 41–60 | Moderate | Average supporting evidence; actionable with caution |
+| 61–80 | Strong | Above-average supporting evidence; high confidence |
+| 81–100 | Exceptional | Maximum supporting evidence; highest confidence |
+
+The numeric scale is part of the contract rather than implementation detail.
+
 **Backward compatibility:** Existing detection outputs remain unchanged. New modules produce supplementary evidence alongside existing signals.
 
 ### 3. Invariant Impact
@@ -68,6 +82,8 @@ The release validates the premise of the Foundation Release: that capability can
 | D4 | **Quality never overrides policy directly** | Quality metrics inform decisions but do not bypass execution policy or risk constraints. |
 | D5 | **Evidence accompanies every score** | Every confidence or quality score includes structured evidence documenting its derivation. |
 | D6 | **Backward-compatible interfaces** | Existing modules continue to function unmodified. New modules are additive. |
+| D7 | **Immutable evidence** | `TradingEvidence` is immutable after publication. Execution modules may consume it. Upper layers may archive it. No component mutates evidence after it has been produced. |
+| D8 | **Confidence is read-only to policy** | Execution policy consumes `EntryConfidence` but never modifies it. Confidence is an immutable assessment generated before execution policy begins. |
 
 ---
 
@@ -178,6 +194,10 @@ Trading/
 - Improve execution decisions using confidence scores
 - Read current market state and existing detection results
 
+### Ownership Rules
+- **`TradingEvidence` is immutable after publication.** Execution modules may consume it. Upper layers may archive it. No component mutates evidence after it has been produced.
+- **`EntryConfidence` is read-only to execution policy.** Execution policy consumes `EntryConfidence` but never modifies it. Confidence is an immutable assessment generated before execution policy begins.
+
 ### Prohibited
 - Invoke Research, Production, or Knowledge modules
 - Modify optimization or production artifacts
@@ -185,6 +205,8 @@ Trading/
 - Write to Laboratory artifact paths
 - Override execution policy or risk constraints
 - Introduce non-deterministic scoring
+- Mutate `TradingEvidence` after publication
+- Modify `EntryConfidence` in execution policy
 
 ---
 
