@@ -4,6 +4,7 @@
 #include <Trade/Trade.mqh>
 #include "../Core/Logger.mqh"
 #include "../Utils/Constants.mqh"
+#include "../Monitoring/EventBusAdapter.mqh"
 #include "PositionManager.mqh"
 #include "PositionLifecycleTypes.mqh"
 
@@ -15,6 +16,7 @@ private:
     CLogger          m_logger;
     CPositionManager *m_positionManager;
     CTrade           m_trade;
+    CEventBusAdapter *m_eventBus;
     bool             m_isInitialized;
     string           m_symbol;
     int              m_magicNumber;
@@ -67,6 +69,7 @@ public:
     void SetPositionManager(CPositionManager *pm) { m_positionManager = pm; }
     void SetMagicNumber(int magic) { m_magicNumber = magic; }
     void SetSymbol(string symbol) { m_symbol = symbol; }
+    void SetEventBus(CEventBusAdapter *bus) { m_eventBus = bus; }
 
     void EnableBreakeven(bool enable) { m_beEnabled = enable; }
     bool IsBreakevenEnabled(void) const { return m_beEnabled; }
@@ -89,6 +92,7 @@ public:
 CPositionLifecycleManager::CPositionLifecycleManager(void)
     : m_logger(MODULE_TRADE_MANAGER, "PositionLifecycle")
     , m_positionManager(NULL)
+    , m_eventBus(NULL)
     , m_isInitialized(false)
     , m_symbol("")
     , m_magicNumber(0)
@@ -324,6 +328,23 @@ void CPositionLifecycleManager::ProcessContext(int index)
             StringFromState(m_contexts[index].state, stateStr);
             m_contexts[index].state = POS_STATE_CLOSED;
             m_contexts[index].closedTime = TimeCurrent();
+
+            if(m_eventBus != NULL)
+            {
+                EventData evt;
+                evt.eventType   = EVENT_POSITION_CLOSED;
+                evt.ticket      = m_contexts[index].ticket;
+                evt.symbol      = m_symbol;
+                evt.positionType = -1;  // resolved from deal history by consumer
+                evt.volume      = m_contexts[index].lastVolume;
+                evt.entryPrice  = m_contexts[index].entryPrice;
+                evt.stopLoss    = m_contexts[index].initialStop;
+                evt.takeProfit  = m_contexts[index].currentTarget;
+                evt.openedTime  = m_contexts[index].openedTime;
+                evt.closedTime  = m_contexts[index].closedTime;
+                evt.entryDecisionId = m_contexts[index].entryDecisionId;
+                m_eventBus.Publish(evt);
+            }
 
             ulong lifetime = (m_contexts[index].closedTime - m_contexts[index].openedTime);
             m_statTotalLifetime += lifetime;

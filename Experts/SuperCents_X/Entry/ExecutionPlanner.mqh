@@ -83,6 +83,7 @@ public:
 
     int  GetPlanCount(void) const { return m_planCount; }
     bool GetPlan(int index, ExecutionPlan &out) const;
+    bool SetPlanStatus(int index, ExecutionPlanStatus status);
 };
 
 CExecutionPlanner::CExecutionPlanner(void)
@@ -597,6 +598,14 @@ bool CExecutionPlanner::GetPlan(int index, ExecutionPlan &out) const
     if(index < 0 || index >= m_planCount)
         return false;
     out = m_plans[index];
+    return true;
+}
+
+bool CExecutionPlanner::SetPlanStatus(int index, ExecutionPlanStatus status)
+{
+    if(index < 0 || index >= m_planCount)
+        return false;
+    m_plans[index].status = status;
     return true;
 }
 

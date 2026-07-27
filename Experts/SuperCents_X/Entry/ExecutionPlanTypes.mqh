@@ -7,7 +7,8 @@ enum ExecutionPlanStatus
 {
     PLAN_CREATED = 0,
     PLAN_EXECUTABLE,
-    PLAN_REJECTED
+    PLAN_REJECTED,
+    PLAN_REJECTED_PORTFOLIO
 };
 
 enum ENUM_ENTRY_POLICY
