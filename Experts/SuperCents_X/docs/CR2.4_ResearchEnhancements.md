@@ -29,6 +29,8 @@ No ownership changes. No layer boundary modifications.
 - `ResearchEvidence` — structured evidence accompanying every conclusion
 - `ValidationEvidence` — per-validation-step evidence chain
 
+**Contract versioning:** `TradingEvidence` carries an explicit `TradingEvidenceSchemaVersion` metadata field. Trading may evolve fields under this version; Research checks compatibility before consumption. This follows the independent schema versioning model established in Architecture.md §8.
+
 **Backward compatibility:** Existing Research outputs remain unchanged. New modules produce supplementary artifacts.
 
 ### 3. Invariant Impact
@@ -66,6 +68,7 @@ The release validates that capability can evolve independently within the Resear
 | D2 | **Trading evidence is immutable** | Research consumes v2.3 `DetectionEvidence` and `EntryConfidence` as read-only inputs. Never modifies them. |
 | D3 | **Every conclusion references evidence** | Every `RobustnessProfile`, `BenchmarkResult`, and `StatisticalSummary` includes evidence references. |
 | D4 | **Calibration is observational** | `ConfidenceCalibrator` evaluates the relationship between confidence scores and outcomes. Never feeds back into runtime confidence generation. |
+| D4b | **Calibration is descriptive, not prescriptive** | Calibration explains observed behavior. It does not recommend parameter changes. Recommendation remains the responsibility of the Knowledge layer. |
 | D5 | **Benchmark reproducibility** | Same benchmark configuration + same artifacts → identical `BenchmarkResult`. |
 | D6 | **Backward-compatible contracts** | Existing consumers of Research outputs continue to function unmodified. |
 
@@ -179,6 +182,7 @@ Research/
 
 ### Prohibited
 - Modify Trading-produced evidence or confidence scores
+- Persist modified copies of Trading-owned artifacts (cache for analysis is permitted; rewriting is not)
 - Alter runtime Trading decisions
 - Modify Production configuration or state
 - Generate Knowledge recommendations
