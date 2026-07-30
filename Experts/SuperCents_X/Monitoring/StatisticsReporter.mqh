@@ -10,12 +10,16 @@
 #include "../Utils/Constants.mqh"
 #include "MonitoringTypes.mqh"
 #include "EventBusAdapter.mqh"
+#include "../Validation/ValidationTypes.mqh"
+#include "../Validation/ValidationEventBus.mqh"
 
 class CStatisticsReporter : public CEventHandler
 {
 private:
     CLogger     m_logger;
     bool        m_isInitialized;
+
+    CValidationEventBus *m_validationBus;
 
     int     m_totalTrades;
     int     m_wins;
@@ -67,12 +71,15 @@ public:
 
     virtual void HandleEvent(const EventData &data);
 
+    void SetValidationEventBus(CValidationEventBus *bus) { m_validationBus = bus; }
+
     TradeStatistics GetStatistics(void) const;
 };
 
 CStatisticsReporter::CStatisticsReporter(void)
     : m_logger(MODULE_STATISTICS_REPORTER, "StatisticsReporter")
     , m_isInitialized(false)
+    , m_validationBus(NULL)
     , m_totalTrades(0)
     , m_wins(0)
     , m_losses(0)
@@ -195,6 +202,29 @@ void CStatisticsReporter::HandleEvent(const EventData &data)
 
     m_logger.LogInfo(StringFormat("POSITION-CLOSED Ticket=%llu P/L=%.2f RR=%.2f Duration=%llds",
         data.ticket, netProfit, rr, (data.closedTime - data.openedTime)));
+
+    if(m_validationBus != NULL)
+    {
+        ValidationEventData vd;
+        vd.eventType = VALIDATION_EVENT_TRADE_CLOSED;
+        vd.timestamp = TimeCurrent();
+        vd.ticket = data.ticket;
+        vd.symbol = data.symbol;
+        vd.positionType = data.positionType;
+        vd.volume = data.volume;
+        vd.openedTime = data.openedTime;
+        vd.closedTime = data.closedTime;
+        vd.grossProfit = profit;
+        vd.netProfit = netProfit;
+        vd.commission = commission;
+        vd.swap = swap;
+        vd.entryPrice = data.entryPrice;
+        vd.exitPrice = exitPrice;
+        vd.stopLoss = data.stopLoss;
+        vd.takeProfit = data.takeProfit;
+        vd.rrAchieved = rr;
+        m_validationBus.Publish(VALIDATION_EVENT_TRADE_CLOSED, vd);
+    }
 }
 
 TradeStatistics CStatisticsReporter::GetStatistics(void) const

@@ -151,11 +151,12 @@ struct WalkForwardWindow
 
 struct SensitivityResult
 {
-    string  parameter;
-    double  baselineValue;
-    double  perturbedValue;
-    double  profitChangePercent;
-    double  metricScore;
+    string              parameter;
+    double              baselineValue;
+    double              perturbedValue;
+    double              profitChangePercent;
+    double              metricScore;
+    ENUM_METRIC_ORIGIN  origin;
 
     SensitivityResult(void)
         : parameter("")
@@ -163,6 +164,7 @@ struct SensitivityResult
         , perturbedValue(0.0)
         , profitChangePercent(0.0)
         , metricScore(0.0)
+        , origin(ORIGIN_ESTIMATED)
     {}
 };
 

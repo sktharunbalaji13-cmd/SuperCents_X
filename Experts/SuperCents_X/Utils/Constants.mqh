@@ -92,4 +92,11 @@ enum ENUM_LOG_LEVEL
 #define LIQUIDITY_EQL_TOLERANCE_PIPS   3
 #define LIQUIDITY_MAX_LEVELS          256
 
+// Metric origin classification
+enum ENUM_METRIC_ORIGIN
+{
+    ORIGIN_MEASURED = 0,
+    ORIGIN_ESTIMATED
+};
+
 #endif // __CONSTANTS_MQH__

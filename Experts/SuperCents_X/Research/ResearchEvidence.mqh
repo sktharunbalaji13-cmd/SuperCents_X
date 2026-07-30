@@ -3,6 +3,7 @@
 
 #include "../Utils/Constants.mqh"
 #include "../Optimization/OptimizationTypes.mqh"
+#include "../Validation/ValidationTypes.mqh"
 
 enum ENUM_BENCHMARK_TYPE
 {
@@ -62,21 +63,27 @@ struct BenchmarkResult
 
 struct RobustnessProfile
 {
-    string   strategyId;
-    double   regimeStability;
-    double   volatilitySensitivity;
-    double   parameterSensitivity;
-    double   temporalConsistency;
-    double   tradeDistributionStability;
-    double   overallRobustnessScore;
+    string         strategyId;
+    MetricResult   regimeStability;
+    MetricResult   volatilitySensitivity;
+    MetricResult   parameterSensitivity;
+    MetricResult   temporalConsistency;
+    MetricResult   tradeDistributionStability;
     ResearchEvidence evidence[32];
-    int      evidenceCount;
+    int            evidenceCount;
+    bool           hasSufficientData;
+
+    Metric definitions (all scored 0-100, higher = more robust):
+      regimeStability           CV of profit factor across market regimes
+      volatilitySensitivity     Pearson correlation of drawdown vs profit factor
+      parameterSensitivity      CV of net profit across parameter variants
+      temporalConsistency       First-half vs second-half Sharpe difference
+      tradeDistributionStability  Standard deviation of win rate across reports
 
     RobustnessProfile(void)
-        : strategyId(""), regimeStability(0.0),
-          volatilitySensitivity(0.0), parameterSensitivity(0.0),
-          temporalConsistency(0.0), tradeDistributionStability(0.0),
-          overallRobustnessScore(0.0), evidenceCount(0)
+        : strategyId(""),
+          evidenceCount(0),
+          hasSufficientData(false)
     {}
 };
 

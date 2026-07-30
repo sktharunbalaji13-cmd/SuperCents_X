@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.7-validation-lab — 2026-07-30 — Validation Lab Subsystem
+
+### Added
+- Validation Lab subsystem (`Validation/` — 17 files)
+  - Walk Forward validation (scheduler + pipeline)
+  - Monte Carlo simulation (simulator + pipeline)
+  - Regression detection (11 metric dimensions)
+  - Validation reporting (composite report generation)
+  - Behavioral metrics collection (BOS/OB/FVG accuracy, session analysis)
+  - Event bus architecture for trade data distribution
+  - Pluggable data source interface
+- Regression test suite (`Tests/` — 152 tests)
+- Performance benchmark suite (`benchmarks/` — 39 benchmarks)
+- Documentation (`docs/` — 5 new files)
+  - `APIReference_v2.7.md` — frozen public API specification
+  - `ARCHITECTURE_v2.7.md` — architecture and data flow
+  - `ValidationLab.md` — module documentation
+  - `ValidationLabVersioning.md` — versioning and compatibility policy
+  - `ReleaseNotes-v2.7.md` — release notes
+- Performance baseline (`Files/baseline_v2.7.txt`)
+
+### Changed
+- Validation APIs frozen at v2.7
+- `Tests/README.md` updated with regression and benchmark usage
+
+### Fixed
+- `WalkForwardScheduler.mqh`: missing `ArrayResize` for schedule windows and warnings arrays
+- `RegressionDetector.mqh`: defense-in-depth `ArrayResize` in `Init()`
+- Multiple files: `const &` references to struct array elements replaced with value copies (MQL5 compatibility)
+- `MonteCarloPipeline.mqh`: NULL check replaced with `tradeCount < 2` for Script context
+- `BenchmarkWalkForward.mqh`: integer overflow in `targetWindows * 60 * 86400` for 500-window case
+- `BenchmarkReportComposer.mqh`: throughput calculation used text bytes instead of operations count
+- `TestMonteCarlo.mqh`: enum value typo corrected; probabilistic seed test replaced with deterministic check
+
+---
+
 ## v0.9.0 — 2026-07-15 — Fair Value Gap Detector & Pipeline Finalization
 
 ### Added

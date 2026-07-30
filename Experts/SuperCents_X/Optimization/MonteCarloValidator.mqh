@@ -70,7 +70,7 @@ bool CMonteCarloValidator::Reshuffle(const EventData &trades[],
                                       double &outPercentile99,
                                       double &outMedian)
 {
-    if(!m_isInitialized || trades == NULL || tradeCount < 2 || iterations < 1)
+    if(!m_isInitialized || ArraySize(trades) < 2 || tradeCount < 2 || iterations < 1)
         return false;
 
     double reshuffledProfits[];
@@ -127,7 +127,7 @@ bool CMonteCarloValidator::IsSignificant(const EventData &trades[],
                                           double confidenceLevel,
                                           bool &outSignificant)
 {
-    if(!m_isInitialized || trades == NULL || tradeCount < 2)
+    if(!m_isInitialized || tradeCount < 2)
         return false;
 
     double p95, p99, median;
