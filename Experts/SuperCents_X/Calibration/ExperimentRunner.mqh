@@ -12,6 +12,7 @@
 //    CALIB_MODE_ABLATION_CROSSCHECK - ablation at the candidate threshold
 //    CALIB_MODE_CALIBRATION      - confidence measurement baseline (16.1)
 //    CALIB_MODE_TRANSFORMS       - Branch A model comparison (16.2)
+//    CALIB_MODE_STRUCTURAL       - structural diagnostics (16.1B)
 //
 //  Every run writes a timestamped CSV report + experiment manifest
 //  under Files/Calibration/ (FILE_COMMON, same as the telemetry store).
@@ -26,6 +27,7 @@
 #include "CalibrationMetrics.mqh"
 #include "CalibrationReport.mqh"
 #include "CalibrationTransforms.mqh"
+#include "CalibrationStructural.mqh"
 #include "ThresholdOptimizer.mqh"
 #include "WeightOptimizer.mqh"
 #include "ValidatorAttribution.mqh"
@@ -41,7 +43,8 @@ enum ENUM_CALIBRATION_MODE
     CALIB_MODE_PROMOTION,
     CALIB_MODE_ABLATION_CROSSCHECK,
     CALIB_MODE_CALIBRATION,
-    CALIB_MODE_TRANSFORMS
+    CALIB_MODE_TRANSFORMS,
+    CALIB_MODE_STRUCTURAL
 };
 
 class CExperimentRunner
@@ -131,6 +134,8 @@ public:
                 return RunCalibration(rows, count, cfg, fp, hex, manifest);
             case CALIB_MODE_TRANSFORMS:
                 return RunTransforms(rows, count, cfg, fp, hex, manifest);
+            case CALIB_MODE_STRUCTURAL:
+                return RunStructural(rows, count, cfg, fp, hex, manifest);
         }
         return false;
     }
@@ -147,6 +152,7 @@ private:
             case CALIB_MODE_ABLATION_CROSSCHECK: return "ablation_crosscheck";
             case CALIB_MODE_CALIBRATION:      return "calibration";
             case CALIB_MODE_TRANSFORMS:       return "transforms";
+            case CALIB_MODE_STRUCTURAL:       return "structural";
         }
         return "unknown";
     }
@@ -172,7 +178,8 @@ private:
         FileWrite(handle, header);
         int n = ArraySize(lines);
         for(int i = 0; i < n; i++)
-            FileWrite(handle, lines[i]);
+            if(StringLen(lines[i]) > 0)
+                FileWrite(handle, lines[i]);
         FileClose(handle);
         return true;
     }
@@ -597,6 +604,174 @@ private:
 
         m_logger.LogInfo(StringFormat("Calibration: transform comparison -> %s", reportPath));
         return ok;
+    }
+
+    bool RunStructural(TelemetryRow &rows[], int count, const CalibrationConfig &cfg,
+                       ulong fp, const string hex, const ExperimentManifest &manifest)
+    {
+        //--- Component data availability: the v2 schema records component
+        //    raw/weight/contribution only for the legacy confluence engine;
+        //    v3.0 rows carry zeros.  Sections A/B/D and per-component
+        //    correlations are only meaningful when raw scores exist.
+        int componentRows = 0;
+        for(int i = 0; i < count; i++)
+        {
+            bool any = false;
+            for(int c = 0; c < TELEMETRY_COMPONENT_COUNT; c++)
+            {
+                if(CalibrationStructuralActive(rows[i], c))
+                {
+                    any = true;
+                    break;
+                }
+            }
+            if(any)
+                componentRows++;
+        }
+        bool haveComponents = (componentRows > 0);
+
+        //--- Section C: rank correlations (always computed; conf-level rows
+        //    are the primary evidence).
+        StructuralCorrelation corr[];
+        CalibrationStructuralCorrelations(rows, count, corr);
+
+        string lines[];
+        int nLines = 0;
+        ArrayResize(lines, 3 * TELEMETRY_COMPONENT_COUNT + CALIB_STRUCT_MAX_FIRED
+                    + ArraySize(corr) + TELEMETRY_COMPONENT_COUNT + 3);
+
+        string dash = "-";
+        if(haveComponents)
+        {
+            //--- Section A: activation + marginal predictive power.
+            StructuralComponentStat comps[];
+            CalibrationStructuralComponents(rows, count, comps);
+
+            //--- Section B: fired-count decomposition.
+            StructuralFiredCount fired[];
+            CalibrationStructuralFiredCounts(rows, count, fired);
+
+            //--- Section D: information contribution (ablation replay at gate).
+            StructuralAblation abl[];
+            CalibrationStructuralAblation(rows, count, 0.60, abl);
+
+            //--- Section A rows: activation + absent + present per component.
+            for(int c = 0; c < TELEMETRY_COMPONENT_COUNT; c++)
+            {
+                StructuralComponentStat s = comps[c];
+                lines[nLines++] = StringFormat("A,%s_activation,%.4f,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+                                               s.name, s.activationPct,
+                                               dash, dash, dash, dash, dash, dash, dash, dash, dash, dash, dash);
+                lines[nLines++] = StringFormat("A,%s_absent,%.4f,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%s,%s,%s,%s",
+                                               s.name, s.activationPct,
+                                               s.absentTrades, s.absentWinRate,
+                                               s.absentProfitFactor, s.absentExpectancy,
+                                               s.absentMeanConf, s.absentMeanR,
+                                               dash, dash, dash, dash, dash);
+                lines[nLines++] = StringFormat("A,%s_present,%.4f,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%s,%s,%s,%s",
+                                               s.name, s.activationPct,
+                                               s.presentTrades, s.presentWinRate,
+                                               s.presentProfitFactor, s.presentExpectancy,
+                                               s.presentMeanConf, s.presentMeanR,
+                                               dash, dash, dash, dash, dash);
+            }
+
+            //--- Section B rows.
+            for(int g = 0; g < CALIB_STRUCT_MAX_FIRED; g++)
+            {
+                StructuralFiredCount fc = fired[g];
+                lines[nLines++] = StringFormat("B,%d,%.4f,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%s,%s,%s,%s",
+                                               fc.fired, dash,
+                                               fc.trades, fc.winRate, fc.profitFactor,
+                                               fc.expectancy, fc.meanConf, fc.meanR,
+                                               dash, dash, dash, dash, dash);
+            }
+
+            //--- Section D rows.
+            for(int c = 0; c < TELEMETRY_COMPONENT_COUNT; c++)
+            {
+                StructuralAblation a = abl[c];
+                lines[nLines++] = StringFormat("D,%s,%s,%s,%s,%s,%s,%s,%s,%.4f,%.4f,%.4f,%.4f,%d",
+                                               a.name,
+                                               dash, dash, dash, dash, dash, dash, dash,
+                                               a.deltaExp, a.deltaPF, a.deltaTrades, a.infoContrib,
+                                               a.component);
+            }
+        }
+        else
+        {
+            //--- Data gap: the v2 schema never recorded the v3.0 engine's
+            //    component scores.  Sections A/B/D cannot run; per-component
+            //    correlations would be artifacts of all-zero arrays.
+            lines[nLines++] = "A,data_gap,0.0000,-,-,-,-,-,-,-,-,-,-,-";
+            lines[nLines++] = "B,data_gap,0.0000,-,-,-,-,-,-,-,-,-,-,-";
+            lines[nLines++] = "D,data_gap,0.0000,-,-,-,-,-,-,-,-,-,-,-";
+        }
+
+        //--- Section C rows: conf-level correlations always; per-component
+        //    Spearman only when raw scores are available.
+        for(int i = 0; i < ArraySize(corr); i++)
+        {
+            if(!haveComponents && StringFind(corr[i].label, "spearman_") == 0
+               && StringFind(corr[i].label, "spearman_conf") != 0)
+                continue;
+            lines[nLines++] = StringFormat("C,%s,%s,%s,%s,%s,%s,%s,%s,%.4f,%s,%s,%s,%s,%d",
+                                           corr[i].label,
+                                           dash, dash, dash, dash, dash, dash, dash,
+                                           corr[i].value,
+                                           dash, dash, dash, dash, corr[i].n);
+        }
+
+        string tag = TimestampTag();
+        string reportPath = m_outputDir + "/calib_structural_" + hex + "_" + tag + ".csv";
+        string manifestPath = m_outputDir + "/calib_structural_" + hex + "_" + tag + ".manifest";
+        string cardPath = m_outputDir + "/calib_reportcard_" + hex + "_" + tag + ".txt";
+
+        bool ok = WriteCsv(reportPath,
+                           "section,key,activationPct,trades,winRate,profitFactor,expectancy,meanConf,meanR,value,deltaExp,deltaPF,deltaTrades,infoContrib,n",
+                           lines);
+
+        string cardLines[];
+        ArrayResize(cardLines, 14);
+        cardLines[0]  = "experiment:    calibration_structural (16.1B)";
+        cardLines[1]  = "question:      why is the raw v3.0 confidence ordering weak/anti-correlated?";
+        cardLines[2]  = "config fp:     " + hex;
+        cardLines[3]  = "dataset fp:    " + hex;
+        cardLines[4]  = "eaVersion:     " + cfg.eaVersion;
+        cardLines[5]  = "confidenceModel: raw (structure analysis, no transforms)";
+        cardLines[6]  = "sections:      A activation+marginal | B fired-count | C rank corr | D ablation";
+        cardLines[7]  = StringFormat("gate:          ablation replayed at %.2f (PromotionGate replay)", 0.60);
+        cardLines[8]  = StringFormat("trades:        %d (decided) / %d (total)",
+                                     count - ScratchesAndUnknownOf(rows, count), count);
+        cardLines[9]  = "decision:      root-cause confidence generation; no calibration adopted in 16.2";
+        cardLines[10] = "note:          rank correlations are the primary evidence (ordering strength)";
+        cardLines[11] = "note:          sections are descriptive; no gate decision is implied";
+        cardLines[12] = haveComponents
+                        ? StringFormat("components:    present in %d rows; sections A/B/D computed", componentRows)
+                        : StringFormat("components:    MISSING (0 of %d rows carry v3.0 raw scores; the v2 telemetry schema only records the legacy confluence engine - sections A/B/D skipped; per-component correlations suppressed as constant-array artifacts)", count);
+        cardLines[13] = "next:          16.5 gate re-anchor on calibrated scores (deferred)";
+        ok = WriteLines(cardPath, cardLines) && ok;
+        ok = WriteManifest(manifest, manifestPath) && ok;
+
+        m_logger.LogInfo(StringFormat("Calibration: structural report -> %s", reportPath));
+        for(int i = 0; i < ArraySize(corr); i++)
+        {
+            m_logger.LogInfo(StringFormat("  %-22s %+.4f  (n=%d)",
+                                          corr[i].label, corr[i].value, corr[i].n));
+        }
+        return ok;
+    }
+
+    static int ScratchesAndUnknownOf(TelemetryRow &rows[], int count)
+    {
+        int n = 0;
+        for(int i = 0; i < count; i++)
+        {
+            if(rows[i].outcome != (int)TELEMETRY_OUTCOME_WIN &&
+               rows[i].outcome != (int)TELEMETRY_OUTCOME_LOSS)
+                n++;
+        }
+        return n;
     }
 
     static double WinRateOf(TelemetryRow &rows[], int count)

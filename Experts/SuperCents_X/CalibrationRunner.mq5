@@ -13,6 +13,7 @@
 //    MODE_ABLATION_CROSSCHECK - attribution at the candidate threshold
 //    MODE_CALIBRATION - confidence measurement baseline (Sprint 16.1)
 //    MODE_TRANSFORMS  - Branch A model comparison (Sprint 16.2)
+//    MODE_STRUCTURAL  - structural diagnostics (Sprint 16.1B)
 //
 //  Telemetry rows are read from Common\Files\Telemetry/
 //  (telemetry_v2_*.csv, schemaVersion = 2), reports + manifests are
@@ -34,7 +35,8 @@ enum ENUM_CALIB_MODE_INPUT
     CALIB_INPUT_PROMOTION,
     CALIB_INPUT_ABLATION_CROSSCHECK,
     CALIB_INPUT_CALIBRATION,
-    CALIB_INPUT_TRANSFORMS
+    CALIB_INPUT_TRANSFORMS,
+    CALIB_INPUT_STRUCTURAL
 };
 
 input ENUM_CALIB_MODE_INPUT CalibrationMode = CALIB_INPUT_THRESHOLD;
@@ -141,7 +143,8 @@ void RunOnce(void)
                                       : mode == CALIB_MODE_PROMOTION ? "promotion"
                                       : mode == CALIB_MODE_ABLATION_CROSSCHECK ? "ablation_crosscheck"
                                       : mode == CALIB_MODE_CALIBRATION ? "calibration"
-                                      : "transforms"), fps[i]));
+                                      : mode == CALIB_MODE_TRANSFORMS ? "transforms"
+                                      : "structural"), fps[i]));
 
         if(g_runner.Run(mode, cfg, fps[i]))
             runs++;
