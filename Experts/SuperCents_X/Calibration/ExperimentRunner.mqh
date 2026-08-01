@@ -609,26 +609,32 @@ private:
     bool RunStructural(TelemetryRow &rows[], int count, const CalibrationConfig &cfg,
                        ulong fp, const string hex, const ExperimentManifest &manifest)
     {
-        //--- Component data availability: the v2 schema records component
-        //    raw/weight/contribution only for the legacy confluence engine;
-        //    v3.0 rows carry zeros.  Sections A/B/D and per-component
-        //    correlations are only meaningful when raw scores exist.
-        int componentRows = 0;
+        //--- Evidence availability (Sprint 17 contract): schema v3 rows
+        //    carry rule/layer evidence (componentData == 1); the legacy
+        //    6-component columns are a SEPARATE model that v3.0 never
+        //    computes.  Sections A/B/D are legacy-basis (they key off the
+        //    legacy columns); they are gated on legacy raws existing.
+        //    The v3-aware (layer-basis) report is Sprint 17 step 8.
+        int componentRows = 0;    // rows carrying v3 evidence
+        int legacyRawRows = 0;    // rows carrying legacy component raws
         for(int i = 0; i < count; i++)
         {
-            bool any = false;
+            if(rows[i].schemaVersion >= 3 && rows[i].componentData == 1)
+                componentRows++;
+            bool anyLegacy = false;
             for(int c = 0; c < TELEMETRY_COMPONENT_COUNT; c++)
             {
                 if(CalibrationStructuralActive(rows[i], c))
                 {
-                    any = true;
+                    anyLegacy = true;
                     break;
                 }
             }
-            if(any)
-                componentRows++;
+            if(anyLegacy)
+                legacyRawRows++;
         }
-        bool haveComponents = (componentRows > 0);
+        bool haveComponents = (componentRows > 0);   // v3 evidence basis
+        bool haveLegacyRaws = (legacyRawRows > 0);   // sections A/B/D basis
 
         //--- Section C: rank correlations (always computed; conf-level rows
         //    are the primary evidence).
@@ -641,7 +647,7 @@ private:
                     + ArraySize(corr) + TELEMETRY_COMPONENT_COUNT + 3);
 
         string dash = "-";
-        if(haveComponents)
+        if(haveLegacyRaws)
         {
             //--- Section A: activation + marginal predictive power.
             StructuralComponentStat comps[];
@@ -700,8 +706,10 @@ private:
         }
         else
         {
-            //--- Data gap: the v2 schema never recorded the v3.0 engine's
-            //    component scores.  Sections A/B/D cannot run; per-component
+            //--- Data gap: legacy-basis sections need legacy component raws.
+            //    v2 datasets never recorded the v3.0 engine's components and
+            //    v3.0 rows carry the rule-layer evidence elsewhere (the
+            //    layer-basis report is Sprint 17 step 8); per-component
             //    correlations would be artifacts of all-zero arrays.
             lines[nLines++] = "A,data_gap,0.0000,-,-,-,-,-,-,-,-,-,-,-";
             lines[nLines++] = "B,data_gap,0.0000,-,-,-,-,-,-,-,-,-,-,-";
@@ -709,10 +717,10 @@ private:
         }
 
         //--- Section C rows: conf-level correlations always; per-component
-        //    Spearman only when raw scores are available.
+        //    Spearman only when legacy raw scores are available.
         for(int i = 0; i < ArraySize(corr); i++)
         {
-            if(!haveComponents && StringFind(corr[i].label, "spearman_") == 0
+            if(!haveLegacyRaws && StringFind(corr[i].label, "spearman_") == 0
                && StringFind(corr[i].label, "spearman_conf") != 0)
                 continue;
             lines[nLines++] = StringFormat("C,%s,%s,%s,%s,%s,%s,%s,%s,%.4f,%s,%s,%s,%s,%d",
@@ -747,8 +755,9 @@ private:
         cardLines[10] = "note:          rank correlations are the primary evidence (ordering strength)";
         cardLines[11] = "note:          sections are descriptive; no gate decision is implied";
         cardLines[12] = haveComponents
-                        ? StringFormat("components:    present in %d rows; sections A/B/D computed", componentRows)
-                        : StringFormat("components:    MISSING (0 of %d rows carry v3.0 raw scores; the v2 telemetry schema only records the legacy confluence engine - sections A/B/D skipped; per-component correlations suppressed as constant-array artifacts)", count);
+                        ? StringFormat("components:    present in %d rows (schema v3 evidence); legacy-basis sections A/B/D %s", componentRows,
+                                       (haveLegacyRaws ? "computed" : "data_gap (rule-layer basis lands in Sprint 17 step 8)"))
+                        : StringFormat("components:    MISSING (0 of %d rows carry v3.0 evidence; v2 schema records only the legacy confluence engine - sections A/B/D skipped; per-component correlations suppressed as constant-array artifacts)", count);
         cardLines[13] = "next:          16.5 gate re-anchor on calibrated scores (deferred)";
         ok = WriteLines(cardPath, cardLines) && ok;
         ok = WriteManifest(manifest, manifestPath) && ok;

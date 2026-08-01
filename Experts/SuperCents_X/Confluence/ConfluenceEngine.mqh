@@ -189,6 +189,7 @@ void CConfluenceEngine::Update(void)
     score.liquidity = 0;
     score.confirmation = 0;
     score.total = 0;
+    score.trendAligned = false;
 
     RuleResult bestRule;
     bestRule.matched = false;
@@ -285,6 +286,7 @@ void CConfluenceEngine::Update(void)
             score.liquidity = layers.liquidity;
             score.confirmation = layers.confirmation;
             score.total = layers.total;
+            score.trendAligned = layers.trendAligned;
         }
     }
 
@@ -320,6 +322,7 @@ void CConfluenceEngine::Update(void)
     sig.hasFVG           = (bestRule.type == RULE_OB_FVG_BULLISH || bestRule.type == RULE_OB_FVG_BEARISH);
     sig.hasProtectedPoint = false;
     sig.hasLiquiditySweep = (bestRule.type == RULE_LIQUIDITY_BOS_BULLISH || bestRule.type == RULE_LIQUIDITY_BOS_BEARISH);
+    sig.trendAligned     = score.trendAligned;
 
     sig.bosId            = (bestRule.evidenceCount > 0 ? bestRule.evidenceIds[0] : -1);
     sig.chochId          = (sig.hasCHOCH && bestRule.evidenceCount > 0 ? bestRule.evidenceIds[0] : -1);
@@ -578,6 +581,7 @@ void CConfluenceEngine::BridgeConfluenceToSignal(const ConfluenceResult &cr,
     score.liquidity = 0;
     score.confirmation = 0;
     score.total = (int)cr.totalConfidence;
+    score.trendAligned = false;
 
     for(int i = 0; i < cr.componentCount; i++)
     {

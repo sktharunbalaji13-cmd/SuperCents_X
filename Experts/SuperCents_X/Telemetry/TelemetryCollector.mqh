@@ -1,11 +1,13 @@
 ﻿//+------------------------------------------------------------------+
 //|                                        TelemetryCollector.mqh      |
 //|                                      Copyright 2026, SuperCents_X|
-//|                                             v2.9.2 (Sprint 14.6)  |
+//|                                             v3.1 (Sprint 17)       |
 //+------------------------------------------------------------------+
-//  Persists every decision as one CSV row (frozen v2 schema).
+//  Persists every decision as one CSV row (schema v3, Sprint 17
+//  Evidence Capture: v2 columns unchanged + 23 rule/layer/evidence
+//  observation columns appended; see TelemetryTypes.mqh).
 //
-//  - Daily rotation: telemetry_v2_YYYYMMDD.csv under Common\Files\Telemetry
+//  - Daily rotation: telemetry_v3_YYYYMMDD.csv under Common\Files\Telemetry
 //    (FILE_COMMON is used on write AND read sides — CalibrationDataset)
 //  - Header written only when the file is created
 //  - Rows buffered in memory and flushed on demand / when full
@@ -15,6 +17,7 @@
 //  - validatorResults:   "Name=0|Name=2" (no commas inside)
 //  - disabledValidators: pipe-joined (commas would break CSV columns);
 //    parsed back to the canonical comma-separated form
+//  - ruleEvidenceIds:    comma-joined int ids (single packed column)
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_COLLECTOR_MQH__
 #define __TELEMETRY_COLLECTOR_MQH__
@@ -50,7 +53,7 @@ private:
 
     bool WriteHeader(int handle)
     {
-        return FileWrite(handle, TELEMETRY_CSV_HEADER_V2) > 0;
+        return FileWrite(handle, TELEMETRY_CSV_HEADER_V3) > 0;
     }
 
     bool WriteRow(int handle, const TelemetryRow &row)
@@ -61,7 +64,12 @@ private:
             "%.8f,%.6f,%.8f,%.8f,%.6f,%.8f,%.8f,%.6f,%.8f,"
             "%s,%.6f,%d,%d,%d,%d,%.8f,%.8f,%s,"
             "%d,%d,%.8f,%d,%d,%.8f,%.8f,"
-            "%d,%d",
+            "%d,%d,"
+            "%s,%s,%s,%s,%d,"
+            "%d,%s,%d,%.8f,%d,\"%s\",%d,"
+            "%d,%d,%d,%d,"
+            "%d,%d,%d,%d,%d,%d,"
+            "%s",
             (int)row.schemaVersion,
             (ulong)row.configFingerprint,
             TimeToString(row.timestamp),
@@ -94,7 +102,31 @@ private:
             row.entryPrice,
             row.exitPrice,
             row.actualOutcome,
-            row.actualOutcomeSource);
+            row.actualOutcomeSource,
+            //--- Schema v3 evidence columns (append-only over v2).
+            row.scoreArchitecture,
+            row.telemetryArchitecture,
+            row.evidenceContract,
+            row.confidenceModel,
+            row.componentData,
+            row.firedRuleId,
+            row.ruleName,
+            row.ruleScore,
+            row.ruleConfidence,
+            row.ruleEvidenceCount,
+            row.ruleEvidenceIds,
+            row.trendAligned,
+            row.layerStructural,
+            row.layerLiquidity,
+            row.layerConfirmation,
+            row.layerTotal,
+            row.hasBOS,
+            row.hasCHOCH,
+            row.hasOrderBlock,
+            row.hasFVG,
+            row.hasProtectedPoint,
+            row.hasLiquiditySweep,
+            TimeToString(row.signalTime));
         return FileWrite(handle, line) > 0;
     }
 

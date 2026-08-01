@@ -115,10 +115,13 @@ The v3.0 decomposition (the "components" of this architecture):
 
 | Field | Type | Purpose |
 |---|---|---|
-| structuralRaw | int (0-50) | layer score before normalization |
-| liquidityRaw | int (0-30) | layer score before normalization |
-| confirmationRaw | int (0-20) | layer score before normalization |
+| layerStructural | int (0-50) | structural layer score before normalization |
+| layerLiquidity | int (0-30) | liquidity layer score before normalization |
+| layerConfirmation | int (0-20) | confirmation layer score before normalization |
 | layerTotal | int (0-100) | raw total (= 100 * confidence) |
+
+The `layer` prefix keeps these distinct from the legacy 6-component
+columns (structureRaw/liquidityRaw/...).
 
 Active component count and per-layer contribution are DERIVED from these
 (do not store derived metrics). Note: there is no per-layer weighting in

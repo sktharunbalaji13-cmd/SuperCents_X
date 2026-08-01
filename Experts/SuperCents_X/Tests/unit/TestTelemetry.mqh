@@ -25,10 +25,46 @@ void TestHeader_V2ColumnCount(TestCounters &counters)
     TEST_STR_EQ("actualOutcomeSource", parts[44], "v2 header ends with actualOutcomeSource");
 }
 
-void TestSchema_Version2(TestCounters &counters)
+// ─── Sprint 17: schema v3 evidence contract ────────────────────────
+
+void TestHeader_V3ColumnCount(TestCounters &counters)
 {
-    TEST_INT_EQ(2, TELEMETRY_SCHEMA_VERSION, "Active schema version is 2");
-    TEST_STR_EQ("v2.9.2", TELEMETRY_EA_VERSION, "EA version string updated");
+    string v2parts[];
+    int v2n = StringSplit(TELEMETRY_CSV_HEADER_V2, ',', v2parts);
+
+    string parts[];
+    int n = StringSplit(TELEMETRY_CSV_HEADER_V3, ',', parts);
+    TEST_INT_EQ(68, n, "v3 header has 68 columns (45 v2 + 23 evidence)");
+    TEST_INT_EQ(45 + 23, n, "v3 is strictly append-only over v2");
+    TEST_STR_EQ("schemaVersion", parts[0], "v3 header starts with schemaVersion");
+    TEST_STR_EQ("signalTime", parts[67], "v3 header ends with signalTime");
+
+    for(int i = 0; i < v2n; i++)
+    {
+        string msg = StringFormat("v3 keeps v2 column %d (%s) in place", i, v2parts[i]);
+        TEST_STR_EQ(v2parts[i], parts[i], msg);
+    }
+}
+
+void TestSchema_Version3(TestCounters &counters)
+{
+    TEST_INT_EQ(3, TELEMETRY_SCHEMA_VERSION, "Active schema version is 3");
+    TEST_STR_EQ("v3.0", TELEMETRY_EA_VERSION, "EA version string updated");
+    TEST_STR_EQ("rule-layer-v1", TELEMETRY_SCORE_ARCHITECTURE, "score architecture versioned");
+    TEST_STR_EQ("rule-layer", TELEMETRY_TELEMETRY_ARCHITECTURE, "telemetry architecture tagged");
+    TEST_STR_EQ("2026-08", TELEMETRY_EVIDENCE_CONTRACT, "evidence contract revision recorded");
+    TEST_STR_EQ("raw", TELEMETRY_CONFIDENCE_MODEL, "confidence model tagged raw");
+    TEST_INT_EQ(0, EV_UNKNOWN, "tristate: UNKNOWN == 0");
+    TEST_INT_EQ(2, EV_TRUE, "tristate: TRUE == 2");
+}
+
+void TestTelemetryRuleNames(TestCounters &counters)
+{
+    TEST_STR_EQ("BOS_OB_BULLISH", TelemetryRuleName(1), "rule 1 name");
+    TEST_STR_EQ("LIQUIDITY_BOS_BULLISH", TelemetryRuleName(5), "rule 5 name");
+    TEST_STR_EQ("CHOCH_OB_REVERSAL", TelemetryRuleName(7), "rule 7 name");
+    TEST_STR_EQ("", TelemetryRuleName(0), "RULE_NONE has no name");
+    TEST_STR_EQ("", TelemetryRuleName(99), "unknown rule has no name");
 }
 
 ConfluenceResult MakeTestConfluence(void)
@@ -66,7 +102,7 @@ void TestRowBuilder_NormalizedConfidence(TestCounters &counters)
     bool ok = CTelemetryRowBuilder::Build(row, cr, newDec, true, legacyDec, 0.60,
                                           w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
     TEST_TRUE(ok, "Build succeeds");
-    TEST_INT_EQ(2, (int)row.schemaVersion, "Row stamped schema v2");
+    TEST_INT_EQ((int)TELEMETRY_SCHEMA_VERSION, (int)row.schemaVersion, "Row stamped schema v3");
     TEST_DBL_NEAR(0.40, row.confidence, 1e-9, "confidence column normalized 0-1");
     TEST_DBL_NEAR(0.40, row.legacyConfidence, 1e-9, "legacyConfidence normalized 0-1 (was 0-100 in v1)");
     TEST_DBL_NEAR(0.40, row.newConfidence, 1e-9, "newConfidence 0-1");
@@ -75,7 +111,7 @@ void TestRowBuilder_NormalizedConfidence(TestCounters &counters)
     TEST_TRUE(row.legacyDecision, "qualified legacy decision recorded");
     TEST_TRUE(row.decisionMatch, "qualified/qualified matches");
     TEST_TRUE(row.directionMatch, "direction match");
-    TEST_STR_EQ("v2.9.2", row.eaVersion, "row carries v2.9.2 EA version");
+    TEST_STR_EQ("v3.0", row.eaVersion, "row carries v3.0 EA version");
 }
 
 void TestRowBuilder_ComponentsAndValidators(TestCounters &counters)
@@ -129,6 +165,117 @@ void TestRowBuilder_Mismatch(TestCounters &counters)
     TEST_TRUE(row.directionMatch, "same direction -> direction match");
     TEST_DBL_NEAR(0.80, row.legacyConfidence, 1e-9, "legacy confidence 0-1");
     TEST_DBL_NEAR(0.40, row.newConfidence, 1e-9, "new confidence 0-1");
+}
+
+// ─── Sprint 17: evidence capture row builder ───────────────────────
+
+ConfluenceSignal MakeTestSignal(void)
+{
+    ConfluenceSignal sig;
+    sig.time = TimeCurrent();   // tester clock == row.timestamp basis
+    sig.direction = CONFLUENCE_BULLISH;
+
+    sig.score.structural = 15;
+    sig.score.liquidity = 30;
+    sig.score.confirmation = 15;
+    sig.score.total = 60;
+    sig.score.trendAligned = true;
+
+    sig.currentRule.matched = true;
+    sig.currentRule.type = RULE_LIQUIDITY_BOS_BULLISH;
+    sig.currentRule.score = 60;
+    sig.currentRule.confidence = 0.60;
+    sig.currentRule.direction = CONFLUENCE_BULLISH;
+    sig.currentRule.evidenceCount = 2;
+    sig.currentRule.evidenceIds[0] = 1;
+    sig.currentRule.evidenceIds[1] = 4;
+
+    sig.hasBOS = true;
+    sig.hasCHOCH = false;
+    sig.hasOrderBlock = false;
+    sig.hasFVG = false;
+    sig.hasProtectedPoint = false;
+    sig.hasLiquiditySweep = true;
+    sig.trendAligned = true;
+    return sig;
+}
+
+void TestRowBuilder_EvidenceCapture(TestCounters &counters)
+{
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_QUALIFIED;
+    newDec.confidence = 0.60;
+    newDec.direction = CONFLUENCE_BULLISH;
+    EntryDecision legacyDec;
+    legacyDec.status = DECISION_QUALIFIED;
+    legacyDec.confidence = 0.60;
+    legacyDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    ConfluenceSignal sig = MakeTestSignal();
+    TelemetryRow row;
+    bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+    TEST_TRUE(ok, "BuildWithEvidence succeeds");
+    TEST_INT_EQ(3, (int)row.schemaVersion, "Row stamped schema v3");
+    TEST_DBL_NEAR(0.60, row.confidence, 1e-9, "v2 columns still populated (confidence)");
+    TEST_DBL_NEAR(80.0, row.structureRaw, 1e-9, "legacy component columns still populated");
+
+    //--- Metadata.
+    TEST_STR_EQ("rule-layer-v1", row.scoreArchitecture, "score architecture recorded");
+    TEST_STR_EQ("rule-layer", row.telemetryArchitecture, "telemetry architecture recorded");
+    TEST_STR_EQ("2026-08", row.evidenceContract, "evidence contract recorded");
+    TEST_STR_EQ("raw", row.confidenceModel, "confidence model recorded");
+    TEST_INT_EQ(1, row.componentData, "componentData flag set");
+
+    //--- Rule-level evidence.
+    TEST_INT_EQ((int)RULE_LIQUIDITY_BOS_BULLISH, row.firedRuleId, "fired rule id (stable int)");
+    TEST_STR_EQ("LIQUIDITY_BOS_BULLISH", row.ruleName, "rule name mapped");
+    TEST_INT_EQ(60, row.ruleScore, "rule score pre-weighting");
+    TEST_DBL_NEAR(0.60, row.ruleConfidence, 1e-9, "rule confidence pre-weighting");
+    TEST_INT_EQ(2, row.ruleEvidenceCount, "evidence count");
+    TEST_STR_EQ("1,4", row.ruleEvidenceIds, "evidence ids packed");
+    TEST_INT_EQ(EV_TRUE, row.trendAligned, "trend alignment tristate true");
+
+    //--- Layer decomposition.
+    TEST_INT_EQ(15, row.layerStructural, "structural layer raw");
+    TEST_INT_EQ(30, row.layerLiquidity, "liquidity layer raw");
+    TEST_INT_EQ(15, row.layerConfirmation, "confirmation layer raw");
+    TEST_INT_EQ(60, row.layerTotal, "layer total");
+
+    //--- Evidence flags (tristate).
+    TEST_INT_EQ(EV_TRUE, row.hasBOS, "hasBOS true");
+    TEST_INT_EQ(EV_FALSE, row.hasCHOCH, "hasCHOCH false (evaluated absent)");
+    TEST_INT_EQ(EV_FALSE, row.hasOrderBlock, "hasOrderBlock false");
+    TEST_INT_EQ(EV_FALSE, row.hasFVG, "hasFVG false");
+    TEST_INT_EQ(EV_FALSE, row.hasProtectedPoint, "hasProtectedPoint false");
+    TEST_INT_EQ(EV_TRUE, row.hasLiquiditySweep, "hasLiquiditySweep true");
+
+    //--- Timestamps: signal precedes the decision capture clock (the tester
+    //    clock runs from the first bar, so pin the fixture to TimeCurrent()).
+    TEST_TRUE(row.signalTime != 0, "signal time recorded");
+    TEST_TRUE(row.signalTime <= row.timestamp, "signal precedes decision capture");
+}
+
+void TestRowBuilder_EvidenceFallback(TestCounters &counters)
+{
+    //--- The v2-compatible Build() path stamps schema v3 but must NOT
+    //    claim component evidence (componentData stays 0).
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_REJECTED;
+    newDec.confidence = 0.40;
+    newDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    TelemetryRow row;
+    CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+    TEST_INT_EQ(3, (int)row.schemaVersion, "Build() stamps schema v3");
+    TEST_INT_EQ(0, row.componentData, "no evidence claim without a signal");
+    TEST_INT_EQ(EV_UNKNOWN, row.hasBOS, "unevaluated flags stay UNKNOWN, not FALSE");
+    TEST_INT_EQ(0, row.firedRuleId, "no fired rule");
 }
 
 void TestRow_ReplayDecisionThreshold(TestCounters &counters)
@@ -279,10 +426,14 @@ TestCounters RunTelemetryTests()
 
     TestHeader_ColumnCount(counters);
     TestHeader_V2ColumnCount(counters);
-    TestSchema_Version2(counters);
+    TestHeader_V3ColumnCount(counters);
+    TestSchema_Version3(counters);
+    TestTelemetryRuleNames(counters);
     TestRowBuilder_NormalizedConfidence(counters);
     TestRowBuilder_ComponentsAndValidators(counters);
     TestRowBuilder_Mismatch(counters);
+    TestRowBuilder_EvidenceCapture(counters);
+    TestRowBuilder_EvidenceFallback(counters);
     TestRow_ReplayDecisionThreshold(counters);
     TestRow_ReplayDecisionValidators(counters);
     TestRow_ConfluenceGateSkipped(counters);

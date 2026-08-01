@@ -109,6 +109,77 @@ public:
         //    before the row reaches the collector.
         return true;
     }
+
+    //--- Schema v3 (Sprint 17 Evidence Capture): builds a v2-compatible
+    //    row and appends the rule/layer/evidence observations captured
+    //    from the runtime ConfluenceSignal. Observation-only: the layer
+    //    decomposition, active counts and contributions are stored as
+    //    raw values; derived metrics are never persisted.
+    static bool BuildWithEvidence(TelemetryRow &out,
+                                  const ConfluenceResult &cr,
+                                  const EntryDecision &newDecision,
+                                  const bool hasLegacy,
+                                  const EntryDecision &legacyDecision,
+                                  const double confThreshold,
+                                  const ConfluenceWeights &weights,
+                                  const string symbol,
+                                  const int timeframe,
+                                  const string disabledValidators,
+                                  const string spreadMode,
+                                  const int brokerDigits,
+                                  const ConfluenceSignal &signal)
+    {
+        if(!Build(out, cr, newDecision, hasLegacy, legacyDecision, confThreshold,
+                  weights, symbol, timeframe, disabledValidators,
+                  spreadMode, brokerDigits))
+            return false;
+
+        //--- Metadata (schema identity; refusal checks key off these).
+        out.scoreArchitecture = TELEMETRY_SCORE_ARCHITECTURE;
+        out.telemetryArchitecture = TELEMETRY_TELEMETRY_ARCHITECTURE;
+        out.evidenceContract = TELEMETRY_EVIDENCE_CONTRACT;
+        out.confidenceModel = TELEMETRY_CONFIDENCE_MODEL;
+        out.componentData = 1;
+
+        //--- Rule-level evidence (pre-weighting observations).
+        out.firedRuleId = (int)signal.currentRule.type;
+        out.ruleName = TelemetryRuleName(out.firedRuleId);
+        out.ruleScore = signal.currentRule.score;
+        out.ruleConfidence = signal.currentRule.confidence;
+        out.ruleEvidenceCount = signal.currentRule.evidenceCount;
+        out.ruleEvidenceIds = PackEvidenceIds(signal.currentRule.evidenceIds,
+                                              signal.currentRule.evidenceCount);
+        out.trendAligned = TelemetryEvidenceState(signal.trendAligned);
+
+        //--- Layer decomposition (the v3.0 components, pre-normalization).
+        out.layerStructural = signal.score.structural;
+        out.layerLiquidity = signal.score.liquidity;
+        out.layerConfirmation = signal.score.confirmation;
+        out.layerTotal = signal.score.total;
+
+        //--- Evidence flags (tristate: never assume false for unevaluated).
+        out.hasBOS = TelemetryEvidenceState(signal.hasBOS);
+        out.hasCHOCH = TelemetryEvidenceState(signal.hasCHOCH);
+        out.hasOrderBlock = TelemetryEvidenceState(signal.hasOrderBlock);
+        out.hasFVG = TelemetryEvidenceState(signal.hasFVG);
+        out.hasProtectedPoint = TelemetryEvidenceState(signal.hasProtectedPoint);
+        out.hasLiquiditySweep = TelemetryEvidenceState(signal.hasLiquiditySweep);
+
+        out.signalTime = signal.time;
+        return true;
+    }
+
+    static string PackEvidenceIds(const int &evidenceIds[], const int count)
+    {
+        string out = "";
+        for(int i = 0; i < count && i < MAX_EVIDENCE_IDS; i++)
+        {
+            if(out != "")
+                out += ",";
+            out += IntegerToString(evidenceIds[i]);
+        }
+        return out;
+    }
 };
 
 #endif

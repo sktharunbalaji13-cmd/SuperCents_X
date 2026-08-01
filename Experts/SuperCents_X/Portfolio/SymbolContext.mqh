@@ -795,12 +795,28 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                     }
 
                     TelemetryRow row;
-                    CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
-                                                legacyDecision,
-                                                m_confVal.GetMinConfidence(),
-                                                m_weights, m_symbol, (int)Period(),
-                                                disabled, "tick",
-                                                (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS));
+                    //--- Sprint 17: schema v3 evidence capture. The runtime
+                    //    ConfluenceSignal carries the rule/layer/evidence
+                    //    observations the v2 columns never recorded; when it
+                    //    is unavailable the row falls back to schema v3 with
+                    //    componentData = 0 (refused by structural analysis).
+                    ConfluenceSignal sig;
+                    bool hasSig = m_confluenceEngine.GetLatestSignal(sig);
+                    if(hasSig)
+                        CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDecision, hasLegacy,
+                                                                legacyDecision,
+                                                                m_confVal.GetMinConfidence(),
+                                                                m_weights, m_symbol, (int)Period(),
+                                                                disabled, "tick",
+                                                                (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
+                                                                sig);
+                    else
+                        CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
+                                                    legacyDecision,
+                                                    m_confVal.GetMinConfidence(),
+                                                    m_weights, m_symbol, (int)Period(),
+                                                    disabled, "tick",
+                                                    (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS));
                     //--- Sprint 15.3: settle previously queued rows first so
                     //    the collector receives rows in decision order, then
                     //    queue the new row for forward-outcome settlement.

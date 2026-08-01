@@ -1,13 +1,17 @@
 ﻿//+------------------------------------------------------------------+
 //|                                        CalibrationDataset.mqh      |
 //|                                      Copyright 2026, SuperCents_X|
-//|                                             v2.9.2 (Sprint 14.6)  |
+//|                                             v3.1 (Sprint 17)       |
 //+------------------------------------------------------------------+
 //  Loads telemetry CSV files back into TelemetryRow[] and provides the
 //  replay filters used by the calibration optimizers.
 //
 //  v2.9.2: reads telemetry_v2_*.csv (schemaVersion = 2; all confidence
 //  columns 0-1). v1 files predate collection and are not supported.
+//  v3.1: reads telemetry_v3_*.csv (schemaVersion = 3; 68 columns with
+//  rule/layer/evidence observations) AND still parses v2 files (45
+//  columns). Rows carry their own schemaVersion; consumers that need
+//  component evidence (structural diagnostics) must refuse v2 rows.
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_CALIBRATION_DATASET_MQH__
 #define __TELEMETRY_CALIBRATION_DATASET_MQH__
@@ -15,7 +19,8 @@
 #include "../Core/Logger.mqh"
 #include "TelemetryTypes.mqh"
 
-#define TELEMETRY_CSV_COLUMNS 45
+#define TELEMETRY_CSV_COLUMNS     45
+#define TELEMETRY_CSV_COLUMNS_V3  68
 
 class CCalibrationDataset
 {
@@ -46,54 +51,141 @@ public:
                + (ulong)StringToInteger(lo);
     }
 
-private:
+public:
+    //--- Parse one CSV line into a TelemetryRow. Schema-version aware:
+    //    v2 lines (45 columns) and v3 lines (68 columns) are accepted;
+    //    any other schemaVersion or a column-count mismatch is refused
+    //    explicitly (no silent reinterpretation of old datasets).
     static bool ParseRow(const string line, TelemetryRow &out)
     {
         string col[];
         int n = StringSplit(line, ',', col);
-        if(n != TELEMETRY_CSV_COLUMNS)
+
+        //--- Rejoin quoted fields: ruleEvidenceIds is packed "1,4" and is
+        //    written quoted (CSV), so a plain split would misalign columns.
+        string fld[];
+        int m = MergeQuotedFields(col, n, fld);
+        if(m != TELEMETRY_CSV_COLUMNS && m != TELEMETRY_CSV_COLUMNS_V3)
             return false;
 
         int i = 0;
-        int schemaVersion = (int)StringToInteger(col[i++]);
-        if(schemaVersion != TELEMETRY_SCHEMA_VERSION)
+        int schemaVersion = (int)StringToInteger(fld[i++]);
+        if(schemaVersion != 2 && schemaVersion != 3)
+            return false;
+        if(schemaVersion == 2 && m != TELEMETRY_CSV_COLUMNS)
+            return false;
+        if(schemaVersion == 3 && m != TELEMETRY_CSV_COLUMNS_V3)
             return false;
 
         out = TelemetryRow();
         out.schemaVersion = (uint)schemaVersion;
-        out.configFingerprint = ParseUnsigned(col[i++]);
-        out.timestamp = StringToTime(col[i++]);
-        out.symbol = col[i++];
-        out.timeframe = (int)StringToInteger(col[i++]);
-        out.eaVersion = col[i++];
-        out.decisionId = (int)StringToInteger(col[i++]);
-        out.direction = (int)StringToInteger(col[i++]);
-        out.confidence = StringToDouble(col[i++]);
-        out.structureRaw = StringToDouble(col[i++]); out.structureWeight = StringToDouble(col[i++]); out.structureContribution = StringToDouble(col[i++]);
-        out.obRaw = StringToDouble(col[i++]);        out.obWeight = StringToDouble(col[i++]);        out.obContribution = StringToDouble(col[i++]);
-        out.fvgRaw = StringToDouble(col[i++]);       out.fvgWeight = StringToDouble(col[i++]);       out.fvgContribution = StringToDouble(col[i++]);
-        out.trendRaw = StringToDouble(col[i++]);     out.trendWeight = StringToDouble(col[i++]);     out.trendContribution = StringToDouble(col[i++]);
-        out.liquidityRaw = StringToDouble(col[i++]); out.liquidityWeight = StringToDouble(col[i++]); out.liquidityContribution = StringToDouble(col[i++]);
-        out.pdRaw = StringToDouble(col[i++]);        out.pdWeight = StringToDouble(col[i++]);        out.pdContribution = StringToDouble(col[i++]);
-        out.UnpackValidatorResults(col[i++]);
-        out.confThreshold = StringToDouble(col[i++]);
-        out.newDecision = (StringToInteger(col[i++]) != 0);
-        out.legacyDecision = (StringToInteger(col[i++]) != 0);
-        out.decisionMatch = (StringToInteger(col[i++]) != 0);
-        out.directionMatch = (StringToInteger(col[i++]) != 0);
-        out.legacyConfidence = StringToDouble(col[i++]);
-        out.newConfidence = StringToDouble(col[i++]);
-        out.disabledValidators = FromPipedList(col[i++]);
-        out.outcomeSource = (int)StringToInteger(col[i++]);
-        out.outcome = (int)StringToInteger(col[i++]);
-        out.rMultiple = StringToDouble(col[i++]);
-        out.barsHeld = (int)StringToInteger(col[i++]);
-        out.exitReason = (int)StringToInteger(col[i++]);
-        out.entryPrice = StringToDouble(col[i++]);
-        out.exitPrice = StringToDouble(col[i++]);
-        out.actualOutcome = (int)StringToInteger(col[i++]);
-        out.actualOutcomeSource = (int)StringToInteger(col[i++]);
+        out.configFingerprint = ParseUnsigned(fld[i++]);
+        out.timestamp = StringToTime(fld[i++]);
+        out.symbol = fld[i++];
+        out.timeframe = (int)StringToInteger(fld[i++]);
+        out.eaVersion = fld[i++];
+        out.decisionId = (int)StringToInteger(fld[i++]);
+        out.direction = (int)StringToInteger(fld[i++]);
+        out.confidence = StringToDouble(fld[i++]);
+        out.structureRaw = StringToDouble(fld[i++]); out.structureWeight = StringToDouble(fld[i++]); out.structureContribution = StringToDouble(fld[i++]);
+        out.obRaw = StringToDouble(fld[i++]);        out.obWeight = StringToDouble(fld[i++]);        out.obContribution = StringToDouble(fld[i++]);
+        out.fvgRaw = StringToDouble(fld[i++]);       out.fvgWeight = StringToDouble(fld[i++]);       out.fvgContribution = StringToDouble(fld[i++]);
+        out.trendRaw = StringToDouble(fld[i++]);     out.trendWeight = StringToDouble(fld[i++]);     out.trendContribution = StringToDouble(fld[i++]);
+        out.liquidityRaw = StringToDouble(fld[i++]); out.liquidityWeight = StringToDouble(fld[i++]); out.liquidityContribution = StringToDouble(fld[i++]);
+        out.pdRaw = StringToDouble(fld[i++]);        out.pdWeight = StringToDouble(fld[i++]);        out.pdContribution = StringToDouble(fld[i++]);
+        out.UnpackValidatorResults(fld[i++]);
+        out.confThreshold = StringToDouble(fld[i++]);
+        out.newDecision = (StringToInteger(fld[i++]) != 0);
+        out.legacyDecision = (StringToInteger(fld[i++]) != 0);
+        out.decisionMatch = (StringToInteger(fld[i++]) != 0);
+        out.directionMatch = (StringToInteger(fld[i++]) != 0);
+        out.legacyConfidence = StringToDouble(fld[i++]);
+        out.newConfidence = StringToDouble(fld[i++]);
+        out.disabledValidators = FromPipedList(fld[i++]);
+        out.outcomeSource = (int)StringToInteger(fld[i++]);
+        out.outcome = (int)StringToInteger(fld[i++]);
+        out.rMultiple = StringToDouble(fld[i++]);
+        out.barsHeld = (int)StringToInteger(fld[i++]);
+        out.exitReason = (int)StringToInteger(fld[i++]);
+        out.entryPrice = StringToDouble(fld[i++]);
+        out.exitPrice = StringToDouble(fld[i++]);
+        out.actualOutcome = (int)StringToInteger(fld[i++]);
+        out.actualOutcomeSource = (int)StringToInteger(fld[i++]);
+
+        //--- Schema v3 evidence columns (append-only over v2).
+        if(schemaVersion == 3)
+        {
+            out.scoreArchitecture = fld[i++];
+            out.telemetryArchitecture = fld[i++];
+            out.evidenceContract = fld[i++];
+            out.confidenceModel = fld[i++];
+            out.componentData = (int)StringToInteger(fld[i++]);
+            out.firedRuleId = (int)StringToInteger(fld[i++]);
+            out.ruleName = fld[i++];
+            out.ruleScore = (int)StringToInteger(fld[i++]);
+            out.ruleConfidence = StringToDouble(fld[i++]);
+            out.ruleEvidenceCount = (int)StringToInteger(fld[i++]);
+            out.ruleEvidenceIds = fld[i++];
+            out.trendAligned = (int)StringToInteger(fld[i++]);
+            out.layerStructural = (int)StringToInteger(fld[i++]);
+            out.layerLiquidity = (int)StringToInteger(fld[i++]);
+            out.layerConfirmation = (int)StringToInteger(fld[i++]);
+            out.layerTotal = (int)StringToInteger(fld[i++]);
+            out.hasBOS = (int)StringToInteger(fld[i++]);
+            out.hasCHOCH = (int)StringToInteger(fld[i++]);
+            out.hasOrderBlock = (int)StringToInteger(fld[i++]);
+            out.hasFVG = (int)StringToInteger(fld[i++]);
+            out.hasProtectedPoint = (int)StringToInteger(fld[i++]);
+            out.hasLiquiditySweep = (int)StringToInteger(fld[i++]);
+            out.signalTime = StringToTime(fld[i++]);
+        }
         return true;
+    }
+
+    //--- Rebuild CSV fields after a naive comma split: any field that was
+    //    quoted (starts with ") is joined back together, dropping the quotes.
+    static int MergeQuotedFields(const string &col[], const int n, string &out[])
+    {
+        ArrayResize(out, 0);
+        for(int k = 0; k < n; k++)
+        {
+            string tok = col[k];
+            if(StringFind(tok, "\"") == 0)
+            {
+                string cleaned = StringSubstr(tok, 1);
+                if(StringFind(cleaned, "\"") == StringLen(cleaned) - 1 || StringLen(cleaned) == 0)
+                {
+                    if(StringLen(cleaned) > 0)
+                        cleaned = StringSubstr(cleaned, 0, StringLen(cleaned) - 1);
+                    int s = ArraySize(out);
+                    ArrayResize(out, s + 1);
+                    out[s] = cleaned;
+                    continue;
+                }
+                k++;
+                while(k < n)
+                {
+                    string part = col[k];
+                    if(StringFind(part, "\"") == StringLen(part) - 1)
+                    {
+                        cleaned += "," + StringSubstr(part, 0, StringLen(part) - 1);
+                        break;
+                    }
+                    cleaned += "," + part;
+                    k++;
+                }
+                int s = ArraySize(out);
+                ArrayResize(out, s + 1);
+                out[s] = cleaned;
+            }
+            else
+            {
+                int s = ArraySize(out);
+                ArrayResize(out, s + 1);
+                out[s] = tok;
+            }
+        }
+        return ArraySize(out);
     }
 
     static string FromPipedList(const string piped)
@@ -186,8 +278,10 @@ public:
         return AppendFile(filepath);
     }
 
-    //--- Load every telemetry CSV in the directory matching the pattern.
-    int LoadDir(const string outputDir, const string pattern = "telemetry_v2_*.csv")
+    //--- Load every telemetry CSV in the directory matching the pattern
+    //    (default covers both telemetry_v2_* and telemetry_v3_* files;
+    //    each row carries its own schemaVersion).
+    int LoadDir(const string outputDir, const string pattern = "telemetry_v*.csv")
     {
         string filter = outputDir;
         int fl = StringLen(filter);

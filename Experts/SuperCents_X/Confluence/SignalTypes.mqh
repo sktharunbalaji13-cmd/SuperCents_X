@@ -89,6 +89,15 @@ struct ScoreLayer
     int liquidity;
     int confirmation;
     int total;
+    bool trendAligned;   // trend bonus actually applied (v3 evidence flag)
+
+    ScoreLayer(void)
+        : structural(0)
+        , liquidity(0)
+        , confirmation(0)
+        , total(0)
+        , trendAligned(false)
+    {}
 
     string ToString(void) const
     {
@@ -150,6 +159,7 @@ struct ConfluenceSignal
     bool hasFVG;
     bool hasProtectedPoint;
     bool hasLiquiditySweep;
+    bool trendAligned;   // trend bonus applied by the layer score (v3 evidence)
 
     int  bosId;
     int  chochId;

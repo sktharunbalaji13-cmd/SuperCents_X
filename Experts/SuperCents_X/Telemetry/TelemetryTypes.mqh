@@ -5,6 +5,7 @@
 //+------------------------------------------------------------------+
 //  @frozen v2.9  TelemetryRow  (schemaVersion = 1)
 //  @frozen v2.9.2 TelemetryRow  (schemaVersion = 2)
+//  @frozen v3.1   TelemetryRow  (schemaVersion = 3)
 //
 //  CONTRACT RULES (append-only, never break):
 //  - Column order and semantics are frozen once data collection starts.
@@ -19,6 +20,17 @@
 //  0-1 scale. In v1, legacyConfidence was stored on the 0-100 scale;
 //  v2 rows are the only rows the collector produces. Column layout is
 //  identical to v1 (append-only preserved).
+//
+//  v3 semantics (Sprint 17 Evidence Capture): the runtime scores with
+//  the rule-layer architecture (rule + layer + evidence flags), which
+//  the v1/v2 columns never captured (16.1B: all component raws zero in
+//  v3.0 rows). v3 appends 23 observation columns: schema metadata,
+//  rule-level evidence (fired rule id/name, pre-weight score and
+//  confidence, evidence ids), layer decomposition (structural/
+//  liquidity/confirmation/total raws), tristate evidence flags and the
+//  signal creation time.  All v2 columns keep their exact positions and
+//  semantics; v3 is strictly append-only over v2.  Structural
+//  diagnostics refuse schemaVersion < 3 (see CalibrationStructural).
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_TYPES_MQH__
 #define __TELEMETRY_TYPES_MQH__
@@ -30,9 +42,27 @@
 //--- Canonical EA version used by the configuration fingerprint.
 #define TELEMETRY_EA_VERSION "v3.0"
 
-#define TELEMETRY_SCHEMA_VERSION     2
+#define TELEMETRY_SCHEMA_VERSION     3
 #define MAX_TELEMETRY_VALIDATORS     12
 #define TELEMETRY_COMPONENT_COUNT    6
+
+//--- Schema v3 identity (Sprint 17 Evidence Capture). The schema
+//    fingerprint TelemetrySchemaId = "v3.0" combines schemaVersion and
+//    evidenceContract; downstream tooling refuses on mismatch without
+//    relying on file naming.
+#define TELEMETRY_SCORE_ARCHITECTURE   "rule-layer-v1"   // versioned scoring architecture (rule-layer-v2 will exist someday)
+#define TELEMETRY_TELEMETRY_ARCHITECTURE "rule-layer"    // decomposition model of componentData
+#define TELEMETRY_EVIDENCE_CONTRACT    "2026-08"         // contract revision; bump on any semantic change
+#define TELEMETRY_CONFIDENCE_MODEL     "raw"             // transform state of the score
+
+//--- Tristate evidence semantics (refinement B): a flag the runtime did
+//    not evaluate must not be recorded as FALSE.
+enum ENUM_EVIDENCE_STATE
+{
+    EV_UNKNOWN = 0,
+    EV_FALSE,
+    EV_TRUE
+};
 
 //--- CSV column order — part of the frozen v1 contract. Append-only.
 #define TELEMETRY_CSV_HEADER_V1 \
@@ -65,6 +95,16 @@
     "decisionMatch,directionMatch,legacyConfidence,newConfidence,disabledValidators," \
     "outcomeSource,outcome,rMultiple,barsHeld,exitReason,entryPrice,exitPrice," \
     "actualOutcome,actualOutcomeSource"
+
+//--- Active v3 header (Sprint 17): 68 columns = v2 (45) + 23 evidence
+//    columns appended at the END. Frozen once collection starts.
+#define TELEMETRY_CSV_HEADER_V3 \
+    TELEMETRY_CSV_HEADER_V2 "," \
+    "scoreArchitecture,telemetryArchitecture,evidenceContract,confidenceModel,componentData," \
+    "firedRuleId,ruleName,ruleScore,ruleConfidence,ruleEvidenceCount,ruleEvidenceIds,trendAligned," \
+    "layerStructural,layerLiquidity,layerConfirmation,layerTotal," \
+    "hasBOS,hasCHOCH,hasOrderBlock,hasFVG,hasProtectedPoint,hasLiquiditySweep," \
+    "signalTime"
 
 enum ENUM_TELEMETRY_OUTCOME
 {
@@ -184,6 +224,41 @@ struct TelemetryRow
     int      actualOutcome;        // reserved
     int      actualOutcomeSource;  // reserved
 
+    //--- Schema v3 evidence columns (Sprint 17; append-only over v2).
+    //    Metadata (schema identity; refusal checks key off these).
+    string   scoreArchitecture;
+    string   telemetryArchitecture;
+    string   evidenceContract;
+    string   confidenceModel;
+    int      componentData;        // 1 = row carries rule/layer/evidence observations
+
+    //--- Rule-level evidence (pre-weighting observations).
+    int      firedRuleId;          // RuleType enum value (frozen)
+    string   ruleName;             // human-readable name (may evolve)
+    int      ruleScore;            // 0-100, before any weighting
+    double   ruleConfidence;       // 0-1, before weighting
+    int      ruleEvidenceCount;
+    string   ruleEvidenceIds;      // packed "id1,id2,..."
+    int      trendAligned;         // ENUM_EVIDENCE_STATE
+
+    //--- Layer decomposition (the v3.0 components, pre-normalization).
+    //    Prefix "layer" keeps these distinct from the legacy 6-component
+    //    columns (structureRaw/liquidityRaw/...).
+    int      layerStructural;      // 0-50
+    int      layerLiquidity;       // 0-30
+    int      layerConfirmation;    // 0-20
+    int      layerTotal;           // 0-100 (= 100 * confidence)
+
+    //--- Evidence flags (tristate: ENUM_EVIDENCE_STATE).
+    int      hasBOS;
+    int      hasCHOCH;
+    int      hasOrderBlock;
+    int      hasFVG;
+    int      hasProtectedPoint;
+    int      hasLiquiditySweep;
+
+    datetime signalTime;           // signal creation time (decision capture time stays in `timestamp`)
+
     TelemetryRow(void)
         : schemaVersion(TELEMETRY_SCHEMA_VERSION)
         , configFingerprint(0)
@@ -218,6 +293,29 @@ struct TelemetryRow
         , exitPrice(0.0)
         , actualOutcome((int)TELEMETRY_OUTCOME_UNKNOWN)
         , actualOutcomeSource((int)OUTCOME_SOURCE_NONE)
+        , scoreArchitecture(TELEMETRY_SCORE_ARCHITECTURE)
+        , telemetryArchitecture(TELEMETRY_TELEMETRY_ARCHITECTURE)
+        , evidenceContract(TELEMETRY_EVIDENCE_CONTRACT)
+        , confidenceModel(TELEMETRY_CONFIDENCE_MODEL)
+        , componentData(0)
+        , firedRuleId(0)
+        , ruleName("")
+        , ruleScore(0)
+        , ruleConfidence(0.0)
+        , ruleEvidenceCount(0)
+        , ruleEvidenceIds("")
+        , trendAligned((int)EV_UNKNOWN)
+        , layerStructural(0)
+        , layerLiquidity(0)
+        , layerConfirmation(0)
+        , layerTotal(0)
+        , hasBOS((int)EV_UNKNOWN)
+        , hasCHOCH((int)EV_UNKNOWN)
+        , hasOrderBlock((int)EV_UNKNOWN)
+        , hasFVG((int)EV_UNKNOWN)
+        , hasProtectedPoint((int)EV_UNKNOWN)
+        , hasLiquiditySweep((int)EV_UNKNOWN)
+        , signalTime(0)
     {}
 
     void SetComponent(ENUM_CONFLUENCE_COMPONENT type, double raw, double weight, double contribution)
@@ -330,6 +428,29 @@ struct TelemetryRow
         return true;
     }
 };
+
+//--- Frozen rule-ID -> name mapping (refinement C: ids are stable,
+//    names may evolve). Mirrors the RuleType enum order.
+string TelemetryRuleName(const int ruleId)
+{
+    switch(ruleId)
+    {
+        case 1:  return "BOS_OB_BULLISH";
+        case 2:  return "BOS_OB_BEARISH";
+        case 3:  return "OB_FVG_BULLISH";
+        case 4:  return "OB_FVG_BEARISH";
+        case 5:  return "LIQUIDITY_BOS_BULLISH";
+        case 6:  return "LIQUIDITY_BOS_BEARISH";
+        case 7:  return "CHOCH_OB_REVERSAL";
+    }
+    return "";
+}
+
+//--- Map a runtime boolean observation to the tristate contract.
+int TelemetryEvidenceState(const bool evaluated)
+{
+    return evaluated ? (int)EV_TRUE : (int)EV_FALSE;
+}
 
 //--- Runtime calibration configuration (EA inputs -> engines).
 struct CalibrationConfig

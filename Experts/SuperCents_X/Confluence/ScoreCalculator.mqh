@@ -69,6 +69,7 @@ struct LayerResult
     int liquidity;
     int confirmation;
     int total;
+    bool trendAligned;   // trend bonus actually applied (evidence flag for telemetry)
 };
 
 LayerResult CalculateRuleLayers(const RuleResult &rule,
@@ -82,6 +83,7 @@ LayerResult CalculateRuleLayers(const RuleResult &rule,
     r.structural = 0;
     r.liquidity = 0;
     r.confirmation = 0;
+    r.trendAligned = false;
 
     if(!rule.matched)
     {
@@ -123,7 +125,10 @@ LayerResult CalculateRuleLayers(const RuleResult &rule,
         bool trendAligned = (rule.direction == CONFLUENCE_BULLISH && current == TREND_BULLISH) ||
                             (rule.direction == CONFLUENCE_BEARISH && current == TREND_BEARISH);
         if(trendAligned)
+        {
             r.confirmation += 5;
+            r.trendAligned = true;
+        }
     }
 
     r.confirmation = fmin(r.confirmation, SCORE_CONFIRMATION_MAX);
