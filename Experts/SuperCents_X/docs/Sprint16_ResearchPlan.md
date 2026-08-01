@@ -82,6 +82,48 @@ transform helps, record the finding — the score may be structurally capped
 diagonal; ECE/Brier decreases; every 0.40–0.90 threshold produces meaningful
 sample sizes.
 
+### 2.1 Sprint 16.1B — Structural diagnostics (the primary research sprint)
+
+**Status**: ELEVATED to primary sprint after 16.2 falsified calibration:
+isotonic collapses to the constant base rate 0.3301 (no monotone structure),
+Platt fits a negative slope (higher confidence ⇒ lower win rate), temperature
+diverges. The research question changed from "how do we calibrate confidence?"
+to **"why is confidence anti-correlated with outcomes?"**
+
+**Hypothesis H-16.1B**: the score rewards *amount of confluence* (how many
+evaluators fired) rather than *quality of confluence*; combinations mostly
+occur in volatile continuation phases → compressed scores, flat/negative
+reliability, no bugs required.
+
+**Deliverable**: a five-part structural report (`CALIB_MODE_STRUCTURAL`,
+mode 7, all offline from stored telemetry rows — per-component raw scores,
+weights and contributions are already persisted):
+
+1. **Component activation** — per evaluator (structure, OB, FVG, liquidity,
+   trend, premium/discount): activation % of settled rows, mean raw score.
+2. **Marginal predictive power** — per component, absent vs present:
+   trades, WR, PF, expectancy, meanConf, meanR. Does any evaluator predict?
+3. **Confidence decomposition** — rows grouped by number of active
+   components (0..6): trades, WR, meanConf, meanR. Is confidence just a
+   counting variable?
+4. **Rank correlation** (primary evidence) — Spearman ρ and Kendall τ-b
+   between confidence and rMultiple, and confidence and win/loss; plus
+   per-component Spearman (raw score vs rMultiple). ρ ≈ 0 or < 0 proves the
+   ordering itself is weak — stronger evidence than any calibration metric.
+5. **Information contribution** — ablation replay at the 0.60 gate per
+   component: weight zeroed (leave-one-out) vs weight alone vs full score,
+   reporting Δexpectancy, ΔPF, Δtrades, infoContrib.
+
+**Explicitly NOT done**: retuning rule constants (0.72 → 0.81 etc.). The
+evidence says the *ordering* is poor, not the thresholds; retuning constants
+does not fix "higher confidence → lower win rate".
+
+**Decision rule**: whichever of (4) rank correlations / (2) marginal power /
+(3) counting behavior identifies the failing link becomes the Sprint 17
+scoring-architecture experiment (e.g., quality-weighted confluence, evaluator
+gating, per-component calibration). No gate decision is implied by the report
+itself.
+
 ## 3. Workstream B — Drawdown attribution (the 0.40–0.60 slice)
 
 The gate answered *what* (drawdown 567.6 R vs 207.7 R). Sprint 16 answers

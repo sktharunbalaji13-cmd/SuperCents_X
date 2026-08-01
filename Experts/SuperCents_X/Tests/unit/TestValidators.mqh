@@ -498,6 +498,33 @@ void TestRiskValidator_NullEvaluator(TestCounters &counters)
     TEST_INT_EQ(FILTER_FAIL, out.result, "RiskValidator FAIL (NULL evaluator)");
 }
 
+void TestRiskValidator_StructFlow(TestCounters &counters)
+{
+    CMockRiskEvaluator risk;
+    risk.SetAllowed(true);
+    risk.SetMaxLots(0.42);
+    CRiskValidator v(&risk);
+    ConfluenceResult r = MakeResult(80.0, CONFLUENCE_BULLISH, 3);
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    v.Validate(r, ctx, out);
+
+    TEST_INT_EQ(FILTER_PASS, out.result, "RiskValidator struct flow: approved");
+    TEST_STR_EQ("Risk approved, max lots: 0.42", out.explanation, "RiskValidator struct flow: maxLots via RiskEvaluation");
+
+    CMockRiskEvaluator riskDeny;
+    riskDeny.SetAllowed(false);
+    riskDeny.SetRejectionReason("margin exhausted");
+    CRiskValidator v2(&riskDeny);
+    EntryFilterResult out2;
+
+    v2.Validate(r, ctx, out2);
+
+    TEST_INT_EQ(FILTER_FAIL, out2.result, "RiskValidator struct flow: denied");
+    TEST_STR_EQ("margin exhausted", out2.explanation, "RiskValidator struct flow: reason via RiskEvaluation");
+}
+
 // ─── No-Mutation ───────────────────────────────────────────────────
 
 void TestValidatorNoMutation(TestCounters &counters)
@@ -579,6 +606,7 @@ TestCounters RunValidatorTests()
     TestRiskValidator_Pass(counters);
     TestRiskValidator_Fail(counters);
     TestRiskValidator_NullEvaluator(counters);
+    TestRiskValidator_StructFlow(counters);
 
     TestValidatorNoMutation(counters);
 

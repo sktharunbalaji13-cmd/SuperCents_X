@@ -15,6 +15,7 @@
 #include "unit/TestCalibrationOptimizers.mqh"
 #include "unit/TestCalibrationReport.mqh"
 #include "unit/TestCalibrationTransforms.mqh"
+#include "unit/TestCalibrationStructural.mqh"
 #include "unit/TestProductionProviders.mqh"
 #include "integration/TestValidationLab.mqh"
 
@@ -75,6 +76,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunCalibrationTransformsTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunCalibrationStructuralTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunProductionProviderTests();
