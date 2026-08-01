@@ -11,6 +11,7 @@
 //    CALIB_MODE_PROMOTION        - candidate vs baseline gate
 //    CALIB_MODE_ABLATION_CROSSCHECK - ablation at the candidate threshold
 //    CALIB_MODE_CALIBRATION      - confidence measurement baseline (16.1)
+//    CALIB_MODE_TRANSFORMS       - Branch A model comparison (16.2)
 //
 //  Every run writes a timestamped CSV report + experiment manifest
 //  under Files/Calibration/ (FILE_COMMON, same as the telemetry store).
@@ -24,6 +25,7 @@
 #include "../Optimization/ExperimentManifest.mqh"
 #include "CalibrationMetrics.mqh"
 #include "CalibrationReport.mqh"
+#include "CalibrationTransforms.mqh"
 #include "ThresholdOptimizer.mqh"
 #include "WeightOptimizer.mqh"
 #include "ValidatorAttribution.mqh"
@@ -38,7 +40,8 @@ enum ENUM_CALIBRATION_MODE
     CALIB_MODE_ABLATION,
     CALIB_MODE_PROMOTION,
     CALIB_MODE_ABLATION_CROSSCHECK,
-    CALIB_MODE_CALIBRATION
+    CALIB_MODE_CALIBRATION,
+    CALIB_MODE_TRANSFORMS
 };
 
 class CExperimentRunner
@@ -126,6 +129,8 @@ public:
                 return RunAblation(rows, count, cfg.minConfidence, fp, hex, manifest, true);
             case CALIB_MODE_CALIBRATION:
                 return RunCalibration(rows, count, cfg, fp, hex, manifest);
+            case CALIB_MODE_TRANSFORMS:
+                return RunTransforms(rows, count, cfg, fp, hex, manifest);
         }
         return false;
     }
@@ -141,6 +146,7 @@ private:
             case CALIB_MODE_PROMOTION:        return "promotion";
             case CALIB_MODE_ABLATION_CROSSCHECK: return "ablation_crosscheck";
             case CALIB_MODE_CALIBRATION:      return "calibration";
+            case CALIB_MODE_TRANSFORMS:       return "transforms";
         }
         return "unknown";
     }
@@ -470,6 +476,126 @@ private:
         m_logger.LogInfo(StringFormat("  decided %d / %d rows  Brier %.6f  ECE %.6f  MCE %.6f",
                                       summary.decidedRows, summary.totalRows,
                                       summary.brier, summary.ece, summary.mce));
+        return ok;
+    }
+
+    bool RunTransforms(TelemetryRow &rows[], int count, const CalibrationConfig &cfg,
+                       ulong fp, const string hex, const ExperimentManifest &manifest)
+    {
+        //--- Raw baseline metrics (self-contained, mirrors the frozen v1 manifest).
+        CalibrationBin rawBins[];
+        int rawBinCount = 0;
+        CalibrationSummary rawSummary;
+        CalibrationAnalyze(rows, count, CALIB_REPORT_DEFAULT_BIN_SIZE, rawBins, rawBinCount, rawSummary);
+
+        TradeStats baselineStats;
+        ReplayStats(rows, count, 0.60, baselineStats);
+
+        const int modelTypes[3] =
+        {
+            CALIB_TRANSFORM_ISOTONIC_V1,
+            CALIB_TRANSFORM_PLATT_V1,
+            CALIB_TRANSFORM_TEMPERATURE_V1
+        };
+
+        string tag = TimestampTag();
+        string lines[4];
+        int row = 0;
+
+        lines[row++] = StringFormat("raw,%.6f,0.000000,%.6f,0.000000,%.6f,%d,%.4f,%.4f,%.4f,%.4f,1.000000,0",
+                                    rawSummary.ece, rawSummary.brier, rawSummary.mce,
+                                    baselineStats.trades, baselineStats.expectancy,
+                                    baselineStats.profitFactor, baselineStats.winRate,
+                                    baselineStats.maxDrawdown);
+
+        for(int m = 0; m < 3; m++)
+        {
+            string name = CalibrationTransformName(modelTypes[m]);
+
+            CalibrationTransformParams params;
+            if(!CalibrationFitTransform(modelTypes[m], rows, count, params))
+            {
+                m_logger.LogWarn(StringFormat("Calibration: %s fit failed", name));
+                lines[row++] = StringFormat("%s,failed,0.0,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,1.000000,0",
+                                            name);
+                continue;
+            }
+
+            //--- Transformed copy: ReplayDecision reads row.confidence, so a
+            //    scored copy lets every downstream tool (report, gate) run
+            //    unchanged on the calibrated score.
+            TelemetryRow trows[];
+            ArrayResize(trows, count);
+            for(int i = 0; i < count; i++)
+            {
+                trows[i] = rows[i];
+                trows[i].confidence = CalibrationTransformApply(rows[i].confidence, params);
+            }
+
+            CalibrationBin bins[];
+            int binCount = 0;
+            CalibrationSummary summary;
+            CalibrationAnalyze(trows, count, CALIB_REPORT_DEFAULT_BIN_SIZE, bins, binCount, summary);
+
+            bool eligible[];
+            ArrayResize(eligible, count);
+            for(int i = 0; i < count; i++)
+                eligible[i] = trows[i].ReplayDecision(0.60);
+            TradeStats candidateStats;
+            CalibrationComputeStats(trows, eligible, count, candidateStats);
+
+            CPromotionGate gate;
+            PromotionReport report;
+            bool promoted = gate.Evaluate(trows, count, fp, name + "@0.60",
+                                          0.60, 0.60, candidateStats, baselineStats, report);
+            double pVal = (report.criterionCount > 3) ? report.criteria[3].pValue : 1.0;
+
+            string plines[];
+            CalibrationTransformSerialize(params, plines);
+            string paramsPath = m_outputDir + "/calib_transform_" + name + "_" + hex + "_" + tag + ".params";
+            WriteLines(paramsPath, plines);
+
+            lines[row++] = StringFormat("%s,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d",
+                                        name, summary.ece, rawSummary.ece - summary.ece,
+                                        summary.brier, rawSummary.brier - summary.brier,
+                                        summary.mce, candidateStats.trades,
+                                        candidateStats.expectancy, candidateStats.profitFactor,
+                                        candidateStats.winRate, candidateStats.maxDrawdown,
+                                        pVal, (promoted ? 1 : 0));
+
+            m_logger.LogInfo(StringFormat("Calibration: %-14s ECE %.4f (d%+.4f)  Brier %.4f (d%+.4f)  trades@0.60 %d  promoted %d",
+                                          name, summary.ece, rawSummary.ece - summary.ece,
+                                          summary.brier, rawSummary.brier - summary.brier,
+                                          candidateStats.trades, (promoted ? 1 : 0)));
+        }
+
+        string reportPath = m_outputDir + "/calib_transforms_" + hex + "_" + tag + ".csv";
+        string manifestPath = m_outputDir + "/calib_transforms_" + hex + "_" + tag + ".manifest";
+        string cardPath = m_outputDir + "/calib_reportcard_" + hex + "_" + tag + ".txt";
+
+        bool ok = WriteCsv(reportPath,
+                           "model,ece,deltaEce,brier,deltaBrier,mce,trades060,expectancy,profitFactor,winRate,maxDrawdown,pExpectancy,promoted",
+                           lines);
+
+        string cardLines[];
+        ArrayResize(cardLines, 12);
+        cardLines[0]  = "experiment:    calibration_transforms_compare";
+        cardLines[1]  = "question:      which Branch A transform best calibrates the raw v3.0 score?";
+        cardLines[2]  = "config fp:     " + hex;
+        cardLines[3]  = "dataset fp:    " + hex;
+        cardLines[4]  = "eaVersion:     " + cfg.eaVersion;
+        cardLines[5]  = "confidenceModel: raw (reference) / isotonic_v1 / platt_v1 / temperature_v1";
+        cardLines[6]  = StringFormat("raw baseline:  ECE %.6f  Brier %.6f  MCE %.6f",
+                                     rawSummary.ece, rawSummary.brier, rawSummary.mce);
+        cardLines[7]  = "models:        see calib_transforms_<hex>_<tag>.csv (Calibration Gain table)";
+        cardLines[8]  = "params:        calib_transform_<model>_<hex>_<tag>.params (reproducible, invertible)";
+        cardLines[9]  = "gate:          each model replayed at 0.60 vs raw baseline (PromotionGate criteria)";
+        cardLines[10] = "decision:      select model with best Calibration Gain; then rerun gate in 16.5";
+        cardLines[11] = "note:          fits are in-sample; selection confirmed by 16.5 gate before adoption";
+        ok = WriteLines(cardPath, cardLines) && ok;
+        ok = WriteManifest(manifest, manifestPath) && ok;
+
+        m_logger.LogInfo(StringFormat("Calibration: transform comparison -> %s", reportPath));
         return ok;
     }
 

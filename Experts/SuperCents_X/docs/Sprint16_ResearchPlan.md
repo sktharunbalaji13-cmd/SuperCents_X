@@ -66,6 +66,13 @@ proportional to actual probability of success.
 | A3 | Calibration table | Per 0.05 bin: n, win rate, expectancy, PF | Calibration table CSV |
 | A4 | Isotonic / Platt / temperature transform | Does a monotone transform reduce ECE/Brier? | Transformed scores + transformed reliability diagram |
 
+> **A4 result (Sprint 16.2, in-sample)**: isotonic/Platt reduce ECE to
+> 0.005/0.014 but only by collapsing to the base rate — PAV finds no monotone
+> structure (per-bin win rates non-monotone) and Platt fits a negative slope.
+> Temperature diverged (t=721, e^t overflow → constant 0.5, ECE worse than
+> raw). Every calibrated model yields **0 trades at the 0.60 gate** (calibrated
+> scores sit at ≈ 0.33–0.5). Details: `docs/Sprint16_2_CalibrationModels.md`.
+
 **Decision rule**: adopt a transform iff ECE decreases AND thresholds
 0.40–0.90 each yield ≥ 500 settled trades (vs 0 today above 0.65). If no
 transform helps, record the finding — the score may be structurally capped
