@@ -19,6 +19,7 @@
 #include "CapitalAllocator.mqh"
 #include "AllocationEngine.mqh"
 #include "PortfolioRiskManager.mqh"
+#include "../Confluence/ConfluenceWeights.mqh"
 
 class CPortfolioManager
 {
@@ -38,6 +39,8 @@ private:
     CPortfolioExposureTracker  m_exposureTracker;
     CAllocationEngine          m_allocationEngine;
     CPortfolioRiskManager      m_portfolioRiskManager;
+
+    ConfluenceWeights          m_weights;
 
     CEventBusAdapter    *m_eventBus;
 
@@ -60,9 +63,12 @@ public:
     void Shutdown(void);
     bool IsInitialized(void) const { return m_isInitialized; }
 
-    bool RegisterSymbol(const string symbol, int magicNumber = 0);
+    bool RegisterSymbol(const string symbol, int magicNumber = 0, ENUM_ENTRY_MODE entryMode = ENTRY_MODE_LEGACY);
     bool RemoveSymbol(const string symbol);
     int  GetSymbolCount(void) const { return m_contextCount; }
+
+    void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
+    ConfluenceWeights GetWeights(void) const { return m_weights; }
 
     CSymbolContext *GetContext(const string symbol);
     CSymbolContext *GetPrimaryContext(void);
@@ -223,7 +229,7 @@ void CPortfolioManager::Shutdown(void)
     m_logger.LogInfo("PortfolioManager shutdown complete");
 }
 
-bool CPortfolioManager::RegisterSymbol(const string symbol, int magicNumber)
+bool CPortfolioManager::RegisterSymbol(const string symbol, int magicNumber, ENUM_ENTRY_MODE entryMode)
 {
     if(!m_isInitialized)
     {
@@ -247,6 +253,9 @@ bool CPortfolioManager::RegisterSymbol(const string symbol, int magicNumber)
     CSymbolContext *ctx = new CSymbolContext(symbol, magicNumber);
     if(ctx == NULL)
         return false;
+
+    ctx.SetEntryMode(entryMode);
+    ctx.SetWeights(m_weights);
 
     if(!ctx.Init(m_eventBus))
     {

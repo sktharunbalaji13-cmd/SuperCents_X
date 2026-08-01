@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2026, SuperCents_X"
 #property link      "https://github.com/"
-#property version   "1.00"
+#property version   "2.90"
 
 //--- Include headers
 #include "Utils/Types.mqh"
@@ -38,6 +38,18 @@
 #include "Trading/TradeRequestBuilder.mqh"
 #include "Trading/TradeValidation.mqh"
 #include "Trading/TradeManager.mqh"
+#include "Entry/EntryConfig.mqh"
+
+//--- Input parameters
+input ENUM_ENTRY_MODE EntryMode = ENTRY_MODE_LEGACY;
+
+//--- v2.9: calibrated confluence weights (Sprint 14 Calibration).
+input double WeightStructure       = 25.0;   // Weight: Structure
+input double WeightOrderBlock      = 20.0;   // Weight: Order Block
+input double WeightFVG             = 15.0;   // Weight: FVG
+input double WeightLiquidity       = 15.0;   // Weight: Liquidity
+input double WeightTrend           = 15.0;   // Weight: Trend
+input double WeightPremiumDiscount = 10.0;   // Weight: Premium/Discount
 
 //--- Global engine instance
 CEngine g_engine;
@@ -48,8 +60,29 @@ CEngine g_engine;
 int OnInit()
 {
     Print("========================================");
-    Print("SuperCents_X EA - Sprint 2 Swing Detection");
+    Print("SuperCents_X EA - Sprint 14 (v2.9)");
     Print("========================================");
+
+    //--- v2.9: push calibrated weights into the engine before init so
+    //    every symbol context applies them to the ConfluenceEngine.
+    ConfluenceWeights w;
+    w.structure       = WeightStructure;
+    w.orderBlock      = WeightOrderBlock;
+    w.fvg             = WeightFVG;
+    w.liquidity       = WeightLiquidity;
+    w.trend           = WeightTrend;
+    w.premiumDiscount = WeightPremiumDiscount;
+    if(!w.IsValid())
+    {
+        Print("ERROR: Confluence weights must sum to 100 (got " +
+              DoubleToString(w.structure + w.orderBlock + w.fvg + w.liquidity + w.trend + w.premiumDiscount, 1) + ")");
+        return INIT_PARAMETERS_INCORRECT;
+    }
+    g_engine.SetWeights(w);
+    Print("Confluence weights: " + w.ToString());
+
+    // Set entry engine mode
+    g_engine.SetEntryMode(EntryMode);
 
     // Initialize the engine
     if(!g_engine.Init())
@@ -59,6 +92,10 @@ int OnInit()
     }
 
     Print("Engine initialized successfully");
+
+    if(EntryMode != ENTRY_MODE_LEGACY)
+        Print("Entry Engine running in " + EnumToString(EntryMode) + " mode");
+
     return INIT_SUCCEEDED;
 }
 

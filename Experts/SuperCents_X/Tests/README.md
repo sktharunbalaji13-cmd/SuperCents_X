@@ -1,21 +1,24 @@
 # Tests Directory
 
-This directory contains the regression test suite and performance benchmarks for the Validation Lab subsystem.
+This directory contains the regression test suite and performance benchmarks for the Validation Lab and Confluence Engine subsystems.
 
 ## Regression Suite
 
 **Entry point:** `TestRunner.mq5` (MQL5 Script)
 
-**Test files:**
+**Test files (Validation Lab — v2.7):**
 - `unit/TestAssert.mqh` — Custom assertion macros
 - `unit/TestWalkForward.mqh` — WalkForward scheduler tests
 - `unit/TestMonteCarlo.mqh` — Monte Carlo simulation tests
 - `unit/TestRegression.mqh` — Regression detection tests
 - `unit/TestReportComposer.mqh` — Report composer tests
 
-**How to run:** Compile and execute `TestRunner.mq5` as a Script in the MetaTrader 5 Strategy Tester or on a chart. All 152 tests execute and report results to the Experts log.
+**Test files (Confluence Engine — v2.8):**
+- `unit/TestConfluenceEngine.mqh` — 26 evaluator, engine, and integration tests
 
-**Expected output:**
+**How to run:** Compile and execute `TestRunner.mq5` as a Script in the MetaTrader 5 Strategy Tester or on a chart. All 178 tests execute and report results to the Experts log.
+
+**Expected output (v2.8):**
 ```
 === Validation Lab Test Suite ===
 [TestAssert] All 5 assertion tests passed
@@ -23,20 +26,24 @@ This directory contains the regression test suite and performance benchmarks for
 [MonteCarlo] All 89 simulation tests passed
 [Regression] All 28 regression tests passed
 [ReportComposer] All 14 composer tests passed
->>> Validation Lab Test Suite complete — 152/152 passed
+[ConfluenceEngine] All 26 engine tests passed
+>>> Validation Lab Test Suite complete — 178/178 passed
 ```
 
 ## Benchmark Suite
 
 **Entry point:** `BenchmarkRunner.mq5` (MQL5 Script)
 
-**Benchmark files:**
+**Benchmark files (Validation Lab — v2.7):**
 - `BenchmarkWalkForward.mqh` — 12 scheduler benchmarks (3 modes × 4 window sizes)
 - `BenchmarkMonteCarlo.mqh` — 20 simulation benchmarks (5 iterations × 4 trade counts)
 - `BenchmarkRegression.mqh` — 4 regression benchmarks (metric counts)
 - `BenchmarkReportComposer.mqh` — 3 composer benchmarks (text sizes)
 
-**How to run:** Compile and execute `BenchmarkRunner.mq5` as a Script in the MetaTrader 5 Strategy Tester or on a chart. All 39 benchmarks execute and output timing results to the Experts log.
+**Benchmark files (Confluence Engine — v2.8):**
+- `BenchmarkConfluence.mqh` — 10 benchmarks (6 individual evaluators, ScoreCalculator, engine evaluator path, engine rule path, registration cost)
+
+**How to run:** Compile and execute `BenchmarkRunner.mq5` as a Script in the MetaTrader 5 Strategy Tester or on a chart. All 49 benchmarks execute and output timing results to the Experts log.
 
 **Output:** Each benchmark reports:
 - Min/Avg/Max microseconds
@@ -45,12 +52,12 @@ This directory contains the regression test suite and performance benchmarks for
 
 A machine-readable baseline is written to the MT5 `Files/` directory:
 ```
-Files/baseline_v2.7.txt
+Files/baseline_v2.8.txt
 ```
 
-## Performance Baseline (`baseline_v2.7.txt`)
+## Performance Baseline (`baseline_v2.8.txt`)
 
-This is the canonical baseline for the v2.7 release. It contains timing data for all 39 benchmarks with the following format per line:
+This is the canonical baseline for the v2.8 release. It contains timing data for all 49 benchmarks with the following format per line:
 
 ```
 Benchmark.Label AvgUs=123.4 MinUs=100.0 MaxUs=150.0 StdDevUs=12.3 RSD=0.0997 Input=10 Unit=windows

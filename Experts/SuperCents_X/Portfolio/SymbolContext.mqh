@@ -43,6 +43,18 @@
 #include "../Risk/DrawdownMonitor.mqh"
 #include "PortfolioTypes.mqh"
 #include "PortfolioRiskManager.mqh"
+#include "../Entry/EntryOrchestrator.mqh"
+#include "../Entry/EntryConfig.mqh"
+#include "../Entry/CShadowTradeStateProvider.mqh"
+#include "../Entry/CShadowRiskEvaluator.mqh"
+#include "../Entry/Validators/DirectionValidator.mqh"
+#include "../Entry/Validators/ConfluenceValidator.mqh"
+#include "../Entry/Validators/FreshnessValidator.mqh"
+#include "../Entry/Validators/SpreadValidator.mqh"
+#include "../Entry/Validators/SessionValidator.mqh"
+#include "../Entry/Validators/DistanceValidator.mqh"
+#include "../Entry/Validators/CooldownValidator.mqh"
+#include "../Entry/Validators/RiskValidator.mqh"
 
 class CSymbolContext
 {
@@ -51,6 +63,7 @@ private:
     bool         m_isInitialized;
     string       m_symbol;
     int          m_magicNumber;
+    ConfluenceWeights m_weights;
 
     CEventBusAdapter     *m_eventBus;
 
@@ -84,6 +97,19 @@ private:
     CExposureTracker           *m_exposureTracker;
     CDrawdownMonitor           *m_drawdownMonitor;
 
+    CEntryOrchestrator       *m_entryOrchestrator;
+    ENUM_ENTRY_MODE           m_entryMode;
+    CShadowTradeStateProvider m_shadowProvider;
+    CShadowRiskEvaluator      m_shadowRisk;
+    CDirectionValidator       m_dirVal;
+    CConfluenceValidator      m_confVal;
+    CFreshnessValidator       m_freshVal;
+    CSpreadValidator          m_spreadVal;
+    CSessionValidator         m_sessVal;
+    CDistanceValidator        m_distVal;
+    CCooldownValidator        m_cooldownVal;
+    CRiskValidator            m_riskVal;
+
     int m_lastCHOCHCount;
 
     long m_updateCount;
@@ -101,6 +127,8 @@ public:
     void SetEventBus(CEventBusAdapter *bus) { m_eventBus = bus; }
     void SetMagicNumber(int magic) { m_magicNumber = magic; }
     void SetPortfolioRiskManager(CPortfolioRiskManager *prm) { m_portfolioRiskManager = prm; }
+    void SetEntryMode(ENUM_ENTRY_MODE mode) { m_entryMode = mode; }
+    void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 
     CSwingDetector             *GetSwingDetector(void) const { return m_swingDetector; }
     CStructuralPivotEngine     *GetStructuralPivotEngine(void) const { return m_structuralPivotEngine; }
@@ -157,6 +185,12 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber)
     , m_positionSizer(NULL)
     , m_exposureTracker(NULL)
     , m_drawdownMonitor(NULL)
+    , m_entryOrchestrator(NULL)
+    , m_entryMode(ENTRY_MODE_LEGACY)
+    , m_shadowProvider()
+    , m_shadowRisk()
+    , m_cooldownVal(&m_shadowProvider)
+    , m_riskVal(&m_shadowRisk)
     , m_lastCHOCHCount(0)
     , m_updateCount(0)
 {
@@ -289,6 +323,15 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         m_confluenceEngine.SetFVGDetector(m_fvgDetector);
         m_confluenceEngine.SetProtectedPointManager(m_protectedPointManager);
         m_confluenceEngine.SetLiquidityDetector(m_liquidityDetector);
+
+        //--- v2.9: apply calibrated weights (Sprint 14); default if invalid.
+        if(!m_weights.IsValid())
+        {
+            m_logger.LogWarn("Confluence weights invalid (sum != 100), using defaults: " + m_weights.ToString());
+            m_weights.ResetToDefaults();
+        }
+        m_confluenceEngine.SetWeights(m_weights);
+        m_logger.LogInfo("Confluence weights: " + m_weights.ToString());
     }
 
     m_entrySetupBuilder = new CEntrySetupBuilder();
@@ -461,6 +504,34 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         }
     }
 
+    if(m_entryMode != ENTRY_MODE_LEGACY)
+    {
+        m_entryOrchestrator = new CEntryOrchestrator();
+        if(m_entryOrchestrator != NULL)
+        {
+            m_entryOrchestrator.Init();
+            m_entryOrchestrator.RegisterValidator(&m_dirVal);
+            m_entryOrchestrator.RegisterValidator(&m_confVal);
+            m_entryOrchestrator.RegisterValidator(&m_freshVal);
+            m_entryOrchestrator.RegisterValidator(&m_spreadVal);
+            m_entryOrchestrator.RegisterValidator(&m_sessVal);
+            m_entryOrchestrator.RegisterValidator(&m_distVal);
+            m_entryOrchestrator.RegisterValidator(&m_cooldownVal);
+            m_entryOrchestrator.RegisterValidator(&m_riskVal);
+
+            if(m_entryMode == ENTRY_MODE_SHADOW)
+                m_entryOrchestrator.SetShadowMode(true);
+
+            if(m_entryMode == ENTRY_MODE_NEW)
+            {
+                Print("[SymbolContext] ENTRY_MODE_NEW reserved — falling back to shadow");
+                m_entryOrchestrator.SetShadowMode(true);
+            }
+
+            m_logger.LogInfo("EntryOrchestrator initialized with 8 validators");
+        }
+    }
+
     m_lastCHOCHCount = 0;
     m_updateCount = 0;
 
@@ -580,6 +651,67 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
         m_confluenceEngine.Update();
         ulong e_ce = GetMicrosecondCount();
         if(m_metricsCollector != NULL) m_metricsCollector.RecordTiming(MODULE_CONFLUENCE_ENGINE, e_ce - s_ce);
+    }
+
+    if(m_entryOrchestrator != NULL && m_confluenceEngine != NULL && m_entryMode != ENTRY_MODE_LEGACY)
+    {
+        ConfluenceResult cr;
+        if(m_confluenceEngine.GetLatestConfluence(cr) && cr.valid)
+        {
+            double bid = SymbolInfoDouble(m_symbol, SYMBOL_BID);
+            double ask = SymbolInfoDouble(m_symbol, SYMBOL_ASK);
+            double spreadPips = (ask - bid) / _Point;
+
+            // TODO(v2.9): Replace with EntrySetup price once ExecutionPlanner integration exists
+            double candPrice = bid;
+
+            // TODO(v2.9): Replace with signal lifecycle age once tracked
+            int barsSince = 0;
+
+            ulong t0 = GetMicrosecondCount();
+            EntryDecision newDecision = m_entryOrchestrator.Evaluate(
+                cr, spreadPips, TimeCurrent(), bid, ask, barsSince, candPrice);
+            ulong t1 = GetMicrosecondCount();
+
+            if(m_entryMode == ENTRY_MODE_SHADOW || m_entryMode == ENTRY_MODE_NEW)
+            {
+                CExecutionPlanner *planner = m_confluenceEngine.GetExecutionPlanner();
+                bool legacyQualified = false;
+                if(planner != NULL)
+                {
+                    for(int p = 0; p < planner.GetPlanCount(); p++)
+                    {
+                        ExecutionPlan ep;
+                        if(planner.GetPlan(p, ep) && ep.status == PLAN_EXECUTABLE)
+                        {
+                            legacyQualified = true;
+                            break;
+                        }
+                    }
+                }
+
+                ShadowComparison cmp;
+                cmp.formatVersion    = 1;
+                cmp.timestamp        = TimeCurrent();
+                cmp.symbol           = m_symbol;
+                cmp.timeframe        = (ENUM_TIMEFRAMES)Period();
+                cmp.eaVersion        = "v2.9";
+                cmp.validationTimeUs = (uint)(t1 - t0);
+                cmp.legacyConfidence = cr.totalConfidence;
+                cmp.newConfidence    = newDecision.confidence;
+
+                // TODO(v2.9): Compare at decision level when legacy engine exposed.
+                // Currently inferring legacy qualification from plan existence.
+                cmp.decisionMatch = (legacyQualified == (newDecision.status == DECISION_QUALIFIED));
+                cmp.directionMatch = (cr.direction == newDecision.direction);
+
+                cmp.legacyFirstReason = REASON_NONE;
+                cmp.newFirstReason = (newDecision.rejectionCount > 0)
+                    ? REASON_UNKNOWN : REASON_NONE;
+
+                m_entryOrchestrator.RecordShadowComparison(cmp);
+            }
+        }
     }
 
     if(m_portfolioRiskManager != NULL && m_portfolioRiskManager.IsInitialized() && m_confluenceEngine != NULL)
@@ -858,6 +990,13 @@ void CSymbolContext::Shutdown(void)
         m_drawdownMonitor.Shutdown();
         delete m_drawdownMonitor;
         m_drawdownMonitor = NULL;
+    }
+
+    if(m_entryOrchestrator != NULL)
+    {
+        m_entryOrchestrator.Shutdown();
+        delete m_entryOrchestrator;
+        m_entryOrchestrator = NULL;
     }
 
     m_portfolioRiskManager = NULL;

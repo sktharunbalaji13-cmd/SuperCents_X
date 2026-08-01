@@ -14,6 +14,7 @@
 #include "../Monitoring/EventBusAdapter.mqh"
 #include "../Portfolio/PortfolioManager.mqh"
 #include "../Portfolio/PortfolioTypes.mqh"
+#include "../Confluence/ConfluenceWeights.mqh"
 
 class CEngine
 {
@@ -22,6 +23,7 @@ private:
     bool m_isRunning;
     CLogger m_logger;
     CConfig m_config;
+    ConfluenceWeights m_weights;
 
     CPortfolioManager  *m_portfolioManager;
     CEventBusAdapter   *m_eventBus;
@@ -38,6 +40,10 @@ public:
     void Shutdown(void);
     bool IsRunning(void) const { return m_isRunning; }
     bool IsInitialized(void) const { return m_isInitialized; }
+
+    void SetEntryMode(ENUM_ENTRY_MODE mode) { m_config.SetEntryMode(mode); }
+    void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
+    ConfluenceWeights GetWeights(void) const { return m_weights; }
 
     CSwingDetector             *GetSwingDetector(void) const;
     CStructuralPivotEngine     *GetStructuralPivotEngine(void) const;
@@ -124,7 +130,9 @@ bool CEngine::Init(void)
         return false;
     }
 
-    if(!m_portfolioManager.RegisterSymbol(_Symbol, m_config.GetMagicNumber()))
+    m_portfolioManager.SetWeights(m_weights);
+
+    if(!m_portfolioManager.RegisterSymbol(_Symbol, m_config.GetMagicNumber(), m_config.GetEntryMode()))
     {
         m_logger.LogError("Failed to register primary symbol " + _Symbol);
         m_portfolioManager.Shutdown();

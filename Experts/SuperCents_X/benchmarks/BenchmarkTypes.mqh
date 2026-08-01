@@ -103,16 +103,32 @@ struct BenchmarkResult
     }
 };
 
+// @frozen v2.9.1 — benchmark file format.  Header fields must stay
+// stable so baselines are comparable across machines and builds.
+// Line format: "<label> AvgUs=<x> MinUs=<x> MaxUs=<x> StdDevUs=<x> RSD=<x> Input=<n> Unit=<unit>"
 string BuildHeader(void)
 {
+    long physRam = TerminalInfoInteger(TERMINAL_MEMORY_PHYSICAL);
+    string ram = (physRam > 1024L * 1024L * 1024L)
+        ? StringFormat("%.1f", (double)physRam / (1024.0 * 1024.0 * 1024.0))
+        : "n/a-in-tester";
     return StringFormat(
         "Validation Lab Performance Baseline\n"
-        "Version=v2.7-validation-lab\n"
+        "Format=2\n"
+        "Version=v2.9.1\n"
         "Compiler=MQL5 Build %d\n"
+        "CPU=%s\n"
+        "OS=%s\n"
+        "RAM_GB=%s\n"
         "Date=%s\n"
         "Terminal=%s\n"
         "------------------------------",
-        __MQLBUILD__, __DATETIME__, TerminalInfoString(TERMINAL_NAME));
+        __MQLBUILD__,
+        TerminalInfoString(TERMINAL_CPU_NAME),
+        TerminalInfoString(TERMINAL_OS_VERSION),
+        ram,
+        TimeToString(__DATETIME__, TIME_DATE | TIME_SECONDS),
+        TerminalInfoString(TERMINAL_NAME));
 }
 
 #define SUITE_BENCH(name) Print("=== " + name + " ===");

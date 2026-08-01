@@ -338,4 +338,40 @@ DISCOVERED → OPEN → BREAK_EVEN / TRAILING / PARTIAL → CLOSED
 
 ---
 
+## v2.9.1 Validation Lab Benchmark Baseline (frozen)
+
+**Tag:** `v2.9.1-calibration-stable`
+**Artifact:** `MQL5/Files/baseline_v2.9.txt` — 61 benchmarks, format v2 (frozen).
+
+### Benchmark Environment (must match for meaningful comparisons)
+
+| Field | Value |
+|-------|-------|
+| CPU | AMD Ryzen 7 7840HS w/ Radeon 780M |
+| OS | Windows 11 build 26200 |
+| MQL5 Build | 6070 |
+| RAM | n/a-in-tester (TERMINAL_MEMORY_PHYSICAL unavailable in sandbox) |
+| Terminal | MetaTrader 5 Strategy Tester, EURUSD H1, Model=4 (every tick) |
+| Runner | `BenchmarkRunnerEA.mq5` (headless, via `Sprint14_Benchmark.ini`) |
+
+### Rules
+
+- Header fields and line format are frozen at `Format=2` (see
+  `benchmarks/BenchmarkTypes.mqh` → `BuildHeader`). Do not add/remove
+  fields without bumping `Format`.
+- `baseline_v2.9.txt` is frozen. Future runs must produce a NEW file
+  (e.g. `baseline_v2.10.txt`) and compare against this one.
+- Sub-100 µs rows are noise-sensitive on this laptop; treat ±30% on
+  sub-100 µs rows as noise. Compare only same-environment runs.
+
+### v2.8 → v2.9.1 summary (61 benchmarks)
+
+- Confluence engine path −52%, rule path −55% (2.1x)
+- ReportComposer Large −47%, Regression 11-metrics −83%
+- MonteCarlo 1000-trade suites −4 to −7%
+- WalkForward mixed (noise-dominated at µs scale); sub-µs validators
+  unchanged.
+
+---
+
 *Future optimizations should be measured against these baseline values.*

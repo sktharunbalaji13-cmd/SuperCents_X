@@ -1,0 +1,45 @@
+#ifndef __ENTRY_CONFIG_MQH__
+#define __ENTRY_CONFIG_MQH__
+
+#include "../Confluence/SignalTypes.mqh"
+#include "EntryTypes.mqh"
+
+enum ENUM_ENTRY_MODE
+{
+    ENTRY_MODE_LEGACY = 0,
+    ENTRY_MODE_SHADOW,
+    ENTRY_MODE_NEW
+};
+
+struct ShadowComparison
+{
+    uint                        formatVersion;
+    datetime                    timestamp;
+    string                      symbol;
+    ENUM_TIMEFRAMES             timeframe;
+    string                      eaVersion;
+    bool                        decisionMatch;
+    bool                        directionMatch;
+    ENUM_ENTRY_REJECTION_REASON legacyFirstReason;
+    ENUM_ENTRY_REJECTION_REASON newFirstReason;
+    double                      legacyConfidence;
+    double                      newConfidence;
+    uint                        validationTimeUs;
+
+    ShadowComparison(void)
+        : formatVersion(1)
+        , timestamp(0)
+        , symbol("")
+        , timeframe(PERIOD_CURRENT)
+        , eaVersion("")
+        , decisionMatch(false)
+        , directionMatch(false)
+        , legacyFirstReason(REASON_NONE)
+        , newFirstReason(REASON_NONE)
+        , legacyConfidence(0.0)
+        , newConfidence(0.0)
+        , validationTimeUs(0)
+    {}
+};
+
+#endif

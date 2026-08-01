@@ -1,5 +1,70 @@
 # Changelog
 
+## v2.9.1-calibration-stable — 2026-08-01 — Calibration Framework + housekeeping release
+
+### Added
+- Offline calibration runner (`CalibrationRunner.mq5` + `Calibration/ExperimentRunner.mqh`) — threshold sweep, 3-stage weight search, validator ablation, promotion gate
+- `CWeightOptimizer` — coarse scan (3,003 evals) → fine scan → hill climb over the 6 confluence weights (0..100 ReplayConfidence scale)
+- `CThresholdOptimizer`, `CValidatorAttribution`, `CPromotionGate` (8-criteria CI gate vs locked baseline)
+- Headless validation suite: `Tests/TestSuite.mqh` + `Tests/TestRunnerEA.mq5` — **415 tests**, `Sprint14_TestRunner.ini`
+- Headless benchmarks: `benchmarks/Benchmarks.mqh` + `BenchmarkRunnerEA.mq5` — 61 benchmarks, frozen `Format=2` baseline with CPU/OS/build env header
+- v2.9 weight inputs in `SuperCents_X.mq5` (validated sum=100) → `CEngine` → `CPortfolioManager` → `CSymbolContext` → `CConfluenceEngine::SetWeights`
+- Docs: `docs/CalibrationGuide.md`, `docs/Sprint14_Calibration.md`, `docs/Architecture/v2.8-EntryEngine.md`, `docs/EntryValidationPipeline.md`
+
+### Changed
+- `ConfluenceScoreCalculator` — raw score clamped back into component results
+- `TrendEvaluator` NULL-state semantics (no score on no-trend data)
+- `ExperimentRunner::RunWeights` — threshold scaled to 0..100 (`minConfidence * 100`)
+- `TelemetryRow` schema frozen (`@frozen v2.9`); benchmark format frozen (`@frozen v2.9.1`)
+
+### Fixed
+- Weight optimizer `ScanNeighborhood` produced invalid weights (no rebalance) — stage 2 scored nothing
+- Weight optimizer `InsertRanked` compared against unscored candidates — "top 5" was the last 5 processed
+- Weight-search threshold-scale mismatch (0..1 vs 0..100) — every row qualified, capping expectancy at 0.5
+- 9 test-suite failures across Confluence / Telemetry / ForwardSimulator / Calibration suites → **415/415 green**
+
+### Housekeeping
+- Removed stray file, compile logs; `performance_baseline.md` v2.9.1 env record; frozen `Files/baseline_v2.9.txt`
+
+## v2.8-confluence-engine — 2026-07-30 — Confluence Engine Evaluator Architecture
+
+### Added
+- Modular evaluator pattern (`Confluence/Evaluators/` — 7 new files)
+  - `IConfluenceEvaluator` — pure virtual interface for all evaluators
+  - `StructureEvaluator` — structure-type confluence scoring
+  - `TrendEvaluator` — trend-type confluence scoring
+  - `OrderBlockEvaluator` — order-block confluence scoring
+  - `FVGEvaluator` — fair-value gap confluence scoring
+  - `LiquidityEvaluator` — liquidity-type confluence scoring
+  - `PremiumDiscountEvaluator` — premium/discount zone scoring
+- `ConfluenceScoreCalculator` (`Confluence/ConfluenceScoreCalculator.mqh`) — weighted aggregation of component scores
+- `ConfluenceLogger` (`Confluence/ConfluenceLogger.mqh`) — structured evaluation logging
+- `ConfluenceWeights` (`Confluence/ConfluenceWeights.mqh`) — configurable weight struct (25/20/15/15/15/10 defaults)
+- `ConfluenceTypes` (`Confluence/ConfluenceTypes.mqh`) — shared type definitions (DetectionContext, ConfluenceComponentResult, ConfluenceResult)
+- Unit tests (`Tests/unit/TestConfluenceEngine.mqh` — 26 tests)
+- Performance benchmarks (`benchmarks/BenchmarkConfluence.mqh` — 10 benchmarks)
+- Documentation (`docs/ConfluenceEngine_v2.8.md`)
+
+### Changed
+- `CConfluenceEngine` refactored to support evaluator registration + dispatch:
+  - `RegisterEvaluator(IConfluenceEvaluator*)` — registers an evaluator instance
+  - `SetWeights(ConfluenceWeights&)` — sets scoring weights
+  - `GetLatestConfluence()` — returns the most recent ConfluenceResult
+  - `IsUsingEvaluators()` — queries whether evaluator path is active
+  - `BuildDetectionContext()` — builds DetectionContext from current engine state
+  - `EvaluateViaEvaluators()` — dispatches to all registered evaluators and aggregates scores
+  - `BridgeConfluenceToSignal()` — converts ConfluenceResult + thresholds to ConfluenceSignal
+- Legacy rule path fully preserved (no changes to scoring logic)
+- `TestRunner.mq5` and `BenchmarkRunner.mq5` updated with new registrations
+- All existing 152 tests and 39 benchmarks continue to pass
+
+### Backward Compatibility
+- All existing types (`ConfluenceSignal`, `RuleResult`, `TradeCandidate`, `EntrySetup`) unchanged
+- Engine lifecycle (`Init()`, `Update()`, `Shutdown()`) unchanged
+- No changes to Entry/Exit pipeline interfaces
+
+---
+
 ## v2.7-validation-lab — 2026-07-30 — Validation Lab Subsystem
 
 ### Added

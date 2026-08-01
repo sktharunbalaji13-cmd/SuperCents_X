@@ -17,6 +17,12 @@
 #include "../Entry/EntryDecisionEngine.mqh"
 #include "../Entry/ExecutionPlanner.mqh"
 
+#include "ConfluenceTypes.mqh"
+#include "ConfluenceWeights.mqh"
+#include "ConfluenceScoreCalculator.mqh"
+#include "ConfluenceLogger.mqh"
+#include "Evaluators/IConfluenceEvaluator.mqh"
+
 #define EXPIRY_REASON_COUNT 7
 
 class CConfluenceEngine
@@ -51,8 +57,19 @@ private:
     int     m_ruleMatchCounts[8];
     int     m_ruleRejectCounts[8];
 
+    IConfluenceEvaluator    *m_evaluators[];
+    int                      m_evaluatorCount;
+    CConfluenceScoreCalculator  m_scoreCalc;
+    CConfluenceLogger           m_confluenceLogger;
+    ConfluenceWeights           m_weights;
+    ConfluenceResult            m_latestConfluence;
+    bool                        m_hasConfluence;
+
     void    CheckSignalLifecycles(void);
     void    ExpireSignal(int index, ExpiryReason reason);
+    void    BuildDetectionContext(DetectionContext &context);
+    bool    EvaluateViaEvaluators(ConfluenceDirection dir, ConfluenceResult &result);
+    void    BridgeConfluenceToSignal(const ConfluenceResult &cr, RuleResult &bestRule, ScoreLayer &score);
 
 public:
     CConfluenceEngine(void);
@@ -77,6 +94,11 @@ public:
     bool GetLatestSignal(ConfluenceSignal &out) const;
 
     CExecutionPlanner *GetExecutionPlanner(void) { return &m_executionPlanner; }
+
+    bool RegisterEvaluator(IConfluenceEvaluator *evaluator);
+    void SetWeights(const ConfluenceWeights &weights);
+    bool GetLatestConfluence(ConfluenceResult &out) const;
+    bool IsUsingEvaluators(void) const { return m_evaluatorCount > 0; }
 };
 
 CConfluenceEngine::CConfluenceEngine(void)
@@ -89,6 +111,8 @@ CConfluenceEngine::CConfluenceEngine(void)
     , m_totalSignalsExpired(0)
     , m_bullishCount(0)
     , m_bearishCount(0)
+    , m_evaluatorCount(0)
+    , m_hasConfluence(false)
 {
     m_trendState            = NULL;
     m_bosDetector           = NULL;
@@ -158,40 +182,6 @@ void CConfluenceEngine::Update(void)
 
     CheckSignalLifecycles();
 
-    RuleResult results[7];
-    int matchCount = 0;
-    int bestIdx = -1;
-    int bestScore = 0;
-
-    results[0] = RuleBOS_OB_Bullish(m_trendState, m_bosDetector, m_orderBlockDetector);
-    results[1] = RuleBOS_OB_Bearish(m_trendState, m_bosDetector, m_orderBlockDetector);
-    results[2] = RuleOB_FVG_Bullish(m_orderBlockDetector, m_fvgDetector);
-    results[3] = RuleOB_FVG_Bearish(m_orderBlockDetector, m_fvgDetector);
-    results[4] = RuleLiquidity_BOS_Bullish(m_trendState, m_liquidityDetector, m_bosDetector);
-    results[5] = RuleLiquidity_BOS_Bearish(m_trendState, m_liquidityDetector, m_bosDetector);
-    results[6] = RuleCHOCH_OB_Reversal(m_chochDetector, m_orderBlockDetector);
-
-    for(int i = 0; i < 7; i++)
-    {
-        if(results[i].matched)
-        {
-            matchCount++;
-            m_ruleMatchCounts[results[i].type]++;
-            m_logger.LogInfo(results[i].ToString());
-            if(results[i].score > bestScore)
-            {
-                bestScore = results[i].score;
-                bestIdx = i;
-            }
-        }
-        else
-        {
-            m_ruleRejectCounts[results[i].type]++;
-            m_logger.LogDebug(StringFormat("RULE-REJECT type=%d reason=%s",
-                                           results[i].type, results[i].explanation));
-        }
-    }
-
     ConfluenceDirection dir = CONFLUENCE_NONE;
     ScoreLayer score;
     score.structural = 0;
@@ -209,21 +199,102 @@ void CConfluenceEngine::Update(void)
     bestRule.explanation = "";
     bestRule.timestamp = 0;
 
-    if(bestIdx >= 0)
-    {
-        bestRule = results[bestIdx];
-        dir = bestRule.direction;
+    RuleResult results[7];
+    int matchCount = 0;
 
-        LayerResult layers = CalculateRuleLayers(bestRule,
-                                                  m_trendState,
-                                                  m_bosDetector,
-                                                  m_orderBlockDetector,
-                                                  m_fvgDetector,
-                                                  m_liquidityDetector);
-        score.structural = layers.structural;
-        score.liquidity = layers.liquidity;
-        score.confirmation = layers.confirmation;
-        score.total = layers.total;
+    if(m_evaluatorCount > 0)
+    {
+        DetectionContext context;
+        BuildDetectionContext(context);
+
+        ConfluenceResult crBull, crBear;
+        bool hasBull = EvaluateViaEvaluators(CONFLUENCE_BULLISH, crBull);
+        bool hasBear = EvaluateViaEvaluators(CONFLUENCE_BEARISH, crBear);
+
+        bool useBullish = (hasBull && (!hasBear || crBull.totalConfidence >= crBear.totalConfidence));
+        bool useBearish = (hasBear && (!hasBull || crBear.totalConfidence > crBull.totalConfidence));
+
+        ConfluenceResult cr;
+        if(useBullish)
+        {
+            cr = crBull;
+            dir = CONFLUENCE_BULLISH;
+        }
+        else if(useBearish)
+        {
+            cr = crBear;
+            dir = CONFLUENCE_BEARISH;
+        }
+
+        m_hasConfluence = cr.valid;
+        m_latestConfluence = cr;
+
+        if(cr.valid)
+        {
+            m_confluenceLogger.LogEvaluation(cr);
+            BridgeConfluenceToSignal(cr, bestRule, score);
+        }
+    }
+    else
+    {
+        results[0] = RuleBOS_OB_Bullish(m_trendState, m_bosDetector, m_orderBlockDetector);
+        results[1] = RuleBOS_OB_Bearish(m_trendState, m_bosDetector, m_orderBlockDetector);
+        results[2] = RuleOB_FVG_Bullish(m_orderBlockDetector, m_fvgDetector);
+        results[3] = RuleOB_FVG_Bearish(m_orderBlockDetector, m_fvgDetector);
+        results[4] = RuleLiquidity_BOS_Bullish(m_trendState, m_liquidityDetector, m_bosDetector);
+        results[5] = RuleLiquidity_BOS_Bearish(m_trendState, m_liquidityDetector, m_bosDetector);
+        results[6] = RuleCHOCH_OB_Reversal(m_chochDetector, m_orderBlockDetector);
+
+        int bestIdx = -1;
+        int bestScoreVal = 0;
+
+        for(int i = 0; i < 7; i++)
+        {
+            if(results[i].matched)
+            {
+                matchCount++;
+                m_ruleMatchCounts[results[i].type]++;
+                m_logger.LogInfo(results[i].ToString());
+                if(results[i].score > bestScoreVal)
+                {
+                    bestScoreVal = results[i].score;
+                    bestIdx = i;
+                }
+            }
+            else
+            {
+                m_ruleRejectCounts[results[i].type]++;
+                m_logger.LogDebug(StringFormat("RULE-REJECT type=%d reason=%s",
+                                               results[i].type, results[i].explanation));
+            }
+        }
+
+        if(bestIdx >= 0)
+        {
+            bestRule = results[bestIdx];
+            dir = bestRule.direction;
+
+            LayerResult layers = CalculateRuleLayers(bestRule,
+                                                      m_trendState,
+                                                      m_bosDetector,
+                                                      m_orderBlockDetector,
+                                                      m_fvgDetector,
+                                                      m_liquidityDetector);
+            score.structural = layers.structural;
+            score.liquidity = layers.liquidity;
+            score.confirmation = layers.confirmation;
+            score.total = layers.total;
+        }
+    }
+
+    if(dir == CONFLUENCE_BULLISH || dir == CONFLUENCE_BEARISH)
+    {
+        m_hasConfluence = true;
+        m_latestConfluence.valid = true;
+        m_latestConfluence.direction = dir;
+        m_latestConfluence.totalConfidence = (double)score.total;
+        m_latestConfluence.componentCount = 0;
+        m_latestConfluence.summaryExplanation = bestRule.explanation;
     }
 
     if(dir == CONFLUENCE_BULLISH) m_bullishCount++;
@@ -410,6 +481,117 @@ void CConfluenceEngine::ExpireSignal(int index, ExpiryReason reason)
                                     reason == EXPIRY_LIQUIDITY_MITIGATED ? "LIQUIDITY_MITIGATED" :
                                     reason == EXPIRY_LIQUIDITY_INVALIDATED ? "LIQUIDITY_INVALIDATED" :
                                     reason == EXPIRY_TREND_REVERSAL ? "TREND_REVERSAL" : "UNKNOWN"));
+}
+
+bool CConfluenceEngine::RegisterEvaluator(IConfluenceEvaluator *evaluator)
+{
+    if(evaluator == NULL) return false;
+    int idx = m_evaluatorCount;
+    ArrayResize(m_evaluators, idx + 1);
+    m_evaluators[idx] = evaluator;
+    m_evaluatorCount++;
+    m_logger.LogDebug(StringFormat("Evaluator registered: %s", evaluator.GetName()));
+    return true;
+}
+
+void CConfluenceEngine::SetWeights(const ConfluenceWeights &weights)
+{
+    m_weights = weights;
+    m_scoreCalc.SetWeights(weights);
+    m_logger.LogDebug(StringFormat("Confluence weights updated: %s", weights.ToString()));
+}
+
+bool CConfluenceEngine::GetLatestConfluence(ConfluenceResult &out) const
+{
+    if(!m_hasConfluence) return false;
+    out = m_latestConfluence;
+    return true;
+}
+
+void CConfluenceEngine::BuildDetectionContext(DetectionContext &context)
+{
+    context.trendState = m_trendState;
+    context.bosDetector = m_bosDetector;
+    context.chochDetector = m_chochDetector;
+    context.orderBlockDetector = m_orderBlockDetector;
+    context.fvgDetector = m_fvgDetector;
+    context.protectedPointManager = m_protectedPointManager;
+    context.liquidityDetector = m_liquidityDetector;
+    context.currentPrice = iClose(_Symbol, _Period, 0);
+    context.currentTime = iTime(_Symbol, _Period, 0);
+}
+
+bool CConfluenceEngine::EvaluateViaEvaluators(ConfluenceDirection dir, ConfluenceResult &result)
+{
+    if(m_evaluatorCount <= 0) return false;
+
+    DetectionContext context;
+    BuildDetectionContext(context);
+
+    ConfluenceComponentResult components[MAX_CONFLUENCE_COMPONENTS];
+    int compCount = 0;
+
+    result.direction = dir;
+    result.valid = false;
+
+    for(int i = 0; i < m_evaluatorCount && compCount < MAX_CONFLUENCE_COMPONENTS; i++)
+    {
+        ConfluenceComponentResult cr;
+        m_evaluators[i].Evaluate(context, cr);
+
+        if(cr.score > 0.0)
+        {
+            components[compCount] = cr;
+            compCount++;
+        }
+    }
+
+    if(compCount > 0)
+    {
+        m_scoreCalc.Calculate(components, compCount, result);
+    }
+
+    return result.valid;
+}
+
+void CConfluenceEngine::BridgeConfluenceToSignal(const ConfluenceResult &cr,
+                                                   RuleResult &bestRule,
+                                                   ScoreLayer &score)
+{
+    bestRule.matched = cr.valid;
+    bestRule.type = RULE_NONE;
+    bestRule.score = (int)cr.totalConfidence;
+    bestRule.confidence = cr.totalConfidence / 100.0;
+    bestRule.direction = cr.direction;
+    bestRule.evidenceCount = 0;
+    bestRule.explanation = cr.summaryExplanation;
+    bestRule.timestamp = TimeCurrent();
+
+    for(int i = 0; i < cr.componentCount && i < MAX_EVIDENCE_IDS; i++)
+    {
+        bestRule.evidenceIds[i] = cr.components[i].type;
+        bestRule.evidenceCount++;
+    }
+
+    score.structural = 0;
+    score.liquidity = 0;
+    score.confirmation = 0;
+    score.total = (int)cr.totalConfidence;
+
+    for(int i = 0; i < cr.componentCount; i++)
+    {
+        ENUM_CONFLUENCE_COMPONENT t = cr.components[i].type;
+        if(t == COMPONENT_STRUCTURE || t == COMPONENT_ORDER_BLOCK || t == COMPONENT_FVG)
+            score.structural += (int)cr.components[i].contribution;
+        else if(t == COMPONENT_LIQUIDITY)
+            score.liquidity += (int)cr.components[i].contribution;
+        else
+            score.confirmation += (int)cr.components[i].contribution;
+    }
+
+    score.structural = fmin(score.structural, 50);
+    score.liquidity = fmin(score.liquidity, 30);
+    score.confirmation = fmin(score.confirmation, 20);
 }
 
 void CConfluenceEngine::Shutdown(void)

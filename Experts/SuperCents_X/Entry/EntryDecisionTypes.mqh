@@ -2,6 +2,7 @@
 #define __ENTRY_DECISION_TYPES_MQH__
 
 #include "../Confluence/SignalTypes.mqh"
+#include "EntryTypes.mqh"
 
 #define MAX_REJECTION_REASONS 5
 
@@ -43,6 +44,9 @@ struct EntryDecision
 
     int     evidenceCount;
     int     ruleCount;
+
+    EntryFilterResult filters[MAX_ENTRY_FILTERS];
+    int     filterCount;
 };
 
 #endif

@@ -9,6 +9,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "StructuralPivotEngine.mqh"
 
 //--- Sprint 4: Break of Structure Detector
 //--- Consumes only StructuralPivotEngine API
