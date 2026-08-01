@@ -4,6 +4,7 @@
 //|                                             Sprint 14 (v2.9)       |
 //+------------------------------------------------------------------+
 //  @frozen v2.9  TelemetryRow  (schemaVersion = 1)
+//  @frozen v2.9.2 TelemetryRow  (schemaVersion = 2)
 //
 //  CONTRACT RULES (append-only, never break):
 //  - Column order and semantics are frozen once data collection starts.
@@ -12,6 +13,12 @@
 //    until used; they must never be repurposed.
 //  - New fields require a schemaVersion bump and an append-only CSV
 //    migration (new columns at the END of the header).
+//
+//  v2 semantics (v2.9.2): all confidence columns (confidence,
+//  legacyConfidence, newConfidence, confThreshold) are normalized to the
+//  0-1 scale. In v1, legacyConfidence was stored on the 0-100 scale;
+//  v2 rows are the only rows the collector produces. Column layout is
+//  identical to v1 (append-only preserved).
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_TYPES_MQH__
 #define __TELEMETRY_TYPES_MQH__
@@ -21,14 +28,31 @@
 #include "../Entry/EntryTypes.mqh"
 
 //--- Canonical EA version used by the configuration fingerprint.
-#define TELEMETRY_EA_VERSION "v2.9"
+#define TELEMETRY_EA_VERSION "v2.9.2"
 
-#define TELEMETRY_SCHEMA_VERSION     1
+#define TELEMETRY_SCHEMA_VERSION     2
 #define MAX_TELEMETRY_VALIDATORS     12
 #define TELEMETRY_COMPONENT_COUNT    6
 
-//--- CSV column order â€” part of the frozen v1 contract. Append-only.
+//--- CSV column order — part of the frozen v1 contract. Append-only.
 #define TELEMETRY_CSV_HEADER_V1 \
+    "schemaVersion,configFingerprint,timestamp,symbol,timeframe,eaVersion," \
+    "decisionId,direction,confidence," \
+    "structureRaw,structureWeight,structureContribution," \
+    "obRaw,obWeight,obContribution," \
+    "fvgRaw,fvgWeight,fvgContribution," \
+    "trendRaw,trendWeight,trendContribution," \
+    "liquidityRaw,liquidityWeight,liquidityContribution," \
+    "pdRaw,pdWeight,pdContribution," \
+    "validatorResults,confThreshold,newDecision,legacyDecision," \
+    "decisionMatch,directionMatch,legacyConfidence,newConfidence,disabledValidators," \
+    "outcomeSource,outcome,rMultiple,barsHeld,exitReason,entryPrice,exitPrice," \
+    "actualOutcome,actualOutcomeSource"
+
+//--- Active v2 header (v2.9.2): identical 45 columns; all confidence
+//    columns (confidence, confThreshold, legacyConfidence, newConfidence)
+//    are normalized to 0-1.
+#define TELEMETRY_CSV_HEADER_V2 \
     "schemaVersion,configFingerprint,timestamp,symbol,timeframe,eaVersion," \
     "decisionId,direction,confidence," \
     "structureRaw,structureWeight,structureContribution," \
@@ -107,8 +131,9 @@ struct SimulatedOutcome
 };
 
 // @frozen v2.9
+// @frozen v2.9.2 (schemaVersion = 2: confidence columns normalized 0-1)
 //--- One decision = one telemetry row.  Frozen contract (see header).
-//    Schema freeze: rows must stay CSV-compatible with telemetry_v1_*.
+//    Schema freeze: rows must stay CSV-compatible with telemetry_v2_*.
 //    Any schema change requires a new schemaVersion + reader migration.
 struct TelemetryRow
 {
@@ -120,7 +145,7 @@ struct TelemetryRow
     string   eaVersion;
     int      decisionId;         // run-local monotonic id
     int      direction;          // ConfluenceDirection
-    double   confidence;
+    double   confidence;         // 0-1 (new-engine decision confidence, v2)
 
     //--- Component raw scores, weights and contributions (all three stored).
     double structureRaw, structureWeight, structureContribution;
@@ -134,16 +159,16 @@ struct TelemetryRow
     TelemetryValidatorResult validators[MAX_TELEMETRY_VALIDATORS];
     int      validatorCount;
 
-    //--- Confidence threshold that was active for this row (enables exact replay).
+    //--- Confidence threshold that was active for this row (enables exact replay). 0-1.
     double   confThreshold;
 
     //--- Decisions.
     bool     newDecision;
     bool     legacyDecision;
     bool     decisionMatch;    // new vs legacy qualification agreement
-    bool     directionMatch;   // legacy plan direction vs confluence direction
-    double   legacyConfidence;
-    double   newConfidence;
+    bool     directionMatch;   // legacy decision direction vs new decision direction
+    double   legacyConfidence; // 0-1 (v2; was 0-100 in v1)
+    double   newConfidence;    // 0-1
     string   disabledValidators;   // comma-separated, sorted
 
     //--- Simulated outcome (settled for every row with a direction).

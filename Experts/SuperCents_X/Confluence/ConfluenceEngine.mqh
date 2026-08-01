@@ -94,6 +94,7 @@ public:
     bool GetLatestSignal(ConfluenceSignal &out) const;
 
     CExecutionPlanner *GetExecutionPlanner(void) { return &m_executionPlanner; }
+    bool GetLastEntryDecision(EntryDecision &out) const { return m_entryDecisionEngine.GetLastDecision(out); }
 
     bool RegisterEvaluator(IConfluenceEvaluator *evaluator);
     void SetWeights(const ConfluenceWeights &weights);

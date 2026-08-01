@@ -1,10 +1,13 @@
 ﻿//+------------------------------------------------------------------+
 //|                                        CalibrationDataset.mqh      |
 //|                                      Copyright 2026, SuperCents_X|
-//|                                             Sprint 14 (v2.9)       |
+//|                                             v2.9.2 (Sprint 14.6)  |
 //+------------------------------------------------------------------+
 //  Loads telemetry CSV files back into TelemetryRow[] and provides the
 //  replay filters used by the calibration optimizers.
+//
+//  v2.9.2: reads telemetry_v2_*.csv (schemaVersion = 2; all confidence
+//  columns 0-1). v1 files predate collection and are not supported.
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_CALIBRATION_DATASET_MQH__
 #define __TELEMETRY_CALIBRATION_DATASET_MQH__
@@ -163,7 +166,7 @@ public:
     }
 
     //--- Load every telemetry CSV in the directory matching the pattern.
-    int LoadDir(const string outputDir, const string pattern = "telemetry_v1_*.csv")
+    int LoadDir(const string outputDir, const string pattern = "telemetry_v2_*.csv")
     {
         string filter = outputDir;
         int fl = StringLen(filter);

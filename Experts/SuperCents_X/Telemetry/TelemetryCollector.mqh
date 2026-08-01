@@ -1,11 +1,12 @@
 ﻿//+------------------------------------------------------------------+
 //|                                        TelemetryCollector.mqh      |
 //|                                      Copyright 2026, SuperCents_X|
-//|                                             Sprint 14 (v2.9)       |
+//|                                             v2.9.2 (Sprint 14.6)  |
 //+------------------------------------------------------------------+
-//  Persists every decision as one CSV row (frozen v1 schema).
+//  Persists every decision as one CSV row (frozen v2 schema).
 //
-//  - Daily rotation: telemetry_v1_YYYYMMDD.csv under Files/Telemetry/
+//  - Daily rotation: telemetry_v2_YYYYMMDD.csv under Common\Files\Telemetry
+//    (FILE_COMMON is used on write AND read sides — CalibrationDataset)
 //  - Header written only when the file is created
 //  - Rows buffered in memory and flushed on demand / when full
 //  - decisionId is assigned run-locally when the caller passes 0
@@ -49,7 +50,7 @@ private:
 
     bool WriteHeader(int handle)
     {
-        return FileWrite(handle, TELEMETRY_CSV_HEADER_V1) > 0;
+        return FileWrite(handle, TELEMETRY_CSV_HEADER_V2) > 0;
     }
 
     bool WriteRow(int handle, const TelemetryRow &row)
@@ -103,7 +104,7 @@ private:
             return true;
 
         string filePath = BuildFilePath();
-        bool exists = FileIsExist(filePath);
+        bool exists = FileIsExist(filePath, FILE_COMMON);
         int handle = FileOpen(filePath, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
         if(handle == INVALID_HANDLE)
         {
@@ -191,6 +192,8 @@ public:
         m_faultCount = 0;
         m_runId = 0;
         m_isInitialized = true;
+        m_logger.LogInfo("Telemetry collector initialized (schema v" + IntegerToString(TELEMETRY_SCHEMA_VERSION) + ", "
+                         + BuildFilePath() + ")");
         return true;
     }
 
@@ -205,6 +208,8 @@ public:
             row.decisionId = ++m_runId;
 
         int idx = m_buffered;
+        if(idx >= ArraySize(m_rows))
+            ArrayResize(m_rows, ArraySize(m_rows) + 256);
         if(idx >= TELEMETRY_BUFFER_CAPACITY)
         {
             if(!FlushBuffer())

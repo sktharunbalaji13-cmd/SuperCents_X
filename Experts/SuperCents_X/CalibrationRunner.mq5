@@ -1,7 +1,7 @@
 ﻿//+------------------------------------------------------------------+
 //|                                     CalibrationRunner.mq5          |
 //|                                      Copyright 2026, SuperCents_X|
-//|                                             Sprint 14 (v2.9)       |
+//|                                             v2.9.2 (Sprint 14.6)  |
 //+------------------------------------------------------------------+
 //  Offline calibration engine (run in the Strategy Tester or live).
 //  Replays stored telemetry rows and runs one experiment per input:
@@ -12,12 +12,13 @@
 //    MODE_PROMOTION   - CI-style promotion gate vs the locked baseline
 //    MODE_ABLATION_CROSSCHECK - attribution at the candidate threshold
 //
-//  Telemetry rows are read from Files/Telemetry/ (telemetry_v1_*.csv),
-//  reports + manifests are written to Files/Calibration/.
+//  Telemetry rows are read from Common\Files\Telemetry/
+//  (telemetry_v2_*.csv, schemaVersion = 2), reports + manifests are
+//  written to Files/Calibration/.
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, SuperCents_X"
 #property link      ""
-#property version   "2.9"
+#property version   "2.92"
 #property strict
 
 #include "Calibration/ExperimentRunner.mqh"

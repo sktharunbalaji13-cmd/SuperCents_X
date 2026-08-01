@@ -1,4 +1,4 @@
-# Calibration Guide (Sprint 14 / v2.9)
+# Calibration Guide (Sprint 14.6 / v2.9.2)
 
 How to run the offline calibration stack, read its outputs, and apply the
 results to production.
@@ -6,7 +6,7 @@ results to production.
 ## 1. Architecture overview
 
 ```
-Live EA (shadow) ──► TelemetryRow ──► Files/Telemetry/telemetry_v1_*.csv
+Live EA (shadow) ──► TelemetryRow ──► Common\Files\Telemetry\telemetry_v2_*.csv
                                           │
 CalibrationRunner.mq5 ──► CExperimentRunner
      │                       ├─ RunThreshold  (CThresholdOptimizer)  0..1 scale
@@ -17,10 +17,11 @@ CalibrationRunner.mq5 ──► CExperimentRunner
      └─► Files/Calibration/calib_<type>_<hex>_<tag>.csv + .manifest
 ```
 
-Telemetry rows are written by the live EA (shadow mode). The calibration
-runner replays them offline — no market connection required — and writes
-CSV reports plus manifests (fingerprint, date range, sample counts) for
-auditability.
+Telemetry rows are written by the live EA (shadow mode), schema v2
+(`schemaVersion = 2`; all confidence columns normalized 0-1 — v1 rows
+predate collection and are not supported). The calibration runner replays
+them offline — no market connection required — and writes CSV reports plus
+manifests (fingerprint, date range, sample counts) for auditability.
 
 ## 2. Threshold optimizer (0..1 scale)
 

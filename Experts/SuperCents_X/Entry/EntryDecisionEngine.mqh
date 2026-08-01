@@ -19,6 +19,9 @@ private:
     EntryDecision       m_decisions[];
     int                 m_decisionCount;
 
+    EntryDecision       m_lastDecision;
+    bool                m_hasLastDecision;
+
     CTrendState         *m_trendState;
 
     int     m_totalEvaluated;
@@ -47,12 +50,14 @@ public:
 
     int  GetDecisionCount(void) const { return m_decisionCount; }
     bool GetDecision(int index, EntryDecision &out) const;
+    bool GetLastDecision(EntryDecision &out) const;
 };
 
 CEntryDecisionEngine::CEntryDecisionEngine(void)
     : m_isInitialized(false)
     , m_logger(MODULE_ENTRY_DECISION, "EntryDecision")
     , m_decisionCount(0)
+    , m_hasLastDecision(false)
     , m_trendState(NULL)
     , m_totalEvaluated(0)
     , m_totalQualified(0)
@@ -79,6 +84,7 @@ bool CEntryDecisionEngine::Init(void)
     }
 
     m_decisionCount = 0;
+    m_hasLastDecision = false;
     m_totalEvaluated = 0;
     m_totalQualified = 0;
     m_totalRejected = 0;
@@ -259,6 +265,9 @@ void CEntryDecisionEngine::EvaluateCandidate(const TradeCandidate &candidate)
     m_decisions[idx] = decision;
     m_decisionCount++;
 
+    m_lastDecision = decision;
+    m_hasLastDecision = true;
+
     m_totalEvaluated++;
     m_totalDecisionScore += decision.decisionScore;
     m_totalConfidence += decision.confidence;
@@ -341,6 +350,17 @@ bool CEntryDecisionEngine::GetDecision(int index, EntryDecision &out) const
     if(index < 0 || index >= m_decisionCount)
         return false;
     out = m_decisions[index];
+    return true;
+}
+
+//--- Most recently evaluated decision (shadow comparison: decision-level
+//    like-for-like with the new engine). Decisions persist until superseded
+//    or expired, mirroring the plan lifecycle the legacy side used before.
+bool CEntryDecisionEngine::GetLastDecision(EntryDecision &out) const
+{
+    if(!m_hasLastDecision)
+        return false;
+    out = m_lastDecision;
     return true;
 }
 

@@ -13,6 +13,8 @@ enum ENUM_ENTRY_MODE
 
 struct ShadowComparison
 {
+    //--- format 1 (v2.9): legacy side inferred from plan existence; legacyConfidence 0-100.
+    //--- format 2 (v2.9.2): legacy side is the decision-level status; both confidences 0-1.
     uint                        formatVersion;
     datetime                    timestamp;
     string                      symbol;
@@ -27,7 +29,7 @@ struct ShadowComparison
     uint                        validationTimeUs;
 
     ShadowComparison(void)
-        : formatVersion(1)
+        : formatVersion(2)
         , timestamp(0)
         , symbol("")
         , timeframe(PERIOD_CURRENT)

@@ -15,6 +15,7 @@
 #include "../Portfolio/PortfolioManager.mqh"
 #include "../Portfolio/PortfolioTypes.mqh"
 #include "../Confluence/ConfluenceWeights.mqh"
+#include "../Telemetry/TelemetryCollector.mqh"
 
 class CEngine
 {
@@ -27,6 +28,7 @@ private:
 
     CPortfolioManager  *m_portfolioManager;
     CEventBusAdapter   *m_eventBus;
+    CTelemetryCollector m_telemetry;
 
     bool CopyOHLCArrays(double &open[], double &high[], double &low[], double &close[], datetime &time[]);
     bool IsNewBar(void);
@@ -131,6 +133,7 @@ bool CEngine::Init(void)
     }
 
     m_portfolioManager.SetWeights(m_weights);
+    m_portfolioManager.SetTelemetryCollector(&m_telemetry);
 
     if(!m_portfolioManager.RegisterSymbol(_Symbol, m_config.GetMagicNumber(), m_config.GetEntryMode()))
     {
@@ -148,6 +151,7 @@ bool CEngine::Init(void)
     }
 
     m_logger.LogInfo("Engine initialization complete");
+    m_telemetry.Init();
     m_isInitialized = true;
     m_isRunning = true;
 
@@ -201,6 +205,8 @@ void CEngine::Shutdown(void)
         delete m_portfolioManager;
         m_portfolioManager = NULL;
     }
+
+    m_telemetry.Shutdown();
 
     if(m_eventBus != NULL)
     {

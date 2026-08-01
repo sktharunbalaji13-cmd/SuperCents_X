@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.9.2-telemetry-stable — 2026-08-01 — Telemetry pipeline verified end-to-end (Sprint 14.5 maintenance)
+
+### Fixed
+- A-01 Shadow comparison semantics — shadow mode now compares the legacy **decision** (`EntryDecisionEngine`) against the new-engine decision instead of plan existence (previously a trivial 100% match); `decisionMatch` / `directionMatch` flags per bar (`ShadowComparison.formatVersion = 2`)
+- A-02 Confidence scale — all telemetry confidence columns normalized to the 0–1 scale (`legacyConfidence` now carries the decision confidence, not the 0–100 raw score); schema bumped to v2 (`TELEMETRY_SCHEMA_VERSION = 2`, `TELEMETRY_EA_VERSION = "v2.9.2"`, 45-column header layout preserved)
+- A-03 Telemetry collection — collector wired through `CEngine` → `CPortfolioManager` → `CSymbolContext`; per-bar rows via new `CTelemetryRowBuilder` (components, validator filters, decision flags, config fingerprint, 0–1 confidences); collector fixes: `FileIsExist` now matches `FILE_COMMON` open mode, `Record()` buffer resize guard, schema-v2 header
+
+### Added
+- `Telemetry/TelemetryRowBuilder.mqh` — static row builder mapping `ConfluenceResult` + legacy/new decisions to v2 telemetry rows
+- Audit reports: `docs/Sprint14_5_StabilityAudit_Executive.md`, `docs/Sprint14_5_StabilityAudit_Technical.md` (findings A-01..A-10)
+- Regression preset: `Presets/Sprint14_6_Verify_EURUSD_M15.ini`
+- 32 new telemetry unit tests (header v2, schema version, normalized-confidence row builder, mismatch flags)
+
+### Changed
+- `SuperCents_X.mq5` / `CalibrationRunner.mq5` — `#property version "2.92"` (release identity v2.9.2)
+- Telemetry output: `Common\Files\Telemetry\telemetry_v2_YYYYMMDD.csv` (schema v2)
+
+### Verified
+- **447/447** headless tests green (was 415); clean compile (0 errors; 4 pre-existing `POSITION_COMMISSION` deprecation warnings)
+- 1-week EURUSD M15 SHADOW regression: 480 bars, 275,405 ticks, `Test passed`; shadow log `fmt=2` decision-level lines; telemetry artifact `telemetry_v2_20251107.csv` — 480 rows + header, both confidence scales 0–1, `legacyDecision=QUALIFIED` vs `newDecision=REJECTED` with threshold 0.60 recorded per row
+
 ## v2.9.1-calibration-stable — 2026-08-01 — Calibration Framework + housekeeping release
 
 ### Added

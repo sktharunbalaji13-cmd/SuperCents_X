@@ -42,6 +42,8 @@ private:
 
     ConfluenceWeights          m_weights;
 
+    CTelemetryCollector       *m_telemetryCollector;
+
     CEventBusAdapter    *m_eventBus;
 
     int FindSymbolIndex(const string symbol) const
@@ -69,6 +71,8 @@ public:
 
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
     ConfluenceWeights GetWeights(void) const { return m_weights; }
+
+    void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetryCollector = collector; }
 
     CSymbolContext *GetContext(const string symbol);
     CSymbolContext *GetPrimaryContext(void);
@@ -256,6 +260,7 @@ bool CPortfolioManager::RegisterSymbol(const string symbol, int magicNumber, ENU
 
     ctx.SetEntryMode(entryMode);
     ctx.SetWeights(m_weights);
+    ctx.SetTelemetryCollector(m_telemetryCollector);
 
     if(!ctx.Init(m_eventBus))
     {

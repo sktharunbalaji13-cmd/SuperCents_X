@@ -55,6 +55,8 @@
 #include "../Entry/Validators/DistanceValidator.mqh"
 #include "../Entry/Validators/CooldownValidator.mqh"
 #include "../Entry/Validators/RiskValidator.mqh"
+#include "../Telemetry/TelemetryCollector.mqh"
+#include "../Telemetry/TelemetryRowBuilder.mqh"
 
 class CSymbolContext
 {
@@ -99,6 +101,7 @@ private:
 
     CEntryOrchestrator       *m_entryOrchestrator;
     ENUM_ENTRY_MODE           m_entryMode;
+    CTelemetryCollector      *m_telemetry;
     CShadowTradeStateProvider m_shadowProvider;
     CShadowRiskEvaluator      m_shadowRisk;
     CDirectionValidator       m_dirVal;
@@ -128,6 +131,7 @@ public:
     void SetMagicNumber(int magic) { m_magicNumber = magic; }
     void SetPortfolioRiskManager(CPortfolioRiskManager *prm) { m_portfolioRiskManager = prm; }
     void SetEntryMode(ENUM_ENTRY_MODE mode) { m_entryMode = mode; }
+    void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 
     CSwingDetector             *GetSwingDetector(void) const { return m_swingDetector; }
@@ -187,6 +191,7 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber)
     , m_drawdownMonitor(NULL)
     , m_entryOrchestrator(NULL)
     , m_entryMode(ENTRY_MODE_LEGACY)
+    , m_telemetry(NULL)
     , m_shadowProvider()
     , m_shadowRisk()
     , m_cooldownVal(&m_shadowProvider)
@@ -675,41 +680,66 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
 
             if(m_entryMode == ENTRY_MODE_SHADOW || m_entryMode == ENTRY_MODE_NEW)
             {
-                CExecutionPlanner *planner = m_confluenceEngine.GetExecutionPlanner();
-                bool legacyQualified = false;
-                if(planner != NULL)
-                {
-                    for(int p = 0; p < planner.GetPlanCount(); p++)
-                    {
-                        ExecutionPlan ep;
-                        if(planner.GetPlan(p, ep) && ep.status == PLAN_EXECUTABLE)
-                        {
-                            legacyQualified = true;
-                            break;
-                        }
-                    }
-                }
+                //--- A-01 (v2.9.2): decision-level comparison. The legacy
+                //    side is the most recent CEntryDecisionEngine decision
+                //    (persists until superseded or expired — same lifecycle
+                //    semantics the planner plans had). The old plan-existence
+                //    proxy is gone: status vs status, direction vs direction.
+                EntryDecision legacyDecision;
+                bool hasLegacy = m_confluenceEngine.GetLastEntryDecision(legacyDecision);
+                bool legacyQualified = hasLegacy && (legacyDecision.status == DECISION_QUALIFIED);
+                bool newQualified = (newDecision.status == DECISION_QUALIFIED);
 
                 ShadowComparison cmp;
-                cmp.formatVersion    = 1;
+                cmp.formatVersion    = 2;
                 cmp.timestamp        = TimeCurrent();
                 cmp.symbol           = m_symbol;
                 cmp.timeframe        = (ENUM_TIMEFRAMES)Period();
-                cmp.eaVersion        = "v2.9";
+                cmp.eaVersion        = TELEMETRY_EA_VERSION;
                 cmp.validationTimeUs = (uint)(t1 - t0);
-                cmp.legacyConfidence = cr.totalConfidence;
+                cmp.legacyConfidence = hasLegacy ? legacyDecision.confidence : 0.0;
                 cmp.newConfidence    = newDecision.confidence;
 
-                // TODO(v2.9): Compare at decision level when legacy engine exposed.
-                // Currently inferring legacy qualification from plan existence.
-                cmp.decisionMatch = (legacyQualified == (newDecision.status == DECISION_QUALIFIED));
-                cmp.directionMatch = (cr.direction == newDecision.direction);
+                cmp.decisionMatch = (legacyQualified == newQualified);
+                cmp.directionMatch = hasLegacy && (legacyDecision.direction == newDecision.direction);
 
                 cmp.legacyFirstReason = REASON_NONE;
                 cmp.newFirstReason = (newDecision.rejectionCount > 0)
                     ? REASON_UNKNOWN : REASON_NONE;
 
                 m_entryOrchestrator.RecordShadowComparison(cmp);
+
+                //--- A-03 (v2.9.2): persist one schema-v2 row per decision.
+                if(m_telemetry != NULL)
+                {
+                    string disabled = "";
+                    CValidatorRegistry *reg = m_entryOrchestrator.GetRegistry();
+                    if(reg != NULL)
+                    {
+                        for(int v = 0; v < reg.Count(); v++)
+                        {
+                            if(!reg.IsEnabledAt(v))
+                            {
+                                IEntryValidator *val = reg.GetValidator(v);
+                                if(val != NULL)
+                                {
+                                    if(disabled != "")
+                                        disabled += ",";
+                                    disabled += val.GetName();
+                                }
+                            }
+                        }
+                    }
+
+                    TelemetryRow row;
+                    CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
+                                                legacyDecision,
+                                                m_confVal.GetMinConfidence(),
+                                                m_weights, m_symbol, (int)Period(),
+                                                disabled, "tick",
+                                                (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS));
+                    m_telemetry.Record(row);
+                }
             }
         }
     }

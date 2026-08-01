@@ -1,6 +1,7 @@
 #include "../TestAssert.mqh"
 #include "../../Telemetry/TelemetryTypes.mqh"
 #include "../../Telemetry/ConfigFingerprint.mqh"
+#include "../../Telemetry/TelemetryRowBuilder.mqh"
 
 // ─── TelemetryTypes ────────────────────────────────────────────────
 
@@ -11,6 +12,123 @@ void TestHeader_ColumnCount(TestCounters &counters)
     TEST_INT_EQ(45, n, "Frozen v1 header has exactly 45 columns");
     TEST_STR_EQ("schemaVersion", parts[0], "Header starts with schemaVersion");
     TEST_STR_EQ("actualOutcomeSource", parts[44], "Header ends with actualOutcomeSource");
+}
+
+// ─── v2.9.2 schema + row builder ───────────────────────────────────
+
+void TestHeader_V2ColumnCount(TestCounters &counters)
+{
+    string parts[];
+    int n = StringSplit(TELEMETRY_CSV_HEADER_V2, ',', parts);
+    TEST_INT_EQ(45, n, "Frozen v2 header has exactly 45 columns");
+    TEST_STR_EQ("schemaVersion", parts[0], "v2 header starts with schemaVersion");
+    TEST_STR_EQ("actualOutcomeSource", parts[44], "v2 header ends with actualOutcomeSource");
+}
+
+void TestSchema_Version2(TestCounters &counters)
+{
+    TEST_INT_EQ(2, TELEMETRY_SCHEMA_VERSION, "Active schema version is 2");
+    TEST_STR_EQ("v2.9.2", TELEMETRY_EA_VERSION, "EA version string updated");
+}
+
+ConfluenceResult MakeTestConfluence(void)
+{
+    ConfluenceResult cr;
+    cr.valid = true;
+    cr.direction = CONFLUENCE_BULLISH;
+    cr.totalConfidence = 40.0;
+    cr.componentCount = 2;
+    cr.components[0].type = COMPONENT_STRUCTURE;
+    cr.components[0].score = 80.0;
+    cr.components[0].weight = 25.0;
+    cr.components[0].contribution = 20.0;
+    cr.components[1].type = COMPONENT_TREND;
+    cr.components[1].score = 60.0;
+    cr.components[1].weight = 15.0;
+    cr.components[1].contribution = 9.0;
+    return cr;
+}
+
+void TestRowBuilder_NormalizedConfidence(TestCounters &counters)
+{
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_QUALIFIED;
+    newDec.confidence = 0.40;
+    newDec.direction = CONFLUENCE_BULLISH;
+    EntryDecision legacyDec;
+    legacyDec.status = DECISION_QUALIFIED;
+    legacyDec.confidence = 0.40;
+    legacyDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    TelemetryRow row;
+    bool ok = CTelemetryRowBuilder::Build(row, cr, newDec, true, legacyDec, 0.60,
+                                          w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+    TEST_TRUE(ok, "Build succeeds");
+    TEST_INT_EQ(2, (int)row.schemaVersion, "Row stamped schema v2");
+    TEST_DBL_NEAR(0.40, row.confidence, 1e-9, "confidence column normalized 0-1");
+    TEST_DBL_NEAR(0.40, row.legacyConfidence, 1e-9, "legacyConfidence normalized 0-1 (was 0-100 in v1)");
+    TEST_DBL_NEAR(0.40, row.newConfidence, 1e-9, "newConfidence 0-1");
+    TEST_DBL_NEAR(0.60, row.confThreshold, 1e-9, "confThreshold preserved");
+    TEST_TRUE(row.newDecision, "qualified new decision recorded");
+    TEST_TRUE(row.legacyDecision, "qualified legacy decision recorded");
+    TEST_TRUE(row.decisionMatch, "qualified/qualified matches");
+    TEST_TRUE(row.directionMatch, "direction match");
+    TEST_STR_EQ("v2.9.2", row.eaVersion, "row carries v2.9.2 EA version");
+}
+
+void TestRowBuilder_ComponentsAndValidators(TestCounters &counters)
+{
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_REJECTED;
+    newDec.confidence = 0.40;
+    newDec.direction = CONFLUENCE_BULLISH;
+    newDec.filterCount = 2;
+    newDec.filters[0].validatorName = "ConfluenceValidator";
+    newDec.filters[0].result = FILTER_FAIL;
+    newDec.filters[1].validatorName = "SpreadValidator";
+    newDec.filters[1].result = FILTER_PASS;
+
+    ConfluenceWeights w;
+    TelemetryRow row;
+    CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+    TEST_DBL_NEAR(80.0, row.structureRaw, 1e-9, "structure raw mapped");
+    TEST_DBL_NEAR(25.0, row.structureWeight, 1e-9, "structure weight mapped");
+    TEST_DBL_NEAR(20.0, row.structureContribution, 1e-9, "structure contribution mapped");
+    TEST_DBL_NEAR(60.0, row.trendRaw, 1e-9, "trend raw mapped");
+    TEST_INT_EQ(2, row.validatorCount, "validator results mapped");
+    TEST_STR_EQ("ConfluenceValidator", row.validators[0].name, "first validator name");
+    TEST_INT_EQ(FILTER_FAIL, row.validators[0].result, "first validator result");
+    TEST_FALSE(row.newDecision, "rejected new decision recorded as false");
+    TEST_FALSE(row.legacyDecision, "no legacy decision recorded as false");
+    TEST_TRUE(row.decisionMatch, "rejected/no-legacy matches (false == false)");
+    TEST_FALSE(row.directionMatch, "no legacy -> no direction match");
+    TEST_DBL_NEAR(0.0, row.legacyConfidence, 1e-9, "no legacy -> legacyConfidence 0");
+}
+
+void TestRowBuilder_Mismatch(TestCounters &counters)
+{
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_REJECTED;
+    newDec.confidence = 0.40;
+    newDec.direction = CONFLUENCE_BULLISH;
+    EntryDecision legacyDec;
+    legacyDec.status = DECISION_QUALIFIED;
+    legacyDec.confidence = 0.80;
+    legacyDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    TelemetryRow row;
+    CTelemetryRowBuilder::Build(row, cr, newDec, true, legacyDec, 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+    TEST_FALSE(row.decisionMatch, "qualified legacy vs rejected new -> mismatch");
+    TEST_TRUE(row.directionMatch, "same direction -> direction match");
+    TEST_DBL_NEAR(0.80, row.legacyConfidence, 1e-9, "legacy confidence 0-1");
+    TEST_DBL_NEAR(0.40, row.newConfidence, 1e-9, "new confidence 0-1");
 }
 
 void TestRow_ReplayDecisionThreshold(TestCounters &counters)
@@ -160,6 +278,11 @@ TestCounters RunTelemetryTests()
     SUITE_BEGIN("Telemetry Schema & Fingerprint Tests");
 
     TestHeader_ColumnCount(counters);
+    TestHeader_V2ColumnCount(counters);
+    TestSchema_Version2(counters);
+    TestRowBuilder_NormalizedConfidence(counters);
+    TestRowBuilder_ComponentsAndValidators(counters);
+    TestRowBuilder_Mismatch(counters);
     TestRow_ReplayDecisionThreshold(counters);
     TestRow_ReplayDecisionValidators(counters);
     TestRow_ConfluenceGateSkipped(counters);

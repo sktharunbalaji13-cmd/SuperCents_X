@@ -50,6 +50,9 @@ public:
     virtual ENUM_VALIDATOR_CATEGORY GetCategory() const { return CATEGORY_SETUP; }
     virtual string GetVersion() const { return "1.0.0"; }
     virtual string GetDescription() const { return "Rejects entries below minimum confluence confidence"; }
+
+    //--- Active threshold (0-1) for telemetry row capture.
+    double GetMinConfidence() const { return m_cfg.minConfidence; }
 };
 
 #endif
