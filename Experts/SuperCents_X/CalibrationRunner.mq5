@@ -36,7 +36,8 @@ enum ENUM_CALIB_MODE_INPUT
     CALIB_INPUT_ABLATION_CROSSCHECK,
     CALIB_INPUT_CALIBRATION,
     CALIB_INPUT_TRANSFORMS,
-    CALIB_INPUT_STRUCTURAL
+    CALIB_INPUT_STRUCTURAL,
+    CALIB_INPUT_SCHEMA_HEALTH
 };
 
 input ENUM_CALIB_MODE_INPUT CalibrationMode = CALIB_INPUT_THRESHOLD;
@@ -143,8 +144,9 @@ void RunOnce(void)
                                       : mode == CALIB_MODE_PROMOTION ? "promotion"
                                       : mode == CALIB_MODE_ABLATION_CROSSCHECK ? "ablation_crosscheck"
                                       : mode == CALIB_MODE_CALIBRATION ? "calibration"
-                                      : mode == CALIB_MODE_TRANSFORMS ? "transforms"
-                                      : "structural"), fps[i]));
+                                       : mode == CALIB_MODE_TRANSFORMS ? "transforms"
+                                       : mode == CALIB_MODE_SCHEMA_HEALTH ? "schema_health"
+                                       : "structural"), fps[i]));
 
         if(g_runner.Run(mode, cfg, fps[i]))
             runs++;

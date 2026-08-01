@@ -28,6 +28,7 @@
 #include "CalibrationReport.mqh"
 #include "CalibrationTransforms.mqh"
 #include "CalibrationStructural.mqh"
+#include "../Telemetry/TelemetryHealthReport.mqh"
 #include "ThresholdOptimizer.mqh"
 #include "WeightOptimizer.mqh"
 #include "ValidatorAttribution.mqh"
@@ -44,7 +45,8 @@ enum ENUM_CALIBRATION_MODE
     CALIB_MODE_ABLATION_CROSSCHECK,
     CALIB_MODE_CALIBRATION,
     CALIB_MODE_TRANSFORMS,
-    CALIB_MODE_STRUCTURAL
+    CALIB_MODE_STRUCTURAL,
+    CALIB_MODE_SCHEMA_HEALTH
 };
 
 class CExperimentRunner
@@ -97,6 +99,23 @@ public:
     {
         string modeName = ModeName(mode);
         string hex = FpToHex(fp);
+
+        //--- Schema Health Gate runs once across the ENTIRE dataset (not
+        //    per-fingerprint).  Handle it before fingerprint filtering so
+        //    it sees every row regardless of which fp the caller passed.
+        if(mode == CALIB_MODE_SCHEMA_HEALTH)
+        {
+            m_logger.LogInfo(StringFormat("Calibration: %s on %d rows (full dataset)",
+                                          modeName, m_dataset.GetCount()));
+            ExperimentManifest manifest = CExperimentManifest::Create(
+                cfg.eaVersion,
+                modeName + "_dataset",
+                m_datasetDir,
+                0,
+                0,
+                "SuperCents_X Sprint 17 schema health gate");
+            return RunSchemaHealth(cfg, manifest);
+        }
 
         TelemetryRow rows[];
         int count = GetFingerprintRows(fp, rows);
@@ -153,6 +172,7 @@ private:
             case CALIB_MODE_CALIBRATION:      return "calibration";
             case CALIB_MODE_TRANSFORMS:       return "transforms";
             case CALIB_MODE_STRUCTURAL:       return "structural";
+            case CALIB_MODE_SCHEMA_HEALTH:    return "schema_health";
         }
         return "unknown";
     }
@@ -768,6 +788,56 @@ private:
             m_logger.LogInfo(StringFormat("  %-22s %+.4f  (n=%d)",
                                           corr[i].label, corr[i].value, corr[i].n));
         }
+        return ok;
+    }
+
+    //+------------------------------------------------------------------+
+    //| Schema Health Gate (Sprint 17 Step 6).                            |
+    //| Runs once across the ENTIRE dataset (not per-fingerprint) because |
+    //| schema health is a property of the dataset itself.  Fingerprint   |
+    //| partitioning would hide systemic problems.                        |
+    //+------------------------------------------------------------------+
+    bool RunSchemaHealth(const CalibrationConfig &cfg, const ExperimentManifest &manifest)
+    {
+        CTelemetryHealthAnalyzer analyzer;
+        TelemetryHealthReport report = analyzer.Analyze(m_dataset, DEFAULT_ROUNDTRIP_SAMPLE);
+
+        string tag = TimestampTag();
+        string txtPath = m_outputDir + "/calib_schema_health_" + tag + ".txt";
+        string csvPath = m_outputDir + "/calib_schema_health_" + tag + ".csv";
+        string jsonPath = m_outputDir + "/schema_health.json";
+        string manifestPath = m_outputDir + "/calib_schema_health_" + tag + ".manifest";
+
+        //--- Human-readable card.
+        string card = CTelemetryHealthAnalyzer::RenderCard(report);
+        string cardLines[];
+        int n = StringSplit(card, '\n', cardLines);
+        bool ok = WriteLines(txtPath, cardLines);
+
+        //--- Detailed CSV.
+        string csv = CTelemetryHealthAnalyzer::RenderCsv(report);
+        string csvLines[];
+        int cn = StringSplit(csv, '\n', csvLines);
+        ok = WriteCsv(csvPath, csvLines[0], csvLines) && ok;
+
+        //--- Minimal JSON (CI-oriented).
+        string json = CTelemetryHealthAnalyzer::RenderJson(report);
+        string jsonLines[1];
+        jsonLines[0] = json;
+        ok = WriteLines(jsonPath, jsonLines) && ok;
+
+        //--- Manifest.
+        ok = WriteManifest(manifest, manifestPath) && ok;
+
+        m_logger.LogInfo(StringFormat("Calibration: schema health gate -> %s", txtPath));
+        m_logger.LogInfo(StringFormat("  Verdict: %s  Score: %d/100",
+                                      CTelemetryHealthAnalyzer::VerdictString(report.verdict),
+                                      report.healthScore));
+        m_logger.LogInfo(StringFormat("  Rows: %d  Parsed: %d  Coverage: %.2f%%",
+                                      report.parse.totalRows,
+                                      report.parse.parsedRows,
+                                      report.components.componentCoverage * 100.0));
+        m_logger.LogInfo(StringFormat("  JSON -> %s", jsonPath));
         return ok;
     }
 

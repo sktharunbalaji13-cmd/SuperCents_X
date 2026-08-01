@@ -10,6 +10,7 @@
 #include "unit/TestValidatorRegistry.mqh"
 #include "unit/TestOrchestratorPipeline.mqh"
 #include "unit/TestTelemetry.mqh"
+#include "unit/TestTelemetryHealth.mqh"
 #include "unit/TestForwardOutcomeSimulator.mqh"
 #include "unit/TestCalibrationDataset.mqh"
 #include "unit/TestCalibrationOptimizers.mqh"
@@ -61,6 +62,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunTelemetryTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunTelemetryHealthTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunForwardOutcomeSimulatorTests();
