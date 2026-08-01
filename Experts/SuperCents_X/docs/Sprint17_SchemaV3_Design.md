@@ -1,7 +1,8 @@
 # Sprint 17 - Evidence Capture: Telemetry Schema v3 Design
 
-Status: **DRAFT - ARCHITECTURAL CONTRACT** (2026-08-01). No code changes
-until this document is reviewed. Applies the frozen contract pattern:
+Status: **APPROVED AS IMPLEMENTATION CONTRACT** (2026-08-01) with
+refinements A-E applied (see sections 3, 4 and 9). Implementation order
+in section 10. Applies the frozen contract pattern:
 Architecture -> Contract -> Implementation -> Validation.
 
 Supersedes the original "Confidence Architecture" plan for Sprint 17:
@@ -71,29 +72,42 @@ schema's current assumption. Facts from the code (`ScoreCalculator.mqh`,
 ## 3. New telemetry contract (schemaVersion = 3)
 
 Append-only migration: all 45 v2 columns stay at their positions;
-new columns are appended. Column order is frozen once collection starts.
+23 new columns are appended (68 total). Column order is frozen once
+collection starts.
 
 ### 3.1 Metadata (new columns)
 
+Schema identity is versioned explicitly so downstream tooling refuses
+incompatible schemas automatically, without relying on file naming
+(refinement A).
+
 | Field | Type | Values | Purpose |
 |---|---|---|---|
-| scoreArchitecture | string | "v3.0" | scoring model; NOT changed by this sprint |
-| componentData | int | 0/1 | 1 = this row carries component/rule evidence |
+| scoreArchitecture | string | "rule-layer-v1" | versioned scoring architecture (refinement D: an EA version is not an architecture version; rule-layer-v2 will exist someday) |
 | telemetryArchitecture | string | "rule-layer" | decomposition model of componentData |
+| evidenceContract | string | "2026-08" | contract revision; bump on any semantic change |
+| confidenceModel | string | "raw" | transform state of the score |
+| componentData | int | 0/1 | 1 = row carries rule/layer/evidence observations |
 
-`schemaVersion = 3` is written in the existing first column. The score
-itself is untouched (v3.0); only the observation layer changes.
+`schemaVersion = 3` is written in the existing first column.
+`TelemetrySchemaId = "v3.0"` (schemaVersion + evidenceContract) is the
+canonical schema fingerprint for refusal checks.
 
 ### 3.2 Rule-level evidence (new columns)
 
+Rule identity is split into a stable ID and a mutable name (refinement
+C): names can evolve, IDs must not. `firedRuleId` values are frozen to
+the RuleType enum order at contract time (RULE_NONE=0 .. RULE_CHOCH_OB_REVERSAL=7).
+
 | Field | Type | Purpose |
 |---|---|---|
-| firedRuleId | int | RuleType of the best matched rule (7 rules) |
+| firedRuleId | int | stable rule ID (RuleType enum value, frozen) |
+| ruleName | string | human-readable name (may evolve) |
 | ruleScore | int (0-100) | rule score BEFORE any weighting |
 | ruleConfidence | double (0-1) | rule confidence before weighting |
 | ruleEvidenceCount | int | number of evidence items in the rule |
 | ruleEvidenceIds | string | packed "id1,id2,..." (evidence identifiers) |
-| trendAligned | int | 0/1 - trend alignment bonus flag |
+| trendAligned | int | tristate (see 3.4) |
 
 ### 3.3 Layer-level components (new columns)
 
@@ -111,13 +125,36 @@ Active component count and per-layer contribution are DERIVED from these
 this model - contribution == raw; weights exist only in the legacy model
 (already captured in the v2 columns).
 
-### 3.4 Evidence flags (new columns)
+### 3.4 Evidence flags and tristate semantics (new columns)
 
 hasBOS, hasCHOCH, hasOrderBlock, hasFVG, hasProtectedPoint,
-hasLiquiditySweep (int 0/1 each). These are the raw inputs to the layer
-score and make the decomposition reproducible offline.
+hasLiquiditySweep, trendAligned.
 
-### 3.5 Legacy columns (existing, unchanged semantics)
+Flags are NOT booleans. Refinement B: a future rule may not evaluate an
+evidence type at all, and a flag the runtime did not evaluate must not
+be recorded as `false`.
+
+| Value | Meaning |
+|---|---|
+| 0 | UNKNOWN - not evaluated (never assume false) |
+| 1 | FALSE - evaluated, absent |
+| 2 | TRUE - evaluated, present |
+
+The flags are the raw inputs to the layer score and make the
+decomposition reproducible offline.
+
+### 3.5 Timestamps (new column)
+
+The existing `timestamp` column is the decision capture time; a new
+`signalTime` column records signal creation time (refinement E). The
+gap between the two makes stale-signal / latency / evidence-aging
+analysis possible without replay.
+
+| Field | Type | Purpose |
+|---|---|---|
+| signalTime | datetime | signal creation time |
+
+### 3.6 Legacy columns (existing, unchanged semantics)
 
 The 18 legacy component columns (structureRaw/Weight/Contribution etc.)
 remain at their positions. They are observations of the LEGACY model
@@ -125,7 +162,7 @@ and must continue to be populated only when the legacy engine runs.
 Downstream component analysis must key off `telemetryArchitecture`, not
 column names.
 
-### 3.6 Observations, not derivations
+### 3.7 Observations, not derivations
 
 Every new field is an observation recorded at decision time. Anything
 computable from the persisted fields (layer decomposition, active
@@ -191,14 +228,18 @@ analysis that must precede it.
 ## 7. Versioning discipline
 
 - Every row carries `schemaVersion`, `componentData`, `confidenceModel`
-  (raw for all v3 rows), `scoreArchitecture` (v3.0).
+  (raw for all v3 rows), `scoreArchitecture` (rule-layer-v1), plus the
+  `evidenceContract` revision.
+- Schema fingerprint: `TelemetrySchemaId = "v3.0"` =
+  `schemaVersion.evidenceContract`; downstream tooling refuses on
+  mismatch without relying on file naming (refinement A).
 - Manifests carry the same metadata plus dataset fingerprint and the
   collection window (pattern established in 16.1).
 - Any future schema change is append-only with a schemaVersion bump; the
   reader (`CalibrationDataset::ParseRow`) refuses unknown versions
-  explicitly (today it refuses anything != 2).
-- schemaVersion and eaVersion move independently: the score stays v3.0
-  while the EA version that collects it may become v3.1.
+  explicitly (today it refuses anything not in {2, 3}).
+- schemaVersion and eaVersion move independently: the score stays
+  rule-layer-v1 while the EA version that collects it may become v3.1.
 
 ## 8. Sequencing (evidence trail)
 
@@ -206,13 +247,16 @@ analysis that must precede it.
 Sprint 16.1B (complete: data gap proven)
    |
    v
-Schema v3 design (THIS DOCUMENT)       <- review gate
+Schema v3 design (THIS DOCUMENT, approved)   <- review gate PASSED
    |
    v
-Schema v3 implementation (collector + types + dataset reader + refusal)
+Schema v3 implementation (order in section 10)
    |
    v
-6-month collection (exit criteria in section 6)
+One-week collection sanity run (exit criteria in section 6)
+   |
+   v
+6-month collection
    |
    v
 Structural diagnostics (v3-aware report)
@@ -227,10 +271,32 @@ Calibration
 Promotion Gate
 ```
 
-## 9. Out of scope for this document
+## 9. Non-goals (explicitly out of scope)
 
-- The score itself (unchanged: confidenceModel raw, scoreArchitecture
-  v3.0).
-- Any transform or calibration change (16.2 evidence rejected them).
-- The collector implementation details (separate contract follows
-  review of this document).
+Derived metrics must NOT be persisted - they can always be recomputed
+from the observations. Forbidden fields include:
+
+- confidencePercentile
+- riskScore
+- normalizedConfidence
+- ECEContribution
+- any transform output (calibration variants remain offline experiments)
+
+This follows the observation-only philosophy in force since Sprint 14:
+a persisted derived metric can silently go stale; an observation cannot.
+
+## 10. Implementation order
+
+Contract-first sequence, minimizing the risk of discovering a schema
+issue after months of collection:
+
+1. `TelemetryTypes.mqh` - schema v3 contract (struct fields, v3 CSV
+   header, metadata constants, tristate enum)
+2. `TelemetryRowBuilder.mqh` - populate rule/layer/evidence/timestamp
+   fields from the ConfluenceSignal
+3. `TelemetryCollector.mqh` - v3 CSV serialization (append-only)
+4. Backward compatibility tests (v2 rows parse identically)
+5. Schema validation tests (version refusal, column count, round-trip)
+6. One-week collection sanity run (exit criteria section 6)
+7. Six-month collection
+8. Structural diagnostics rerun (v3-aware report)
