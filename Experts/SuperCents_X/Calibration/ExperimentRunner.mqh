@@ -10,6 +10,7 @@
 //    CALIB_MODE_ABLATION         - validator leave-one-out (baseline)
 //    CALIB_MODE_PROMOTION        - candidate vs baseline gate
 //    CALIB_MODE_ABLATION_CROSSCHECK - ablation at the candidate threshold
+//    CALIB_MODE_CALIBRATION      - confidence measurement baseline (16.1)
 //
 //  Every run writes a timestamped CSV report + experiment manifest
 //  under Files/Calibration/ (FILE_COMMON, same as the telemetry store).
@@ -22,6 +23,7 @@
 #include "../Telemetry/CalibrationDataset.mqh"
 #include "../Optimization/ExperimentManifest.mqh"
 #include "CalibrationMetrics.mqh"
+#include "CalibrationReport.mqh"
 #include "ThresholdOptimizer.mqh"
 #include "WeightOptimizer.mqh"
 #include "ValidatorAttribution.mqh"
@@ -35,7 +37,8 @@ enum ENUM_CALIBRATION_MODE
     CALIB_MODE_WEIGHTS,
     CALIB_MODE_ABLATION,
     CALIB_MODE_PROMOTION,
-    CALIB_MODE_ABLATION_CROSSCHECK
+    CALIB_MODE_ABLATION_CROSSCHECK,
+    CALIB_MODE_CALIBRATION
 };
 
 class CExperimentRunner
@@ -121,6 +124,8 @@ public:
                 return RunPromotion(rows, count, cfg, fp, hex, manifest);
             case CALIB_MODE_ABLATION_CROSSCHECK:
                 return RunAblation(rows, count, cfg.minConfidence, fp, hex, manifest, true);
+            case CALIB_MODE_CALIBRATION:
+                return RunCalibration(rows, count, cfg, fp, hex, manifest);
         }
         return false;
     }
@@ -135,6 +140,7 @@ private:
             case CALIB_MODE_ABLATION:         return "ablation";
             case CALIB_MODE_PROMOTION:        return "promotion";
             case CALIB_MODE_ABLATION_CROSSCHECK: return "ablation_crosscheck";
+            case CALIB_MODE_CALIBRATION:      return "calibration";
         }
         return "unknown";
     }
@@ -168,6 +174,18 @@ private:
     static bool WriteManifest(const ExperimentManifest &manifest, const string filepath)
     {
         return CExperimentManifest::ToFile(manifest, filepath);
+    }
+
+    static bool WriteLines(const string filepath, const string &lines[])
+    {
+        int handle = FileOpen(filepath, FILE_WRITE | FILE_TXT | FILE_COMMON);
+        if(handle == INVALID_HANDLE)
+            return false;
+        int n = ArraySize(lines);
+        for(int i = 0; i < n; i++)
+            FileWrite(handle, lines[i]);
+        FileClose(handle);
+        return true;
     }
 
     //--- Replay stats for one config on the given rows.
@@ -352,6 +370,136 @@ private:
         m_logger.LogInfo(gate.RenderReport(report));
         m_logger.LogInfo(StringFormat("Calibration: promotion report -> %s", reportPath));
         return ok;
+    }
+
+    bool RunCalibration(TelemetryRow &rows[], int count, const CalibrationConfig &cfg,
+                        ulong fp, const string hex, const ExperimentManifest &manifest)
+    {
+        //--- Measurement only: no transforms, no thresholds — the raw
+        //    confidence distribution over settled rows is the baseline.
+        CalibrationBin bins[];
+        int binCount = 0;
+        CalibrationSummary summary;
+        CalibrationAnalyze(rows, count, CALIB_REPORT_DEFAULT_BIN_SIZE, bins, binCount, summary);
+
+        string lines[];
+        ArrayResize(lines, binCount);
+        for(int i = 0, b = 0; i < ArraySize(bins); i++)
+        {
+            if(bins[i].trades == 0)
+                continue;
+            lines[b++] = StringFormat("%.4f,%.4f,%.4f,%d,%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
+                                      bins[i].binLo, bins[i].binHi, bins[i].center,
+                                      bins[i].trades, bins[i].wins, bins[i].losses,
+                                      bins[i].scratches, bins[i].winRate, bins[i].expected,
+                                      bins[i].absError, bins[i].expectancy,
+                                      bins[i].profitFactor, bins[i].maxDrawdown);
+        }
+
+        string tag = TimestampTag();
+        string reportPath = m_outputDir + "/calib_calibration_" + hex + "_" + tag + ".csv";
+        string summaryPath = m_outputDir + "/calib_calibration_" + hex + "_" + tag + ".summary.txt";
+        string cardPath = m_outputDir + "/calib_reportcard_" + hex + "_" + tag + ".txt";
+        string baselinePath = m_outputDir + "/baseline_calibration_v1.manifest";
+        string manifestPath = m_outputDir + "/calib_calibration_" + hex + "_" + tag + ".manifest";
+
+        bool ok = WriteCsv(reportPath,
+                           "binLo,binHi,center,trades,wins,losses,scratches,winRate,expected,absError,expectancy,profitFactor,maxDrawdown",
+                           lines);
+
+        string summaryLines[];
+        ArrayResize(summaryLines, 16);
+        summaryLines[0]  = "# Sprint 16.1 confidence measurement baseline";
+        summaryLines[1]  = "configFingerprint: " + hex;
+        summaryLines[2]  = "datasetFingerprint: " + hex;
+        summaryLines[3]  = "eaVersion: " + cfg.eaVersion;
+        summaryLines[4]  = "confidenceModel: raw";
+        summaryLines[5]  = StringFormat("binSize: %.4f", summary.binSize);
+        summaryLines[6]  = StringFormat("totalRows: %d", summary.totalRows);
+        summaryLines[7]  = StringFormat("decidedRows: %d", summary.decidedRows);
+        summaryLines[8]  = StringFormat("populatedBins: %d", summary.binCount);
+        summaryLines[9]  = StringFormat("underpopulatedBins: %d", summary.underpopulatedBins);
+        summaryLines[10] = StringFormat("brier: %.6f", summary.brier);
+        summaryLines[11] = StringFormat("ece: %.6f", summary.ece);
+        summaryLines[12] = StringFormat("mce: %.6f", summary.mce);
+        summaryLines[13] = StringFormat("confMin: %.4f", summary.confMin);
+        summaryLines[14] = StringFormat("confMax: %.4f", summary.confMax);
+        summaryLines[15] = StringFormat("confMean: %.4f  confP50: %.4f  confP90: %.4f",
+                                        summary.confMean, summary.confP50, summary.confP90);
+        ok = WriteLines(summaryPath, summaryLines) && ok;
+
+        //--- Research report card (plan §5): measurement entry.
+        string cardLines[];
+        ArrayResize(cardLines, 12);
+        cardLines[0]  = "experiment:    calibration_baseline";
+        cardLines[1]  = "question:      how well calibrated is the raw v3.0 confidence score?";
+        cardLines[2]  = "config fp:     " + hex;
+        cardLines[3]  = "dataset fp:    " + hex;
+        cardLines[4]  = "eaVersion:     " + cfg.eaVersion;
+        cardLines[5]  = "confidenceModel: raw";
+        cardLines[6]  = StringFormat("trades:        %d", summary.decidedRows);
+        cardLines[7]  = StringFormat("win rate:      %.4f", WinRateOf(rows, count));
+        cardLines[8]  = StringFormat("expectancy:    %+.4f", ExpectancyOf(rows, count));
+        cardLines[9]  = StringFormat("ece/mce/brier: %.4f / %.4f / %.4f",
+                                     summary.ece, summary.mce, summary.brier);
+        cardLines[10] = "p vs baseline: n/a (measurement, no comparison)";
+        cardLines[11] = "gate verdict:  n/a (baseline frozen, see baseline_calibration_v1.manifest)";
+        ok = WriteLines(cardPath, cardLines) && ok;
+
+        //--- Frozen baseline manifest (v1): reference for every future
+        //    calibration experiment.  Regenerate only with a version bump.
+        string baselineLines[];
+        ArrayResize(baselineLines, 11);
+        baselineLines[0]  = "# SuperCents_X Sprint 16.1 frozen baseline manifest (v1)";
+        baselineLines[1]  = "# Reference for all later calibration experiments. Do not edit.";
+        baselineLines[2]  = "configFingerprint: " + hex;
+        baselineLines[3]  = "datasetFingerprint: " + hex;
+        baselineLines[4]  = "eaVersion: " + cfg.eaVersion;
+        baselineLines[5]  = "confidenceModel: raw";
+        baselineLines[6]  = StringFormat("binSize: %.4f", summary.binSize);
+        baselineLines[7]  = StringFormat("sampleCount: %d", summary.decidedRows);
+        baselineLines[8]  = StringFormat("brier: %.6f", summary.brier);
+        baselineLines[9]  = StringFormat("ece: %.6f", summary.ece);
+        baselineLines[10] = StringFormat("mce: %.6f", summary.mce);
+        ok = WriteLines(baselinePath, baselineLines) && ok;
+
+        ok = WriteManifest(manifest, manifestPath) && ok;
+
+        m_logger.LogInfo(StringFormat("Calibration: measurement baseline (%d populated bins) -> %s",
+                                      binCount, reportPath));
+        m_logger.LogInfo(StringFormat("  decided %d / %d rows  Brier %.6f  ECE %.6f  MCE %.6f",
+                                      summary.decidedRows, summary.totalRows,
+                                      summary.brier, summary.ece, summary.mce));
+        return ok;
+    }
+
+    static double WinRateOf(TelemetryRow &rows[], int count)
+    {
+        int wins = 0;
+        int losses = 0;
+        for(int i = 0; i < count; i++)
+        {
+            if(rows[i].outcome == (int)TELEMETRY_OUTCOME_WIN)
+                wins++;
+            else if(rows[i].outcome == (int)TELEMETRY_OUTCOME_LOSS)
+                losses++;
+        }
+        int decided = wins + losses;
+        return (decided > 0) ? (double)wins / (double)decided : 0.0;
+    }
+
+    static double ExpectancyOf(TelemetryRow &rows[], int count)
+    {
+        double sum = 0.0;
+        int n = 0;
+        for(int i = 0; i < count; i++)
+        {
+            if(rows[i].outcome == (int)TELEMETRY_OUTCOME_UNKNOWN)
+                continue;
+            sum += rows[i].rMultiple;
+            n++;
+        }
+        return (n > 0) ? sum / (double)n : 0.0;
     }
 
     CLogger             m_logger;

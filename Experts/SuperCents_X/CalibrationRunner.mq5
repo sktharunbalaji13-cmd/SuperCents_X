@@ -11,6 +11,7 @@
 //    MODE_ABLATION    - validator leave-one-out attribution
 //    MODE_PROMOTION   - CI-style promotion gate vs the locked baseline
 //    MODE_ABLATION_CROSSCHECK - attribution at the candidate threshold
+//    MODE_CALIBRATION - confidence measurement baseline (Sprint 16.1)
 //
 //  Telemetry rows are read from Common\Files\Telemetry/
 //  (telemetry_v2_*.csv, schemaVersion = 2), reports + manifests are
@@ -30,7 +31,8 @@ enum ENUM_CALIB_MODE_INPUT
     CALIB_INPUT_WEIGHTS,
     CALIB_INPUT_ABLATION,
     CALIB_INPUT_PROMOTION,
-    CALIB_INPUT_ABLATION_CROSSCHECK
+    CALIB_INPUT_ABLATION_CROSSCHECK,
+    CALIB_INPUT_CALIBRATION
 };
 
 input ENUM_CALIB_MODE_INPUT CalibrationMode = CALIB_INPUT_THRESHOLD;
@@ -135,7 +137,8 @@ void RunOnce(void)
                                       : mode == CALIB_MODE_WEIGHTS ? "weights"
                                       : mode == CALIB_MODE_ABLATION ? "ablation"
                                       : mode == CALIB_MODE_PROMOTION ? "promotion"
-                                      : "ablation_crosscheck"), fps[i]));
+                                      : mode == CALIB_MODE_ABLATION_CROSSCHECK ? "ablation_crosscheck"
+                                      : "calibration"), fps[i]));
 
         if(g_runner.Run(mode, cfg, fps[i]))
             runs++;
