@@ -3,16 +3,21 @@
 
 #include "Validators/IRiskEvaluator.mqh"
 
+//--- @frozen v3.0-provider-contract: permissive shadow implementation.
+//    Shadow mode must never block on account state, so all evaluations
+//    are approved with a fixed lot cap.
 class CShadowRiskEvaluator : public IRiskEvaluator
 {
 public:
-    virtual bool   CanOpenPosition(double confidence, double &maxLots)
+    virtual RiskEvaluation Evaluate(double confidence)
     {
-        maxLots = 1.0;
-        return true;
+        RiskEvaluation ev;
+        ev.allowed = true;
+        ev.recommendedLots = 1.0;
+        ev.rejectionReason = RR_NONE;
+        return ev;
     }
-    virtual string GetRejectionReason() { return ""; }
-    virtual string GetName()            { return "ShadowRisk"; }
+    virtual string GetName() { return "ShadowRisk"; }
 };
 
 #endif

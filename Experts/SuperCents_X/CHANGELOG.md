@@ -1,5 +1,51 @@
 # Changelog
 
+## v3.0-production-providers — 2026-08-01 — Settlement wiring + promotion gate on settled outcomes (Sprint 15.3–15.4)
+
+### Added
+- `CSymbolContext::QueueForSettlement` / `SettleRow` / `SettleDue` / `SettleRemaining` — forward-outcome settlement pipeline wired into the decision tick (`SettleDue` before queueing each row) and `OnDeinit` (`SettleRemaining` records run-tail rows as UNKNOWN)
+- `CForwardOutcomeSimulator` + outcome policy now drive the outcome columns (36 outcomeSource, 37 outcome, 38 rMultiple, 39 barsHeld, 40 exitReason, 41 entryPrice, 42 exitPrice)
+- `CalibrationDataset::ParseUnsigned` — public static chunked parser for full-range ulong fingerprints
+- `Tests/unit/TestCalibrationDataset.mqh` (10 tests), `Tests/unit/TestProductionProviders.mqh` (38 tests), presets `Sprint15_3_LongRun_EURUSD_M15.ini` / `Sprint15_3_LongRun_EURUSD_H1.ini` / `Sprint15_3_LongRun_GBPJPY_H1.ini` / `Sprint15_3_PromotionGate.ini`
+- Docs: `docs/Sprint15_3_CalibrationResults.md`; `docs/CalibrationGuide.md` §5b (settlement), §5c (gate flow)
+
+### Fixed
+- **Simulated-settlement ordering bug**: MQL5 time-range `Copy*` overloads return bars oldest-first, but the simulator expects as-series (index 0 = newest) — settled rows were computed from bars *before* the entry (corrupt win rate 19% vs 38% verified). `SettleRow` now `ArrayReverse()`s copied series, locates the entry bar by exact timestamp, and guards `entryBarIndex >= 50` / `entryBarIndex + 20 < n`; window `[entry − 3d − 20 bars, entry + (51 + 2d bars + 50 bars)]`
+- Promotion gate now receives settled trades — baseline r7 gate ran all-INCONCLUSIVE with 0 settled trades; r22+ gates pass the sample criteria (1,419 / 8,602 settled trades) and produce real verdicts
+
+### Verified
+- **499/499** headless tests green (was 451); clean compiles (0 errors, 4 pre-existing `POSITION_COMMISSION` warnings)
+- Regenerated datasets (NEW mode, 2026-01-05→06-30): EURUSD M15 12,130/12,180 settled (99.6%), EURUSD H1 2,992/3,042 (98.4%), GBPJPY H1 2,995/3,045 (98.4%); UNKNOWN = exactly 50 run-tail rows per symbol/timeframe; TP rMultiples exactly 2.00000000 / SL exactly −1.00000000; horizon rows barsHeld=51 → BREAKEVEN
+- Threshold sweep (M15): best expectancy at 0.40 (−0.0369, PF 0.9453, win 32.35%, 8,602 trades) — not significant vs 0.60 baseline (p = 0.1613); no threshold clears the Welch test
+- **Promotion gate: NOT PROMOTED** for EURUSD M15 at calibrated 0.40 (expectancy INCONCLUSIVE p=0.16, max drawdown FAIL 567.6 vs 207.7 R) and at 0.60 (candidate==baseline by construction); H1 and legacy fingerprints INCONCLUSIVE (insufficient samples)
+- Tainted pre-fix telemetry (r13–r15, r16–r17) archived and excluded from all reports
+
+## v3.0-provider-contract — 2026-08-01 — Production Providers wired via DI (Sprint 15.1–15.2)
+
+### Added
+- `IRiskEvaluator` migrated to atomic `RiskEvaluation` struct: `Evaluate(double confidence)` returns allowed / recommendedLots / reason / margin context (`marginRequired`, `freeMarginAfterTrade`) / typed `ENUM_RISK_REJECTION_REASON` (`RR_TRADING_DISABLED`, `RR_INVALID_VOLUME`, `RR_NO_PRICE`, `RR_MARGIN_CALC_FAILED`, `RR_INSUFFICIENT_MARGIN`, `RR_UNKNOWN`); `riskPercent` reserved for Sprint 16+ risk policy
+- Provider contracts frozen `@frozen v3.0-provider-contract` on `IRiskEvaluator` / `ITradeStateProvider` (+ per-declaration markers) — future changes MUST be additive
+- `CProductionRiskEvaluator` full implementation: trade-mode → broker volume limits → price availability → `OrderCalcMargin` minimum-lot check → free-margin buffer (factor 1.25) → clamp to `SYMBOL_VOLUME_MAX`; logs `ProductionRisk: allowed (maxLots %.2f)`
+- `CProductionTradeStateProvider` (previously orphaned) wired in: `INT_MAX` = never traded, `PERIOD_CURRENT` bars, symbol+magic-scoped positions/deals
+- DI in `CSymbolContext`: providers bound **at construction** (validators capture pointers in their own ctors); `SetProvider()` / `SetRiskEvaluator()` for explicit rebinding; `ENTRY_MODE_NEW` = production providers + shadow comparison, execution reserved until promotion gate
+- Mode matrix documented in `EntryConfig.mqh` (LEGACY / SHADOW / NEW / LIVE(*) future)
+- `TestRiskValidator_StructFlow` — 4 assertions on struct-flow (approval + margin-exhausted rejection path)
+- `Presets/Sprint15_1_ProdProviders_EURUSD_M15.ini` (ENTRY_MODE_NEW), `docs/DeveloperGuide.md` (MetaEditor GUI-process compile workflow, headless tester recipes, parity-check method)
+
+### Changed
+- `CRiskValidator` consumes `RiskEvaluation` (allowed/reason/recommendedLots); `CShadowRiskEvaluator` returns permissive struct (allowed, 1.0 lots, RR_NONE)
+- `SuperCents_X.mq5` / `CalibrationRunner.mq5` — `#property version "3.00"` (release identity v3.0)
+- Validator MT5-API audit: no `Position*`/`HistoryDeal`/`AccountInfo`/`OrderCalc*`/`iBarShift`/`TimeCurrent` calls in `Entry\Validators` (contract compliance)
+
+### Fixed
+- Provider-capture DI bug: validators previously bound NULL providers when pointers were re-pointed in `Init()` (parity agreements dropped 60→0); binding moved to the constructor
+- MQL5 ternary `?:` is unsupported (`error 252`) — provider selection done via if/else in ctor body
+
+### Verified
+- **451/451** headless tests green (was 447); clean compiles (EA 0 errors / 4 pre-existing `POSITION_COMMISSION` warnings; TestRunnerEA 0 errors / 0 warnings)
+- **SHADOW parity vs v2.9.2 is byte-identical**: 480 bars, 60/480 agreements (12.5%), 0 differing bars across `newConfidence` / `decisionMatch` / `legacyConfidence` / `validatorResults`
+- NEW-mode run: `Production providers active — TradeState(symbol=EURUSD magic=… tf=PERIOD_M15) Risk(name=ProductionRisk)`; `ProductionRisk: allowed (maxLots 17.99–18.02)` (real margin math, not the stub 1.0); shadow comparison active (51/480, 10.6%); full validator chain incl. `CooldownValidator=0|RiskValidator=0` on qualified bars; **new engine placed zero orders** (legacy engine trades unchanged, pre-existing behavior)
+
 ## v2.9.2-telemetry-stable — 2026-08-01 — Telemetry pipeline verified end-to-end (Sprint 14.5 maintenance)
 
 ### Fixed

@@ -4,6 +4,21 @@
 #include "../Confluence/SignalTypes.mqh"
 #include "EntryTypes.mqh"
 
+//+------------------------------------------------------------------+
+//| Entry mode matrix (Sprint 15, v3.0)                               |
+//|                                                                  |
+//|  Mode      Providers        Entry Engine  Real Orders  Shadow Tlm |
+//|  LEGACY    Shadow/Legacy    Legacy        Legacy        No        |
+//|  SHADOW    Shadow           New           No            Yes       |
+//|  NEW       Production       New           No (reserved) Yes       |
+//|  LIVE(*)   Production       New           Yes           Yes       |
+//|                                                                  |
+//|  (*) ENTRY_MODE_LIVE is a future post-promotion mode (Sprint 16+);|
+//|      execution stays disabled until the promotion gate passes.   |
+//|                                                                  |
+//|  Providers follow the @frozen v3.0-provider-contract: they       |
+//|  retrieve state only; validators hold all business rules.        |
+//+------------------------------------------------------------------+
 enum ENUM_ENTRY_MODE
 {
     ENTRY_MODE_LEGACY = 0,

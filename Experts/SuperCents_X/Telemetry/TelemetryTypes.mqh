@@ -28,7 +28,7 @@
 #include "../Entry/EntryTypes.mqh"
 
 //--- Canonical EA version used by the configuration fingerprint.
-#define TELEMETRY_EA_VERSION "v2.9.2"
+#define TELEMETRY_EA_VERSION "v3.0"
 
 #define TELEMETRY_SCHEMA_VERSION     2
 #define MAX_TELEMETRY_VALIDATORS     12

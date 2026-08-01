@@ -11,7 +11,9 @@
 #include "unit/TestOrchestratorPipeline.mqh"
 #include "unit/TestTelemetry.mqh"
 #include "unit/TestForwardOutcomeSimulator.mqh"
+#include "unit/TestCalibrationDataset.mqh"
 #include "unit/TestCalibrationOptimizers.mqh"
+#include "unit/TestProductionProviders.mqh"
 #include "integration/TestValidationLab.mqh"
 
 TestCounters RunAllSuperCentsTests(void)
@@ -61,7 +63,13 @@ TestCounters RunAllSuperCentsTests(void)
     r = RunForwardOutcomeSimulatorTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
+    r = RunCalibrationDatasetTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
     r = RunCalibrationOptimizersTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunProductionProviderTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");

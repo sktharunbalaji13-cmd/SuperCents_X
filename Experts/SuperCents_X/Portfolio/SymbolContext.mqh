@@ -47,6 +47,8 @@
 #include "../Entry/EntryConfig.mqh"
 #include "../Entry/CShadowTradeStateProvider.mqh"
 #include "../Entry/CShadowRiskEvaluator.mqh"
+#include "../Providers/ProductionTradeStateProvider.mqh"
+#include "../Providers/ProductionRiskEvaluator.mqh"
 #include "../Entry/Validators/DirectionValidator.mqh"
 #include "../Entry/Validators/ConfluenceValidator.mqh"
 #include "../Entry/Validators/FreshnessValidator.mqh"
@@ -57,6 +59,9 @@
 #include "../Entry/Validators/RiskValidator.mqh"
 #include "../Telemetry/TelemetryCollector.mqh"
 #include "../Telemetry/TelemetryRowBuilder.mqh"
+#include "../Telemetry/ForwardOutcomeSimulator.mqh"
+
+#define TELEMETRY_SETTLE_MAX_HOLD_BARS 50
 
 class CSymbolContext
 {
@@ -102,8 +107,21 @@ private:
     CEntryOrchestrator       *m_entryOrchestrator;
     ENUM_ENTRY_MODE           m_entryMode;
     CTelemetryCollector      *m_telemetry;
+
+    //--- Sprint 15.3: deferred outcome settlement. Rows are queued here and
+    //    settled (simulated forward outcome) once TELEMETRY_SETTLE_MAX_HOLD_BARS
+    //    bars have elapsed, so the promotion gate sees real settled trades.
+    CForwardOutcomeSimulator  m_outcomeSim;
+    CFixedRRPolicy            m_outcomePolicy;
+    TelemetryRow              m_pendingRows[];
+    datetime                  m_pendingEntryTime[];
+    int                       m_pendingCount;
     CShadowTradeStateProvider m_shadowProvider;
     CShadowRiskEvaluator      m_shadowRisk;
+    CProductionTradeStateProvider m_productionProvider;
+    CProductionRiskEvaluator      m_productionRisk;
+    ITradeStateProvider       *m_stateProvider;
+    IRiskEvaluator            *m_riskEvaluator;
     CDirectionValidator       m_dirVal;
     CConfluenceValidator      m_confVal;
     CFreshnessValidator       m_freshVal;
@@ -117,8 +135,14 @@ private:
 
     long m_updateCount;
 
+    //--- Sprint 15.3: deferred outcome settlement.
+    void QueueForSettlement(const TelemetryRow &row);
+    bool SettleRow(TelemetryRow &row, datetime entryBarTime);
+    void SettleDue(void);
+    void SettleRemaining(void);
+
 public:
-    CSymbolContext(const string symbol, int magicNumber = 0);
+    CSymbolContext(const string symbol, int magicNumber = 0, ENUM_ENTRY_MODE entryMode = ENTRY_MODE_LEGACY);
     ~CSymbolContext(void);
 
     bool Init(CEventBusAdapter *eventBus = NULL);
@@ -130,7 +154,15 @@ public:
     void SetEventBus(CEventBusAdapter *bus) { m_eventBus = bus; }
     void SetMagicNumber(int magic) { m_magicNumber = magic; }
     void SetPortfolioRiskManager(CPortfolioRiskManager *prm) { m_portfolioRiskManager = prm; }
-    void SetEntryMode(ENUM_ENTRY_MODE mode) { m_entryMode = mode; }
+    //--- Sprint 15 (v3.0): mode must be set at construction - providers are
+    //    bound in the ctor and the validators capture them there. Changing
+    //    the mode afterwards without re-binding providers desyncs the DI.
+    void SetEntryMode(ENUM_ENTRY_MODE mode)
+    {
+        if(mode != m_entryMode)
+            m_logger.LogWarn("SetEntryMode called after construction - provider binding unchanged; mode desync");
+        m_entryMode = mode;
+    }
     void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 
@@ -157,7 +189,7 @@ public:
     PerSymbolMetrics GetSnapshot(void) const;
 };
 
-CSymbolContext::CSymbolContext(const string symbol, int magicNumber)
+CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_MODE entryMode)
     : m_logger(MODULE_ENGINE, "SymbolContext[" + symbol + "]")
     , m_isInitialized(false)
     , m_symbol(symbol)
@@ -190,15 +222,42 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber)
     , m_exposureTracker(NULL)
     , m_drawdownMonitor(NULL)
     , m_entryOrchestrator(NULL)
-    , m_entryMode(ENTRY_MODE_LEGACY)
+    , m_entryMode(entryMode)
     , m_telemetry(NULL)
+    , m_outcomePolicy()
+    , m_pendingCount(0)
     , m_shadowProvider()
     , m_shadowRisk()
-    , m_cooldownVal(&m_shadowProvider)
-    , m_riskVal(&m_shadowRisk)
+    , m_productionProvider(m_symbol, (long)m_magicNumber)
+    , m_productionRisk(m_symbol)
+    , m_stateProvider(&m_shadowProvider)
+    , m_riskEvaluator(&m_shadowRisk)
+    , m_cooldownVal(m_stateProvider)
+    , m_riskVal(m_riskEvaluator)
     , m_lastCHOCHCount(0)
     , m_updateCount(0)
 {
+    //--- Sprint 15 (v3.0): providers are bound in the ctor because the
+    //    validators capture their provider pointers at construction.
+    //    MQL5 has no ternary operator, so NEW-mode binding is done here
+    //    (init list defaults to shadow providers).
+    if(entryMode == ENTRY_MODE_NEW)
+    {
+        m_stateProvider = &m_productionProvider;
+        m_riskEvaluator = &m_productionRisk;
+        m_cooldownVal.SetProvider(&m_productionProvider);
+        m_riskVal.SetRiskEvaluator(&m_productionRisk);
+        m_logger.LogInfo(StringFormat(
+            "Production providers active - TradeState(symbol=%s magic=%d tf=%s) Risk(name=ProductionRisk)",
+            m_symbol, m_magicNumber, EnumToString(Period())));
+    }
+    else if(entryMode == ENTRY_MODE_SHADOW)
+        m_logger.LogInfo("Providers: ShadowTradeState/ShadowRisk (mode SHADOW)");
+
+    //--- Sprint 15.3: outcome settlement policy. FixedRR (SL 1R / TP 2R on
+    //    entry-bar ATR) matches the frozen "FixedRR"/"1" telemetry config tag.
+    m_outcomeSim.SetPolicy(&m_outcomePolicy);
+    m_outcomeSim.SetMaxHoldBars(TELEMETRY_SETTLE_MAX_HOLD_BARS);
 }
 
 CSymbolContext::~CSymbolContext(void)
@@ -211,6 +270,10 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     m_logger.LogInfo("Initializing context for " + m_symbol + "...");
 
     m_eventBus = eventBus;
+
+    //--- Sprint 15 (v3.0): provider selection (DI) happens at construction
+    //    (see ctor); the validators capture their providers there. If the
+    //    entry mode is changed later, provider binding must be re-done.
 
     m_swingDetector = new CSwingDetector();
     if(!m_swingDetector.Init())
@@ -529,7 +592,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
 
             if(m_entryMode == ENTRY_MODE_NEW)
             {
-                Print("[SymbolContext] ENTRY_MODE_NEW reserved — falling back to shadow");
+                Print("[SymbolContext] ENTRY_MODE_NEW: production providers active — execution reserved until promotion gate passes");
                 m_entryOrchestrator.SetShadowMode(true);
             }
 
@@ -738,7 +801,11 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                                                 m_weights, m_symbol, (int)Period(),
                                                 disabled, "tick",
                                                 (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS));
-                    m_telemetry.Record(row);
+                    //--- Sprint 15.3: settle previously queued rows first so
+                    //    the collector receives rows in decision order, then
+                    //    queue the new row for forward-outcome settlement.
+                    SettleDue();
+                    QueueForSettlement(row);
                 }
             }
         }
@@ -844,6 +911,11 @@ void CSymbolContext::Shutdown(void)
         return;
 
     m_logger.LogInfo("Shutting down context for " + m_symbol + "...");
+
+    //--- Sprint 15.3: settle whatever the run horizon still allows; the
+    //    remaining rows are recorded unsettled (outcome UNKNOWN) so no
+    //    decision is lost from the dataset.
+    SettleRemaining();
 
     if(m_tradeExecutionManager != NULL)
     {
@@ -1050,6 +1122,150 @@ PerSymbolMetrics CSymbolContext::GetSnapshot(void) const
     }
 
     return snap;
+}
+
+//+------------------------------------------------------------------+
+//|  Sprint 15.3: deferred outcome settlement                         |
+//+------------------------------------------------------------------+
+
+void CSymbolContext::QueueForSettlement(const TelemetryRow &row)
+{
+    if(m_telemetry == NULL)
+        return;
+
+    int idx = m_pendingCount;
+    if(idx >= ArraySize(m_pendingRows))
+    {
+        ArrayResize(m_pendingRows, idx + 256);
+        ArrayResize(m_pendingEntryTime, idx + 256);
+    }
+    m_pendingRows[idx] = row;
+    m_pendingEntryTime[idx] = iTime(m_symbol, (ENUM_TIMEFRAMES)Period(), 0);
+    m_pendingCount++;
+}
+
+bool CSymbolContext::SettleRow(TelemetryRow &row, datetime entryBarTime)
+{
+    //--- Window: [warmStart, stopTime] in as-series (index 0 = newest).
+    //    - warmStart = entry - (3 days + warmup) so the FixedRR policy has
+    //      ATR(14) history even for Monday entries, whose back-window would
+    //      otherwise fall inside the Fri-close to Mon-open session gap
+    //    - stopTime  = entry + (hold + 2 days + hold-slack) so the forward
+    //      scan always finds its 50 bars even across a session break
+    //    The entry bar is located by time so session gaps never misplace it.
+    int tfSeconds = PeriodSeconds((ENUM_TIMEFRAMES)Period());
+    int needBars = TELEMETRY_SETTLE_MAX_HOLD_BARS + 1;
+    int warmupBars = 20;
+    int weekendBars = 2 * 24 * 60 * 60 / tfSeconds;      // 2 days of bars
+    datetime warmStart = entryBarTime - (datetime)(3 * 24 * 60 * 60 + (long)warmupBars * tfSeconds);
+    datetime stopTime  = entryBarTime + (datetime)((needBars + weekendBars + 50) * (long)tfSeconds);
+
+    double open[];
+    double high[];
+    double low[];
+    double close[];
+    datetime times[];
+    int n = CopyOpen(m_symbol, (ENUM_TIMEFRAMES)Period(), warmStart, stopTime, open);
+    if(n < needBars + 1)
+        return false;
+    if(CopyHigh(m_symbol, (ENUM_TIMEFRAMES)Period(), warmStart, stopTime, high) != n)
+        return false;
+    if(CopyLow(m_symbol, (ENUM_TIMEFRAMES)Period(), warmStart, stopTime, low) != n)
+        return false;
+    if(CopyClose(m_symbol, (ENUM_TIMEFRAMES)Period(), warmStart, stopTime, close) != n)
+        return false;
+    if(CopyTime(m_symbol, (ENUM_TIMEFRAMES)Period(), warmStart, stopTime, times) != n)
+        return false;
+
+    //--- IMPORTANT: the time-range Copy* overloads return the window in
+    //    ascending chronological order (oldest first), while the outcome
+    //    simulator and its policies expect as-series arrays (index 0 =
+    //    newest bar). Reverse the window so the entry bar sits at index
+    //    (bars after entry) and older history is at higher indexes.
+    ArrayReverse(open);
+    ArrayReverse(high);
+    ArrayReverse(low);
+    ArrayReverse(close);
+    ArrayReverse(times);
+
+    int entryBarIndex = -1;
+    for(int i = 0; i < n; i++)
+    {
+        if(times[i] == entryBarTime)
+        {
+            entryBarIndex = i;
+            break;
+        }
+    }
+    if(entryBarIndex < TELEMETRY_SETTLE_MAX_HOLD_BARS)
+        return false;                       // not enough forward bars yet
+    if(entryBarIndex + warmupBars >= n)
+        return false;                       // not enough ATR warmup history
+
+    SimulatedOutcome out;
+    if(!m_outcomeSim.Simulate(m_symbol, (ENUM_TIMEFRAMES)Period(),
+                              (ConfluenceDirection)row.direction,
+                              entryBarIndex, open, high, low, close, out))
+        return false;
+
+    row.outcomeSource = (int)OUTCOME_SOURCE_SIMULATED;
+    row.outcome = (int)out.outcome;
+    row.rMultiple = out.rMultiple;
+    row.barsHeld = out.barsHeld;
+    row.exitReason = (int)out.exitReason;
+    row.entryPrice = out.entryPrice;
+    row.exitPrice = out.exitPrice;
+    return true;
+}
+
+void CSymbolContext::SettleDue(void)
+{
+    if(m_pendingCount == 0)
+        return;
+
+    int keep = 0;
+    for(int i = 0; i < m_pendingCount; i++)
+    {
+        TelemetryRow row = m_pendingRows[i];
+        datetime entryBarTime = m_pendingEntryTime[i];
+        int shift = iBarShift(m_symbol, (ENUM_TIMEFRAMES)Period(), entryBarTime, false);
+        bool due = (shift >= TELEMETRY_SETTLE_MAX_HOLD_BARS);
+        bool settled = false;
+        if(due && SettleRow(row, entryBarTime))
+        {
+            m_telemetry.Record(row);
+            settled = true;
+        }
+        if(!settled)
+        {
+            m_pendingRows[keep] = row;
+            m_pendingEntryTime[keep] = entryBarTime;
+            keep++;
+        }
+    }
+    m_pendingCount = keep;
+}
+
+void CSymbolContext::SettleRemaining(void)
+{
+    if(m_telemetry == NULL)
+        return;
+
+    int total = m_pendingCount;
+    int unsettled = 0;
+    for(int i = 0; i < m_pendingCount; i++)
+    {
+        TelemetryRow row = m_pendingRows[i];
+        datetime entryBarTime = m_pendingEntryTime[i];
+        if(!SettleRow(row, entryBarTime))
+            unsettled++;
+        m_telemetry.Record(row);
+    }
+    m_pendingCount = 0;
+    if(unsettled > 0)
+        m_logger.LogInfo(StringFormat("Telemetry: %d of %d pending rows left unsettled (outcome UNKNOWN)",
+                                      unsettled, total));
+    m_logger.LogInfo("Telemetry: settlement pass complete");
 }
 
 #endif

@@ -22,6 +22,8 @@ public:
         m_cfg = cfg;
     }
 
+    void SetRiskEvaluator(IRiskEvaluator *risk) { m_risk = risk; }
+
     virtual void Validate(const ConfluenceResult &confluence, const EntryContext &ctx, EntryFilterResult &out)
     {
         out.category = CATEGORY_ACCOUNT;
@@ -34,20 +36,19 @@ public:
             return;
         }
 
-        double maxLots = 0.0;
-        bool allowed = m_risk.CanOpenPosition(confluence.totalConfidence, maxLots);
+        RiskEvaluation evaluation = m_risk.Evaluate(confluence.totalConfidence);
 
-        if(!allowed)
+        if(!evaluation.allowed)
         {
             out.result = FILTER_FAIL;
             out.reason = REASON_RISK_REJECTED;
-            out.explanation = m_risk.GetRejectionReason();
+            out.explanation = evaluation.reason;
         }
         else
         {
             out.result = FILTER_PASS;
             out.reason = REASON_NONE;
-            out.explanation = "Risk approved, max lots: " + DoubleToString(maxLots, 2);
+            out.explanation = "Risk approved, max lots: " + DoubleToString(evaluation.recommendedLots, 2);
         }
     }
 

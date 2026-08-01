@@ -26,6 +26,27 @@ private:
     int          m_scannedFiles;
     int          m_skippedRows;
 
+public:
+    //--- Parse an unsigned decimal fingerprint. StringToInteger returns a
+    //    signed long and SATURATES at INT64_MAX (0x7FFFFFFFFFFFFFFF) for
+    //    values above it — a real fingerprint > INT64_MAX would silently
+    //    collapse into one phantom set. Chunked parsing keeps full ulong
+    //    range (verified by TestCalibrationDataset).
+    static ulong ParseUnsigned(const string s)
+    {
+        int len = StringLen(s);
+        if(len == 0)
+            return 0;
+        if(len <= 9)
+            return (ulong)StringToInteger(s);
+
+        string hi = StringSubstr(s, 0, len - 9);
+        string lo = StringSubstr(s, len - 9, 9);
+        return (ulong)StringToInteger(hi) * (ulong)1000000000
+               + (ulong)StringToInteger(lo);
+    }
+
+private:
     static bool ParseRow(const string line, TelemetryRow &out)
     {
         string col[];
@@ -40,7 +61,7 @@ private:
 
         out = TelemetryRow();
         out.schemaVersion = (uint)schemaVersion;
-        out.configFingerprint = (ulong)StringToInteger(col[i++]);
+        out.configFingerprint = ParseUnsigned(col[i++]);
         out.timestamp = StringToTime(col[i++]);
         out.symbol = col[i++];
         out.timeframe = (int)StringToInteger(col[i++]);

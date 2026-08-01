@@ -254,7 +254,10 @@ bool CPortfolioManager::RegisterSymbol(const string symbol, int magicNumber, ENU
         return true;
     }
 
-    CSymbolContext *ctx = new CSymbolContext(symbol, magicNumber);
+    //--- Sprint 15 (v3.0): providers are bound at construction (validators
+    //    capture them in their own constructors), so the mode must be passed
+    //    into the ctor; SetEntryMode afterwards would desync provider binding.
+    CSymbolContext *ctx = new CSymbolContext(symbol, magicNumber, entryMode);
     if(ctx == NULL)
         return false;
 

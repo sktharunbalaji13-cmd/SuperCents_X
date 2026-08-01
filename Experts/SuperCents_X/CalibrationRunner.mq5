@@ -1,4 +1,4 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                     CalibrationRunner.mq5          |
 //|                                      Copyright 2026, SuperCents_X|
 //|                                             v2.9.2 (Sprint 14.6)  |
@@ -18,7 +18,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, SuperCents_X"
 #property link      ""
-#property version   "2.92"
+#property version   "3.00"
 #property strict
 
 #include "Calibration/ExperimentRunner.mqh"
@@ -47,11 +47,29 @@ input double                WeightPremium       = 10.0;
 
 CLogger g_logger(MODULE_UNKNOWN, "CalibrationRunner");
 CExperimentRunner g_runner;
+bool g_ranOnce = false;
 
 //+------------------------------------------------------------------+
-//| Script program start function                                    |
+//| EA-style entry points (Sprint 15.3: run in the Strategy Tester)  |
 //+------------------------------------------------------------------+
-void OnStart(void)
+int OnInit(void)
+{
+    return INIT_SUCCEEDED;
+}
+
+void OnTick(void)
+{
+    if(!g_ranOnce)
+    {
+        g_ranOnce = true;
+        RunOnce();
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Script program start function (kept for chart usage)             |
+//+------------------------------------------------------------------+
+void RunOnce(void)
 {
     g_logger.LogInfo("========================== CALIBRATION RUNNER ==========================");
     g_logger.LogInfo(StringFormat("Mode: %d  Telemetry: %s  Reports: %s",
@@ -61,7 +79,7 @@ void OnStart(void)
     int total = g_runner.LoadDataset();
     if(total == 0)
     {
-        g_logger.LogError("CalibrationRunner: no telemetry rows found â€” run the EA in shadow mode first");
+        g_logger.LogError("CalibrationRunner: no telemetry rows found — run the EA in shadow mode first");
         return;
     }
 

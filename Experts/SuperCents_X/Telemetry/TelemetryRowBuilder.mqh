@@ -101,8 +101,12 @@ public:
         out.newConfidence = newDecision.confidence;
         out.disabledValidators = CConfigFingerprint::SortDisabledValidators(disabledValidators);
 
-        //--- Outcome simulation is wired in a later sprint; schema fields
-        //    stay at their UNKNOWN / NONE defaults for v2.9.2.
+        //--- Outcome fields stay at their UNKNOWN / NONE defaults here.
+        //    Sprint 15.3: the symbol context settles each row after
+        //    TELEMETRY_SETTLE_MAX_HOLD_BARS bars via CForwardOutcomeSimulator
+        //    (FixedRR policy, matching the frozen "FixedRR"/"1" config tag)
+        //    and fills outcome/outcomeSource/rMultiple/barsHeld/exitReason
+        //    before the row reaches the collector.
         return true;
     }
 };

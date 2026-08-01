@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "2026, SuperCents_X"
 #property link      "https://github.com/"
-#property version   "2.92"
+#property version   "3.00"
 
 //--- Include headers
 #include "Utils/Types.mqh"

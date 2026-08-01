@@ -1,11 +1,12 @@
 //+------------------------------------------------------------------+
 //|                                ProductionTradeStateProvider.mqh   |
 //|                                      Copyright 2026, SuperCents_X|
-//|                                             Sprint 14 (v2.9)       |
+//|                                             Sprint 15 (v3.0)       |
 //+------------------------------------------------------------------+
 //  Real-account trade state provider (live + tester).  Answers the
 //  cooldown / position checks from the terminal history instead of the
 //  permissive shadow values.
+//  Contract: @frozen v3.0-provider-contract (ITradeStateProvider).
 //+------------------------------------------------------------------+
 #ifndef __PRODUCTION_TRADE_STATE_PROVIDER_MQH__
 #define __PRODUCTION_TRADE_STATE_PROVIDER_MQH__

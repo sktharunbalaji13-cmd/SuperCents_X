@@ -22,6 +22,8 @@ public:
         m_cfg = cfg;
     }
 
+    void SetProvider(ITradeStateProvider *provider) { m_provider = provider; }
+
     virtual void Validate(const ConfluenceResult &confluence, const EntryContext &ctx, EntryFilterResult &out)
     {
         out.category = CATEGORY_ACCOUNT;

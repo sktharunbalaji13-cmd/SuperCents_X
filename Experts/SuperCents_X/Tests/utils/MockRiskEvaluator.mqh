@@ -23,14 +23,17 @@ public:
     void SetMaxLots(double v)         { m_maxLots = v; }
     void SetRejectionReason(string v) { m_rejectionReason = v; }
 
-    virtual bool   CanOpenPosition(double confidence, double &maxLots)
+    virtual RiskEvaluation Evaluate(double confidence)
     {
-        maxLots = m_maxLots;
-        return m_allowed;
+        RiskEvaluation ev;
+        ev.allowed = m_allowed;
+        ev.recommendedLots = m_maxLots;
+        ev.reason = m_rejectionReason;
+        ev.rejectionReason = m_allowed ? RR_NONE : RR_UNKNOWN;
+        return ev;
     }
 
-    virtual string GetRejectionReason() { return m_rejectionReason; }
-    virtual string GetName()            { return m_name; }
+    virtual string GetName() { return m_name; }
 };
 
 #endif
