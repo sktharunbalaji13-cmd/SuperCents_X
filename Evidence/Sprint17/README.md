@@ -1,8 +1,8 @@
 # Sprint 17 — Schema v3 Six-Month Evidence Baseline (Research)
 
 **Status: FROZEN — IMMUTABLE.** This archive is the v3 research baseline. Files under this
-directory must never be edited, appended, or deleted. Future collections go to `Sprint18/`,
-`Sprint19/`, ... and get their own manifests. The dataset fingerprint (below) detects any
+directory must never be edited, appended, or deleted. Future collections go to `Sprint19/`,
+`Sprint20/`, ... and get their own manifests. The dataset fingerprint (below) detects any
 drift.
 
 ## Objective
