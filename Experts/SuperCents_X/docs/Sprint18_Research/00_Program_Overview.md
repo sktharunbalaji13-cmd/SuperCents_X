@@ -1,6 +1,11 @@
 # Sprint 18 — Deep Research Program
 
-Status: **active** (Sprint 17 closed: `v3.0-research-baseline`, dataset frozen)
+Status: **COMPLETE** (2026-08-02). 15/15 sub-sprints delivered, one
+commit each (`docs: sprint18.0` … `docs: sprint18.15`). The program's
+headline findings, measured evidence and the consolidated Master
+Experiment Backlog for Sprint 19 are in `15_Synthesis_Backlog.md`
+(F1-F6 findings; M01-M53 cards; M01-M04 protocol gates all others).
+(Sprint 17 closed: `v3.0-research-baseline`, dataset frozen)
 
 This is not a feature sprint. Sprint 18 is a **research program** that produces the
 scientific foundation for every future architectural decision. It converts a six-month
@@ -39,18 +44,18 @@ Idea → Code → Backtest
 |--------|-------|-----------|----------|
 | 18.1 | Swing Detection & Market Structure | `Structure/SwingDetector.mqh`, `StructuralPivotEngine.mqh`, `ProtectedPointManager.mqh`, `TrendState.mqh`, `PPTelemetry.mqh` | `01_Swing_Detection.md` |
 | 18.2 | Break of Structure (BOS) | `Structure/BOSDetector.mqh` | `02_BOS_Research.md` |
-| 18.3 | Change of Character (CHOCH / MSS) | `Structure/CHOCHDetector.mqh` | `03_CHOCH_MSS_Research.md` |
+| 18.3 | Change of Character (CHOCH / MSS) | `Structure/CHOCHDetector.mqh` | `03_CHOCH_MSS.md` |
 | 18.4 | Liquidity | `Structure/LiquidityDetector.mqh` | `04_Liquidity.md` |
 | 18.5 | Order Blocks | `Structure/OrderBlockDetector.mqh` | `05_Order_Blocks.md` |
 | 18.6 | Fair Value Gaps | `Structure/FVGDetector.mqh` | `06_Fair_Value_Gaps.md` |
 | 18.7 | Confluence | `Confluence/` (Engine, ScoreCalculator, 6 evaluators) | `07_Confluence.md` |
 | 18.8 | Confidence Architecture Review | `Research/ConfidenceCalibrator.mqh`, Calibration modes, v3 schema | `08_Confidence_Architecture.md` |
-| 18.9 | Entry Logic | `Entry/` (DecisionEngine, Orchestrator, ExecutionPlanner, Validators, EntryConfig) | `09_Entry_Logic.md` |
-| 18.10 | Exit Strategy | `Entry/PositionLifecycleManager.mqh` | `10_Exit_Strategy.md` |
+| 18.9 | Entry Logic | `Entry/` (DecisionEngine, Orchestrator, ExecutionPlanner, Validators, EntryConfig) | `09_Entry.md` |
+| 18.10 | Exit Strategy | `Entry/PositionLifecycleManager.mqh` | `10_Exit.md` |
 | 18.11 | Risk & Portfolio Management | `Risk/PositionSizer.mqh`, `Portfolio/` | `11_Risk_Portfolio.md` |
-| 18.12 | Market Regimes & News Filtering | `Structure/TrendState.mqh`, `Research/RobustnessProfiler.mqh`, BenchmarkFramework, `Entry/Validators/SessionValidator.mqh` | `12_Market_Regimes_News.md` |
+| 18.12 | Market Regimes & News Filtering | `Structure/TrendState.mqh`, `Research/RobustnessProfiler.mqh`, BenchmarkFramework, `Entry/Validators/SessionValidator.mqh` | `12_Regimes_News.md` |
 | 18.13 | Statistical Validation | `Validation/` (WalkForwardScheduler, MonteCarloSimulator), `Optimization/RobustnessTester.mqh` | `13_Statistical_Validation.md` |
-| 18.14 | AI / Machine Learning Readiness | (greenfield; adjacent `Knowledge/`, `Laboratory/`) | `14_AI_ML_Readiness.md` |
+| 18.14 | AI / Machine Learning Readiness | (greenfield; adjacent `Knowledge/`, `Laboratory/`, `Calibration/`) | `14_AI_ML.md` |
 | 18.15 | Research Synthesis & Experiment Backlog | — | `15_Synthesis_Backlog.md` |
 
 ## 2. Mandatory 8-phase methodology (every 18.1–18.14)
