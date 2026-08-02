@@ -622,15 +622,24 @@ vs hasBOS=TRUE 0.3115 (n=4,411).
 | hasBOS | sweep | n | Win rate |
 |---|---|---|---|
 | FALSE | FALSE | 12,662 | 0.3393 |
-| TRUE | FALSE | 3,553 | 0.2967 |
-| TRUE | TRUE | 858 | 0.3730 |
+| TRUE | FALSE | 858 | 0.3730 |
+| TRUE | TRUE | 3,553 | 0.2967 |
+| FALSE | TRUE | 0 | — |
 
-- **BOS + sweep together is the best BOS cell (0.3730)** — a sweep that
-  resolves into a structural break in the opposite direction is the strongest
-  BOS-context combination, consistent with the ICT liquidity-sweep-then-BOS
-  narrative and with the LIQUIDITY_BOS rule family being *sweep-first* rules.
-  Note the ordering: BOS present + no sweep = 0.2967; BOS + sweep = 0.3730
-  (+7.6pp).
+- **BOS present + no sweep is the best BOS cell (0.3730, n=858)** — this cell
+  *is* the BOS_OB rule family (440 bullish + 418 bearish = 858), i.e. the
+  structural-break context at its strongest is the OB-paired break, *without*
+  any liquidity-sweep event. **BOS + sweep together is the weakest BOS cell
+  (0.2967, n=3,553)** — this cell is the LIQUIDITY_BOS rule family (1,853 +
+  1,700 = 3,553), which substitutes a sweep for the OB as the paired evidence.
+  A sweep never co-occurs with an OB or a CHOCH in the fired-rule layer
+  (sweep TRUE rows appear only on LIQUIDITY_BOS rules; see 18.4 §7 for the
+  full cross-tab). Interpretation: as implemented, the sweep event is a *net
+  negative* context for a BOS decision (−7.6pp vs BOS+OB); the ICT
+  liquidity-sweep-then-BOS narrative is **not** supported by the measured data,
+  which is instead consistent with the code-review finding (18.4 §6) that the
+  detector marks *any* touch beyond a level as a sweep, with no reclaim, no
+  time limit, and no displacement confirmation.
 
 **BOS-rule stats by trendAligned:**
 
