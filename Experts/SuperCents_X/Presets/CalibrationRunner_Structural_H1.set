@@ -1,0 +1,7 @@
+; structural diagnostics gate (sprint17)
+CalibrationMode=7
+TelemetryDirectory=Telemetry\EURUSD_H1
+ReportDirectory=Calibration
+FingerprintFilter=F01601D3E83F76CA
+CandidateConfidence=0.6
+

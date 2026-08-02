@@ -1,0 +1,59 @@
+﻿{
+    "runId":  "Sprint17-Run3",
+    "status":  "PASS",
+    "symbol":  "GBPJPY",
+    "timeframe":  "H1",
+    "harnessIni":  "Sprint17_Collection_GBPJPY_H1.ini",
+    "expertParameters":  "SuperCents_X.set",
+    "entryMode":  "ENTRY_MODE_NEW (2)",
+    "period":  "2026.01.05 - 2026.07.05 (simulated; data ends 2026.07.03)",
+    "testerBuild":  "6090",
+    "tickModel":  4,
+    "deposit":  10000,
+    "leverage":  200,
+    "eaVersion":  "v3.0",
+    "schemaVersion":  3,
+    "configFingerprint":  "8838775532884979052",
+    "wallClockStart":  "2026-08-02 18:10:25",
+    "wallClockEnd":  "2026-08-02 18:12:15",
+    "elapsedMinutes":  1.8,
+    "testerReported":  "Test passed in 0:01:43.751; 38019169 ticks; 3117 bars",
+    "rowsWritten":  3116,
+    "ioFaults":  0,
+    "ordersPlaced":  0,
+    "errors":  0,
+    "deinitFlush":  "PASS (final flush telemetry_v3_20260703.csv)",
+    "settlement":  "PASS",
+    "duplicateKeys":  0,
+    "badRows":  0,
+    "gates":  {
+                  "exitCode":  "PASS",
+                  "newModeBanner":  "PASS",
+                  "collectorInit":  "PASS",
+                  "zeroOrders":  "PASS",
+                  "zeroErrors":  "PASS",
+                  "telemSummary":  "PASS (3116 rows, 0 faults)",
+                  "dupScan":  "PASS",
+                  "schemaShape":  "PASS (68 cols)"
+              },
+    "files":  [
+                  {
+                      "file":  "telemetry_v3_20260306.csv",
+                      "rows":  1024,
+                      "bytes":  1082812,
+                      "sha256":  "1378A8529B2385139BB4A03589ECA6F203D6EBE58843A9916239F3D3A6EF9431"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260506.csv",
+                      "rows":  1024,
+                      "bytes":  1076972,
+                      "sha256":  "1679B57BB6C6D09F9E50E4DAD640526779212A66D7098902998C167DDAEABE32"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260703.csv",
+                      "rows":  1068,
+                      "bytes":  1141016,
+                      "sha256":  "F53432DED413525A35F5E7E2877D08F378513D7C6FF709F121AFF279A0812CC1"
+                  }
+              ]
+}

@@ -1,0 +1,63 @@
+﻿{
+    "runId":  "Sprint17-Run2",
+    "status":  "PASS",
+    "symbol":  "EURUSD",
+    "timeframe":  "H1",
+    "harnessIni":  "Sprint17_Collection_EURUSD_H1.ini",
+    "expertParameters":  "SuperCents_X.set",
+    "entryMode":  "ENTRY_MODE_NEW (2)",
+    "period":  "2026.01.05 - 2026.07.05 (simulated; data ends 2026.07.03)",
+    "testerBuild":  "6090",
+    "tickModel":  4,
+    "deposit":  10000,
+    "leverage":  200,
+    "eaVersion":  "v3.0",
+    "schemaVersion":  3,
+    "configFingerprint":  "17300017028236539594",
+    "wallClockStart":  "2026-08-02 18:06:26",
+    "wallClockEnd":  "2026-08-02 18:08:10",
+    "elapsedMinutes":  1.7,
+    "testerReported":  "Test passed in 0:01:38.983; 19834580 ticks; 3118 bars",
+    "rowsWritten":  3103,
+    "ioFaults":  0,
+    "ordersPlaced":  0,
+    "errors":  0,
+    "deinitFlush":  "PASS (final flush telemetry_v3_20260703.csv)",
+    "settlement":  "PASS",
+    "duplicateKeys":  0,
+    "badRows":  0,
+    "fingerprintMismatch":  0,
+    "gates":  {
+                  "exitCode":  "PASS",
+                  "newModeBanner":  "PASS",
+                  "collectorInit":  "PASS",
+                  "zeroOrders":  "PASS",
+                  "zeroErrors":  "PASS",
+                  "telemSummary":  "PASS (3103 rows, 0 faults)",
+                  "dupScan":  "PASS",
+                  "schemaShape":  "PASS (68 cols)"
+              },
+    "files":  [
+                  {
+                      "file":  "telemetry_v3_20260309.csv",
+                      "rows":  1024,
+                      "bytes":  1096172,
+                      "fingerprint":  "17300017028236539594",
+                      "sha256":  "866B6EDD5C5CA01A84CCCD63AABBB89376BAA70D119943278BF1AAC29D93ECF6"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260507.csv",
+                      "rows":  1024,
+                      "bytes":  1110532,
+                      "fingerprint":  "17300017028236539594",
+                      "sha256":  "058468344472D56FCA4B7C841DF3EC6BB514128C9D41552694BED34E0BFDD1CF"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260703.csv",
+                      "rows":  1055,
+                      "bytes":  1143306,
+                      "fingerprint":  "17300017028236539594",
+                      "sha256":  "F231ED96E81F47CD0A5D71E538322E94A101AF371813D3A30E0819AEC285AA63"
+                  }
+              ]
+}

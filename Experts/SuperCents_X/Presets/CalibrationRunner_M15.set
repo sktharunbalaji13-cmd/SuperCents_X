@@ -1,0 +1,7 @@
+; per-run schema health gate (sprint17)
+CalibrationMode=8
+TelemetryDirectory=Telemetry\EURUSD_M15
+ReportDirectory=Calibration
+FingerprintFilter=1D1EF3C650D79C3F
+CandidateConfidence=0.6
+

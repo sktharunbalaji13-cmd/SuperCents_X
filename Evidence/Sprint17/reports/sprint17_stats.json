@@ -1,0 +1,123 @@
+{
+  "conservation": {
+    "dupKeysAcrossRuns": 0,
+    "match": true,
+    "mergedRows": 18686,
+    "sumRuns": 18686,
+    "uniqueKeysAll": 18686
+  },
+  "datasetFingerprint": {
+    "digest": "2e74bbae642afda5cfe073d3fa8cdd49fdfb4c7b24c40f9b223e34f7b0db8b90",
+    "formula": "SHA256(sorted '<runDir>/<filename>|<fileSHA256>' lines)",
+    "inputs": 19
+  },
+  "merged": {
+    "files": 19,
+    "rows": 18686
+  },
+  "runs": {
+    "EURUSD_H1": {
+      "badOutcome": 0,
+      "breakeven": 0,
+      "coveragePct": 98.39,
+      "decided": 3053,
+      "dupKeys": 0,
+      "evidenceCombos": 374,
+      "files": 3,
+      "fingerprints": [
+        "17300017028236539594"
+      ],
+      "headerCols": 68,
+      "loss": 2049,
+      "maxTs": "2026.07.03 23:00",
+      "minTs": "2026.01.05 15:00",
+      "rows": 3103,
+      "sha256": {
+        "telemetry_v3_20260309.csv": "866b6edd5c5ca01a84cccd63aabbb89376baa70d119943278bf1aac29d93ecf6",
+        "telemetry_v3_20260507.csv": "058468344472d56fca4b7c841df3ec6bb514128c9d41552694bed34e0bfdd1cf",
+        "telemetry_v3_20260703.csv": "f231ed96e81f47cd0a5d71e538322e94a101af371813d3a30e0819aec285aa63"
+      },
+      "symbols": [
+        "EURUSD"
+      ],
+      "timeframes": [
+        "16385"
+      ],
+      "uniqueKeys": 3103,
+      "unknown": 50,
+      "win": 1004
+    },
+    "EURUSD_M15": {
+      "badOutcome": 0,
+      "breakeven": 5,
+      "coveragePct": 99.6,
+      "decided": 12417,
+      "dupKeys": 0,
+      "evidenceCombos": 1406,
+      "files": 13,
+      "fingerprints": [
+        "2098382509486611519"
+      ],
+      "headerCols": 68,
+      "loss": 8323,
+      "maxTs": "2026.07.03 23:45",
+      "minTs": "2026.01.05 00:15",
+      "rows": 12467,
+      "sha256": {
+        "telemetry_v3_20260120.csv": "211f605f540832fef3332e339bb2a0cfb7b3fcc40f72b1e3086af5a00a1a5fb6",
+        "telemetry_v3_20260203.csv": "552a0f20ba89c28d0cd9b4bab43639190de8de15b59caa21b2912d98c5e276c2",
+        "telemetry_v3_20260218.csv": "3dccce1bfa592e06d0b60718bc1a51bd7e79510258e69229c63c54520ccaed92",
+        "telemetry_v3_20260305.csv": "627f49ca4817368c278dc77065fe80c66ac6e65cc3944997712175615425452c",
+        "telemetry_v3_20260319.csv": "91fc38c41556775d04fb06ce3ccaae02b4ed914c6a3ac76b04048e3c0456c278",
+        "telemetry_v3_20260403.csv": "a3aa566f515ccfdd4509a8b8995d1dca79a05db404f9b88fbc623f08780f2b94",
+        "telemetry_v3_20260420.csv": "a1cd99121fea5ec4c87f9777a0f8deef71519456ab7141f18a7258eb69054ccc",
+        "telemetry_v3_20260504.csv": "5c32582ecf71569aa2c3fe79f981587afda4dcb787b7fbb0e853636a61face50",
+        "telemetry_v3_20260519.csv": "39321dae050f35b61ce8f24187a8d0044ed83ff5e8b65f73fc76d47a461c5a40",
+        "telemetry_v3_20260603.csv": "289bff6d9a42050adf27ae212a64b4ae8597a1ada1f703877714066bc1e39d95",
+        "telemetry_v3_20260617.csv": "4d41f319cd6eb913fd9c7578ad45dca1c794efd4d26556fe103490180716d645",
+        "telemetry_v3_20260702.csv": "ffeba7ceb38a01e218c8b6291703448301c5bdd6a9270c51aa3daba35fd1814d",
+        "telemetry_v3_20260703.csv": "9cf8310ae529bbdbabc2096d4899a1bc865959e2ec830cf73d2e735569810e36"
+      },
+      "symbols": [
+        "EURUSD"
+      ],
+      "timeframes": [
+        "15"
+      ],
+      "uniqueKeys": 12467,
+      "unknown": 50,
+      "win": 4089
+    },
+    "GBPJPY_H1": {
+      "badOutcome": 0,
+      "breakeven": 0,
+      "coveragePct": 98.4,
+      "decided": 3066,
+      "dupKeys": 0,
+      "evidenceCombos": 388,
+      "files": 3,
+      "fingerprints": [
+        "8838775532884979052"
+      ],
+      "headerCols": 68,
+      "loss": 2029,
+      "maxTs": "2026.07.03 23:00",
+      "minTs": "2026.01.05 01:00",
+      "rows": 3116,
+      "sha256": {
+        "telemetry_v3_20260306.csv": "1378a8529b2385139bb4a03589eca6f203d6ebe58843a9916239f3d3a6ef9431",
+        "telemetry_v3_20260506.csv": "1679b57bb6c6d09f9e50e4dad640526779212a66d7098902998c167ddaeabe32",
+        "telemetry_v3_20260703.csv": "f53432ded413525a35f5e7e2877d08f378513d7c6ff709f121aff279a0812cc1"
+      },
+      "symbols": [
+        "GBPJPY"
+      ],
+      "timeframes": [
+        "16385"
+      ],
+      "uniqueKeys": 3116,
+      "unknown": 50,
+      "win": 1037
+    }
+  }
+}

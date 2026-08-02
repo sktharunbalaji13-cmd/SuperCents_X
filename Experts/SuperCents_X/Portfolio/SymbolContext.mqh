@@ -492,6 +492,13 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         delete m_tradeExecutionManager;
         m_tradeExecutionManager = NULL;
     }
+    if(m_tradeExecutionManager != NULL)
+    {
+        //--- Sprint 17.7A: order execution follows the entry-mode contract.
+        //    Only ENTRY_MODE_LEGACY may send orders; SHADOW/NEW runs are
+        //    shadow-only ("execution reserved until promotion gate passes").
+        m_tradeExecutionManager.SetExecutionEnabled(m_entryMode == ENTRY_MODE_LEGACY);
+    }
     if(m_tradeExecutionManager != NULL && m_confluenceEngine != NULL)
     {
         m_tradeExecutionManager.SetPlanner(m_confluenceEngine.GetExecutionPlanner());

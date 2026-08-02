@@ -1,0 +1,3 @@
+wallClockStart=2026-08-02 18:06:26
+ini=Sprint17_Collection_EURUSD_H1.ini
+

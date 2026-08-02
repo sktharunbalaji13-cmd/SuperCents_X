@@ -1,0 +1,120 @@
+﻿{
+    "runId":  "Sprint17-Run1",
+    "status":  "PASS",
+    "symbol":  "EURUSD",
+    "timeframe":  "M15",
+    "harnessIni":  "Sprint17_Collection_EURUSD_M15.ini",
+    "expertParameters":  "SuperCents_X.set",
+    "entryMode":  "ENTRY_MODE_NEW (2)",
+    "period":  "2026.01.05 - 2026.07.05 (simulated; data ends 2026.07.03)",
+    "testerBuild":  "6090",
+    "tickModel":  4,
+    "deposit":  10000,
+    "leverage":  200,
+    "eaVersion":  "v3.0",
+    "schemaVersion":  3,
+    "configFingerprint":  "2098382509486611519",
+    "wallClockStart":  "2026-08-02 17:08:44",
+    "wallClockEnd":  "2026-08-02 18:00:45",
+    "elapsedMinutes":  52,
+    "testerReported":  "Test passed in 0:51:54.878; 19834580 ticks; 12468 bars",
+    "rowsWritten":  12467,
+    "ioFaults":  0,
+    "ordersPlaced":  0,
+    "errors":  0,
+    "deinitFlush":  "PASS (final partial file telemetry_v3_20260703.csv at deinit)",
+    "settlement":  "PASS (50 of 50 pending rows left unsettled, outcome UNKNOWN)",
+    "duplicateKeys":  0,
+    "badRows":  0,
+    "fingerprintMismatch":  0,
+    "gates":  {
+                  "exitCode":  "PASS",
+                  "newModeBanner":  "PASS",
+                  "collectorInit":  "PASS",
+                  "zeroOrders":  "PASS",
+                  "zeroErrors":  "PASS",
+                  "telemSummary":  "PASS (12467 rows, 0 faults)",
+                  "dupScan":  "PASS",
+                  "schemaShape":  "PASS (68 cols)"
+              },
+    "files":  [
+                  {
+                      "file":  "telemetry_v3_20260120.csv",
+                      "rows":  1024,
+                      "bytes":  1093532,
+                      "sha256":  "211F605F540832FEF3332E339BB2A0CFB7B3FCC40F72B1E3086AF5A00A1A5FB6"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260203.csv",
+                      "rows":  1024,
+                      "bytes":  1091920,
+                      "sha256":  "552A0F20BA89C28D0CD9B4BAB43639190DE8DE15B59CAA21B2912D98C5E276C2"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260218.csv",
+                      "rows":  1024,
+                      "bytes":  1086916,
+                      "sha256":  "3DCCCE1BFA592E06D0B60718BC1A51BD7E79510258E69229C63C54520CCAED92"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260305.csv",
+                      "rows":  1024,
+                      "bytes":  1104826,
+                      "sha256":  "627F49CA4817368C278DC77065FE80C66AC6E65CC3944997712175615425452C"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260319.csv",
+                      "rows":  1024,
+                      "bytes":  1090794,
+                      "sha256":  "91FC38C41556775D04FB06CE3CCAAE02B4ED914C6A3AC76B04048E3C0456C278"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260403.csv",
+                      "rows":  1024,
+                      "bytes":  1098878,
+                      "sha256":  "A3AA566F515CCFDD4509A8B8995D1DCA79A05DB404F9B88FBC623F08780F2B94"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260420.csv",
+                      "rows":  1024,
+                      "bytes":  1088128,
+                      "sha256":  "A1CD99121FEA5EC4C87F9777A0F8DEEF71519456AB7141F18A7258EB69054CCC"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260504.csv",
+                      "rows":  1024,
+                      "bytes":  1087108,
+                      "sha256":  "5C32582ECF71569AA2C3FE79F981587AFDA4DCB787B7FBB0E853636A61FACE50"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260519.csv",
+                      "rows":  1024,
+                      "bytes":  1088446,
+                      "sha256":  "39321DAE050F35B61CE8F24187A8D0044ED83FF5E8B65F73FC76D47A461C5A40"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260603.csv",
+                      "rows":  1024,
+                      "bytes":  1075530,
+                      "sha256":  "289BFF6D9A42050ADF27AE212A64B4AE8597A1ADA1F703877714066BC1E39D95"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260617.csv",
+                      "rows":  1024,
+                      "bytes":  1091272,
+                      "sha256":  "4D41F319CD6EB913FD9C7578AD45DCA1C794EFD4D26556FE103490180716D645"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260702.csv",
+                      "rows":  1024,
+                      "bytes":  1082286,
+                      "sha256":  "FFEBA7CEB38A01E218C8B6291703448301C5BDD6A9270C51AA3DABA35FD1814D"
+                  },
+                  {
+                      "file":  "telemetry_v3_20260703.csv",
+                      "rows":  179,
+                      "bytes":  188846,
+                      "sha256":  "9CF8310AE529BBDBABC2096D4899A1BC865959E2EC830CF73D2E735569810E36"
+                  }
+              ]
+}

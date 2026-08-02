@@ -1,0 +1,7 @@
+; merged schema health gate (sprint17)
+CalibrationMode=8
+TelemetryDirectory=Telemetry\merged
+ReportDirectory=Calibration
+FingerprintFilter=
+CandidateConfidence=0.6
+

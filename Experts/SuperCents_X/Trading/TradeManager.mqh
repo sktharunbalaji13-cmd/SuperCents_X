@@ -20,6 +20,7 @@ private:
     CExecutionPlanner       *m_planner;
 
     bool                    m_isInitialized;
+    bool                    m_executionEnabled;
     string                  m_symbol;
     double                  m_lotSize;
     int                     m_maxSlippage;
@@ -53,12 +54,14 @@ public:
     void SetMagicNumber(int magic);
     void SetSymbol(string symbol);
     void SetDeviation(int deviation);
+    void SetExecutionEnabled(bool enabled) { m_executionEnabled = enabled; }
 };
 
 CTradeManager::CTradeManager(void)
     : m_logger(MODULE_TRADING, "TradeManager")
     , m_planner(NULL)
     , m_isInitialized(false)
+    , m_executionEnabled(true)
     , m_symbol(_Symbol)
     , m_lotSize(0.01)
     , m_maxSlippage(3)
@@ -108,6 +111,13 @@ void CTradeManager::SetDeviation(int deviation) { m_maxSlippage = deviation; m_r
 void CTradeManager::Update(void)
 {
     if(!m_isInitialized || m_planner == NULL)
+        return;
+
+    //--- Execution gating (Sprint 17.7A): the legacy execution pipeline
+    //    (ExecutionPlanner -> CTradeManager) must match the documented
+    //    entry-mode contract.  Only ENTRY_MODE_LEGACY may send orders;
+    //    SHADOW/NEW collection runs are shadow-only ("execution reserved").
+    if(!m_executionEnabled)
         return;
 
     int planCount = m_planner.GetPlanCount();
