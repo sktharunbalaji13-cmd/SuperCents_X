@@ -6,6 +6,7 @@
 //  @frozen v2.9  TelemetryRow  (schemaVersion = 1)
 //  @frozen v2.9.2 TelemetryRow  (schemaVersion = 2)
 //  @frozen v3.1   TelemetryRow  (schemaVersion = 3)
+//  @schema v3.1   TelemetryRow  (schemaVersion = 4)  [Sprint 20 TC01]
 //
 //  CONTRACT RULES (append-only, never break):
 //  - Column order and semantics are frozen once data collection starts.
@@ -31,6 +32,14 @@
 //  signal creation time.  All v2 columns keep their exact positions and
 //  semantics; v3 is strictly append-only over v2.  Structural
 //  diagnostics refuse schemaVersion < 3 (see CalibrationStructural).
+//
+//  v3.1 semantics (Sprint 20 TC01, schemaVersion = 4): appends 7 more
+//  columns at the END: layerOrderBlock / layerFVG (structural split by
+//  component, telemetry-only — zero behavior change), FVG classifier
+//  serialization (fvgClass/fvgSize/fvgStrength — populated by TC04) and
+//  gap lifecycle timestamps (fvgCreatedTime/fvgFillTime — populated by
+//  TC04).  v3 files (68 columns) remain readable unchanged; v3.1 is
+//  strictly append-only over v3.
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_TYPES_MQH__
 #define __TELEMETRY_TYPES_MQH__
@@ -42,7 +51,7 @@
 //--- Canonical EA version used by the configuration fingerprint.
 #define TELEMETRY_EA_VERSION "v3.0"
 
-#define TELEMETRY_SCHEMA_VERSION     3
+#define TELEMETRY_SCHEMA_VERSION     4
 #define MAX_TELEMETRY_VALIDATORS     12
 #define TELEMETRY_COMPONENT_COUNT    6
 
@@ -105,6 +114,16 @@ enum ENUM_EVIDENCE_STATE
     "layerStructural,layerLiquidity,layerConfirmation,layerTotal," \
     "hasBOS,hasCHOCH,hasOrderBlock,hasFVG,hasProtectedPoint,hasLiquiditySweep," \
     "signalTime"
+
+//--- Active v3.1 header (Sprint 20 TC01): 75 columns = v3 (68) + 7
+//    observation columns appended at the END. Strictly append-only.
+//    fvgClass/fvgSize/fvgStrength and gap timestamps are populated by
+//    TC04; until then rows carry UNKNOWN / 0.
+#define TELEMETRY_CSV_HEADER_V31 \
+    TELEMETRY_CSV_HEADER_V3 "," \
+    "layerOrderBlock,layerFVG," \
+    "fvgClass,fvgSize,fvgStrength," \
+    "fvgCreatedTime,fvgFillTime"
 
 enum ENUM_TELEMETRY_OUTCOME
 {
@@ -259,6 +278,18 @@ struct TelemetryRow
 
     datetime signalTime;           // signal creation time (decision capture time stays in `timestamp`)
 
+    //--- Schema v3.1 evidence columns (Sprint 20 TC01; append-only over
+    //    v3).  Structural split by component (telemetry-only).
+    int      layerOrderBlock;      // OB contribution to structural (0-30)
+    int      layerFVG;             // FVG contribution to structural (0-30)
+
+    //--- FVG classifier serialization (populated by TC04; UNKNOWN/0 before).
+    string   fvgClass;             // REVERSAL | BREAKAWAY | CONTINUATION | UNKNOWN
+    string   fvgSize;              // SMALL | MEDIUM | LARGE | UNKNOWN
+    string   fvgStrength;          // WEAK | NORMAL | STRONG | UNKNOWN
+    datetime fvgCreatedTime;       // gap detection time (0 until TC04 wires timestamps)
+    datetime fvgFillTime;          // gap fill time (0 = not filled)
+
     TelemetryRow(void)
         : schemaVersion(TELEMETRY_SCHEMA_VERSION)
         , configFingerprint(0)
@@ -316,6 +347,13 @@ struct TelemetryRow
         , hasProtectedPoint((int)EV_UNKNOWN)
         , hasLiquiditySweep((int)EV_UNKNOWN)
         , signalTime(0)
+        , layerOrderBlock(0)
+        , layerFVG(0)
+        , fvgClass("UNKNOWN")
+        , fvgSize("UNKNOWN")
+        , fvgStrength("UNKNOWN")
+        , fvgCreatedTime(0)
+        , fvgFillTime(0)
     {}
 
     void SetComponent(ENUM_CONFLUENCE_COMPONENT type, double raw, double weight, double contribution)

@@ -60,6 +60,9 @@ ScoreLayer CalculateTotalScore(bool hasBOS, bool hasCHOCH, bool hasOrderBlock,
     s.liquidity    = CalculateLiquidityScore(hasSweep, mitigated);
     s.confirmation = CalculateConfirmationScore(s.structural, s.liquidity, trendAligned);
     s.total        = fmin(s.structural + s.liquidity + s.confirmation, 100);
+    //--- Schema v3.1 (TC01): structural split by component (additive).
+    s.layerOrderBlock = hasOrderBlock ? SCORE_STRUCTURAL_OB : 0;
+    s.layerFVG        = hasFVG ? SCORE_STRUCTURAL_FVG : 0;
     return s;
 }
 
@@ -70,6 +73,8 @@ struct LayerResult
     int confirmation;
     int total;
     bool trendAligned;   // trend bonus actually applied (evidence flag for telemetry)
+    int layerOrderBlock; // schema v3.1 (TC01): OB contribution to structural
+    int layerFVG;        // schema v3.1 (TC01): FVG contribution to structural
 };
 
 LayerResult CalculateRuleLayers(const RuleResult &rule,
@@ -84,6 +89,8 @@ LayerResult CalculateRuleLayers(const RuleResult &rule,
     r.liquidity = 0;
     r.confirmation = 0;
     r.trendAligned = false;
+    r.layerOrderBlock = 0;
+    r.layerFVG = 0;
 
     if(!rule.matched)
     {
@@ -105,6 +112,10 @@ LayerResult CalculateRuleLayers(const RuleResult &rule,
     if(hasFVG)   r.structural += SCORE_STRUCTURAL_FVG;
     if(hasCHOCH) r.structural += SCORE_STRUCTURAL_CHOCH;
     r.structural = fmin(r.structural, SCORE_STRUCTURAL_MAX);
+
+    //--- Schema v3.1 (TC01): structural split by component (additive).
+    r.layerOrderBlock = hasOB ? SCORE_STRUCTURAL_OB : 0;
+    r.layerFVG        = hasFVG ? SCORE_STRUCTURAL_FVG : 0;
 
     if(hasLiquidity)
         r.liquidity = SCORE_LIQUIDITY_SWEPT;

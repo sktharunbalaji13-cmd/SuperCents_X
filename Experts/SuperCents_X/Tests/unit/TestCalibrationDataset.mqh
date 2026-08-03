@@ -10,6 +10,8 @@
 //
 //  Sprint 17: schema v3 reader contract tests — v2 lines still parse,
 //  v3 evidence lines round-trip, unknown versions are refused.
+//  Sprint 20 TC01: schema v3.1 (v4) reader contract — v3.1 lines
+//  round-trip all 7 appended columns, v5+ refused.
 //+------------------------------------------------------------------+
 #ifndef __TEST_CALIBRATION_DATASET_MQH__
 #define __TEST_CALIBRATION_DATASET_MQH__
@@ -43,6 +45,16 @@ string TestV3Line(void)
            "15,30,15,60,"
            "2,1,1,1,1,2,"
            "2026.01.05 09:45:00";
+}
+
+//--- A literal v4 (75-column) line: the v3 line above plus the 7
+//    Sprint 20 TC01 columns (layerOrderBlock/layerFVG + FVG classifier
+//    and gap timestamps), matching TELEMETRY_CSV_HEADER_V31.
+string TestV31Line(void)
+{
+    return "4" + StringSubstr(TestV3Line(), 1) + ","
+           "15,10,REVERSAL,MEDIUM,STRONG,"
+           "2026.01.05 09:30:00,2026.01.05 09:45:00";
 }
 
 void TestParse_V2BackwardCompatible(TestCounters &counters)
@@ -89,12 +101,30 @@ void TestParse_V3EvidenceRoundTrip(TestCounters &counters)
     TEST_TRUE(row.signalTime == StringToTime("2026.01.05 09:45:00"), "signalTime exact");
 }
 
+void TestParse_V31EvidenceRoundTrip(TestCounters &counters)
+{
+    TelemetryRow row;
+    bool ok = CCalibrationDataset::ParseRow(TestV31Line(), row);
+    TEST_TRUE(ok, "v3.1 line parses");
+    TEST_INT_EQ(4, (int)row.schemaVersion, "v4 row keeps schemaVersion 4");
+    TEST_DBL_NEAR(0.45, row.confidence, 1e-9, "v4 row keeps v2 columns (confidence)");
+    TEST_STR_EQ("rule-layer-v1", row.scoreArchitecture, "v4 score architecture parsed");
+    TEST_INT_EQ(60, row.layerTotal, "v4 layer total parsed");
+    TEST_INT_EQ(15, row.layerOrderBlock, "layerOrderBlock parsed");
+    TEST_INT_EQ(10, row.layerFVG, "layerFVG parsed");
+    TEST_STR_EQ("REVERSAL", row.fvgClass, "fvgClass parsed");
+    TEST_STR_EQ("MEDIUM", row.fvgSize, "fvgSize parsed");
+    TEST_STR_EQ("STRONG", row.fvgStrength, "fvgStrength parsed");
+    TEST_TRUE(row.fvgCreatedTime == StringToTime("2026.01.05 09:30:00"), "fvgCreatedTime exact");
+    TEST_TRUE(row.fvgFillTime == StringToTime("2026.01.05 09:45:00"), "fvgFillTime exact");
+}
+
 void TestParse_RefusesUnknownVersions(TestCounters &counters)
 {
     TelemetryRow row;
-    string v4 = TestV3Line();
-    StringSetCharacter(v4, 0, '4');
-    TEST_FALSE(CCalibrationDataset::ParseRow(v4, row), "schemaVersion 4 refused");
+    string v5 = TestV31Line();
+    StringSetCharacter(v5, 0, '5');
+    TEST_FALSE(CCalibrationDataset::ParseRow(v5, row), "schemaVersion 5 refused");
 
     string v1 = TestV3Line();
     StringSetCharacter(v1, 0, '1');
@@ -102,6 +132,9 @@ void TestParse_RefusesUnknownVersions(TestCounters &counters)
 
     string junk = TestV3Line() + ",extra";
     TEST_FALSE(CCalibrationDataset::ParseRow(junk, row), "v3 line with extra column refused");
+
+    string junk4 = TestV31Line() + ",extra";
+    TEST_FALSE(CCalibrationDataset::ParseRow(junk4, row), "v4 line with extra column refused");
 
     string shortV3 = TestV3Line();
     StringSetCharacter(shortV3, 0, '3');
@@ -116,13 +149,19 @@ void TestParse_RefusesUnknownVersions(TestCounters &counters)
     {
         TEST_TRUE(false, "test harness could not trim v3 line");
     }
+
+    //--- A v3 line with 68 columns but the v4 header shape must refuse too:
+    //    column count is bound to the declared version.
+    string mismatch = TestV3Line();
+    StringSetCharacter(mismatch, 0, '4');
+    TEST_FALSE(CCalibrationDataset::ParseRow(mismatch, row), "v4 label with 68 columns refused");
 }
 
 TestCounters RunCalibrationDatasetTests(void)
 {
     TestCounters counters;
 
-    SUITE_BEGIN("CalibrationDataset.ParseUnsigned + schema v3 reader");
+    SUITE_BEGIN("CalibrationDataset.ParseUnsigned + schema v3/v3.1 reader");
 
     TEST_TRUE(CCalibrationDataset::ParseUnsigned("0") == 0, "empty/zero: 0 -> 0");
 
@@ -150,12 +189,13 @@ TestCounters RunCalibrationDatasetTests(void)
     TEST_TRUE(max == 18446744073709551615, "ULONG_MAX parses exactly");
     TEST_TRUE(max != 9223372036854775807, "ULONG_MAX is NOT the INT64_MAX phantom");
 
-    //--- Schema v3 reader contract.
+    //--- Schema v3/v3.1 reader contract.
     TestParse_V2BackwardCompatible(counters);
     TestParse_V3EvidenceRoundTrip(counters);
+    TestParse_V31EvidenceRoundTrip(counters);
     TestParse_RefusesUnknownVersions(counters);
 
-    SUITE_END("CalibrationDataset.ParseUnsigned + schema v3 reader");
+    SUITE_END("CalibrationDataset.ParseUnsigned + schema v3/v3.1 reader");
 
     return counters;
 }

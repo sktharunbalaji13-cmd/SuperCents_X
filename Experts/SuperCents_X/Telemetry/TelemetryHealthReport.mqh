@@ -338,9 +338,9 @@ private:
     //    v3.0 engine never computes them).
     static bool LegacyRowConsistent(const TelemetryRow &row)
     {
-        if(row.schemaVersion == 3 && row.componentData == 1)
+        if(row.schemaVersion >= 3 && row.componentData == 1)
         {
-            //--- v3 evidence rows: legacy raws should all be zero.
+            //--- v3/v3.1 evidence rows: legacy raws should all be zero.
             if(MathAbs(row.structureRaw) > 1e-9) return false;
             if(MathAbs(row.obRaw) > 1e-9) return false;
             if(MathAbs(row.fvgRaw) > 1e-9) return false;
@@ -366,7 +366,8 @@ public:
             "%d,%s,%d,%.8f,%d,\"%s\",%d,"
             "%d,%d,%d,%d,"
             "%d,%d,%d,%d,%d,%d,"
-            "%s",
+            "%s,"
+            "%d,%d,%s,%s,%s,%s,%s",
             (int)row.schemaVersion,
             (ulong)row.configFingerprint,
             TimeToString(row.timestamp),
@@ -422,7 +423,15 @@ public:
             row.hasFVG,
             row.hasProtectedPoint,
             row.hasLiquiditySweep,
-            TimeToString(row.signalTime));
+            TimeToString(row.signalTime),
+            //--- Schema v3.1 evidence columns (append-only over v3).
+            row.layerOrderBlock,
+            row.layerFVG,
+            row.fvgClass,
+            row.fvgSize,
+            row.fvgStrength,
+            TimeToString(row.fvgCreatedTime),
+            TimeToString(row.fvgFillTime));
     }
 
 private:
@@ -579,16 +588,16 @@ public:
             if(!LegacyRowConsistent(row))
                 legacyInconsistent++;
 
-            //--- Decided rows (v3 rows only: component metrics are
+            //--- Decided rows (v3+ rows only: component metrics are
             //    v3-pipeline concepts; legacy v2 rows are not scored).
-            if(row.schemaVersion == 3 &&
+            if(row.schemaVersion >= 3 &&
                (row.outcome == (int)TELEMETRY_OUTCOME_WIN ||
                 row.outcome == (int)TELEMETRY_OUTCOME_LOSS ||
                 row.outcome == (int)TELEMETRY_OUTCOME_BREAKEVEN))
                 report.components.decidedRows++;
 
             //--- Component data.
-            if(row.schemaVersion == 3 && row.componentData == 1)
+            if(row.schemaVersion >= 3 && row.componentData == 1)
             {
                 report.components.componentDataRows++;
 
@@ -639,9 +648,9 @@ public:
             RegisterRule(row.firedRuleId, row.ruleName, row.componentData == 1);
         }
 
-        //--- Schema version pass: 100% v3.
-        int v3Count = report.schema.schemaVersionCounts[3];
-        report.schema.schemaVersionPass = (v3Count == count);
+        //--- Schema version pass: 100% v3+ (v3 and v3.1 rows both count).
+        int v3PlusCount = report.schema.schemaVersionCounts[3] + report.schema.schemaVersionCounts[4];
+        report.schema.schemaVersionPass = (v3PlusCount == count);
 
         //--- Legacy consistency pass.
         report.schema.legacyConsistencyPass = (legacyInconsistent == 0);
@@ -711,9 +720,10 @@ public:
                 rtFailures++;
                 continue;
             }
-            //--- Round-trip is a v3-pipeline check: legacy v2 rows are
-            //    not re-serialized (SerializeRow always emits v3 shape).
-            if(row.schemaVersion != 3)
+            //--- Round-trip audits the ACTIVE schema only: legacy v2/v3
+            //    rows are not re-serialized (SerializeRow always emits the
+            //    v3.1 shape, which v3 rows must not be validated against).
+            if(row.schemaVersion != 4)
                 continue;
             if(!RoundTripRow(row))
                 rtFailures++;
@@ -858,6 +868,7 @@ public:
         out += "--- Schema Health ---\n";
         out += StringFormat("  Schema version pass:     %s\n", report.schema.schemaVersionPass ? "YES" : "NO");
         out += StringFormat("  v3 rows:                 %d\n", report.schema.schemaVersionCounts[3]);
+        out += StringFormat("  v3.1 rows:               %d\n", report.schema.schemaVersionCounts[4]);
         out += StringFormat("  v2 rows:                 %d\n", report.schema.schemaVersionCounts[2]);
         out += StringFormat("  Legacy consistency pass: %s\n", report.schema.legacyConsistencyPass ? "YES" : "NO");
         out += StringFormat("  Round-trip pass:         %s (%d/%d sampled)\n",
@@ -936,6 +947,7 @@ public:
         out += StringFormat("parse,parseSuccessRate,%.6f\n", report.parse.parseSuccessRate);
         out += StringFormat("schema,schemaVersionPass,%d\n", report.schema.schemaVersionPass ? 1 : 0);
         out += StringFormat("schema,v3Rows,%d\n", report.schema.schemaVersionCounts[3]);
+        out += StringFormat("schema,v31Rows,%d\n", report.schema.schemaVersionCounts[4]);
         out += StringFormat("schema,v2Rows,%d\n", report.schema.schemaVersionCounts[2]);
         out += StringFormat("schema,legacyConsistencyPass,%d\n", report.schema.legacyConsistencyPass ? 1 : 0);
         out += StringFormat("schema,roundTripPass,%d\n", report.schema.roundTripPass ? 1 : 0);

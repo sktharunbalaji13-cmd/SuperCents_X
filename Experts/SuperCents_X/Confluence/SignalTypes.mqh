@@ -91,12 +91,20 @@ struct ScoreLayer
     int total;
     bool trendAligned;   // trend bonus actually applied (v3 evidence flag)
 
+    //--- Schema v3.1 (Sprint 20 TC01): structural split by component so
+    //    OB/FVG contributions are observable without deriving from the
+    //    rule type.  Additive over the existing fields; default 0.
+    int layerOrderBlock; // OB contribution to structural (0-30)
+    int layerFVG;        // FVG contribution to structural (0-30)
+
     ScoreLayer(void)
         : structural(0)
         , liquidity(0)
         , confirmation(0)
         , total(0)
         , trendAligned(false)
+        , layerOrderBlock(0)
+        , layerFVG(0)
     {}
 
     string ToString(void) const

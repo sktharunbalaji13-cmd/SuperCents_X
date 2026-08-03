@@ -12,6 +12,8 @@
 //  rule/layer/evidence observations) AND still parses v2 files (45
 //  columns). Rows carry their own schemaVersion; consumers that need
 //  component evidence (structural diagnostics) must refuse v2 rows.
+//  Sprint 20 TC01: reads v4 (schemaVersion = 4; 75 columns = v3 + the
+//  7 split-layer/FVG-classifier columns) while v2/v3 rows still parse.
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_CALIBRATION_DATASET_MQH__
 #define __TELEMETRY_CALIBRATION_DATASET_MQH__
@@ -21,6 +23,7 @@
 
 #define TELEMETRY_CSV_COLUMNS     45
 #define TELEMETRY_CSV_COLUMNS_V3  68
+#define TELEMETRY_CSV_COLUMNS_V31 75
 
 class CCalibrationDataset
 {
@@ -65,16 +68,18 @@ public:
         //    written quoted (CSV), so a plain split would misalign columns.
         string fld[];
         int m = MergeQuotedFields(col, n, fld);
-        if(m != TELEMETRY_CSV_COLUMNS && m != TELEMETRY_CSV_COLUMNS_V3)
+        if(m != TELEMETRY_CSV_COLUMNS && m != TELEMETRY_CSV_COLUMNS_V3 && m != TELEMETRY_CSV_COLUMNS_V31)
             return false;
 
         int i = 0;
         int schemaVersion = (int)StringToInteger(fld[i++]);
-        if(schemaVersion != 2 && schemaVersion != 3)
+        if(schemaVersion != 2 && schemaVersion != 3 && schemaVersion != 4)
             return false;
         if(schemaVersion == 2 && m != TELEMETRY_CSV_COLUMNS)
             return false;
         if(schemaVersion == 3 && m != TELEMETRY_CSV_COLUMNS_V3)
+            return false;
+        if(schemaVersion == 4 && m != TELEMETRY_CSV_COLUMNS_V31)
             return false;
 
         out = TelemetryRow();
@@ -138,6 +143,42 @@ public:
             out.hasProtectedPoint = (int)StringToInteger(fld[i++]);
             out.hasLiquiditySweep = (int)StringToInteger(fld[i++]);
             out.signalTime = StringToTime(fld[i++]);
+        }
+
+        //--- Schema v3.1 evidence columns (Sprint 20 TC01; v4 rows carry
+        //    the 7 appended columns; strictly append-only over v3).
+        if(schemaVersion == 4)
+        {
+            out.scoreArchitecture = fld[i++];
+            out.telemetryArchitecture = fld[i++];
+            out.evidenceContract = fld[i++];
+            out.confidenceModel = fld[i++];
+            out.componentData = (int)StringToInteger(fld[i++]);
+            out.firedRuleId = (int)StringToInteger(fld[i++]);
+            out.ruleName = fld[i++];
+            out.ruleScore = (int)StringToInteger(fld[i++]);
+            out.ruleConfidence = StringToDouble(fld[i++]);
+            out.ruleEvidenceCount = (int)StringToInteger(fld[i++]);
+            out.ruleEvidenceIds = fld[i++];
+            out.trendAligned = (int)StringToInteger(fld[i++]);
+            out.layerStructural = (int)StringToInteger(fld[i++]);
+            out.layerLiquidity = (int)StringToInteger(fld[i++]);
+            out.layerConfirmation = (int)StringToInteger(fld[i++]);
+            out.layerTotal = (int)StringToInteger(fld[i++]);
+            out.hasBOS = (int)StringToInteger(fld[i++]);
+            out.hasCHOCH = (int)StringToInteger(fld[i++]);
+            out.hasOrderBlock = (int)StringToInteger(fld[i++]);
+            out.hasFVG = (int)StringToInteger(fld[i++]);
+            out.hasProtectedPoint = (int)StringToInteger(fld[i++]);
+            out.hasLiquiditySweep = (int)StringToInteger(fld[i++]);
+            out.signalTime = StringToTime(fld[i++]);
+            out.layerOrderBlock = (int)StringToInteger(fld[i++]);
+            out.layerFVG = (int)StringToInteger(fld[i++]);
+            out.fvgClass = fld[i++];
+            out.fvgSize = fld[i++];
+            out.fvgStrength = fld[i++];
+            out.fvgCreatedTime = StringToTime(fld[i++]);
+            out.fvgFillTime = StringToTime(fld[i++]);
         }
         return true;
     }

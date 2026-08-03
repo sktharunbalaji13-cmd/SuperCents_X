@@ -166,6 +166,18 @@ public:
         out.hasLiquiditySweep = TelemetryEvidenceState(signal.hasLiquiditySweep);
 
         out.signalTime = signal.time;
+
+        //--- Schema v3.1 (TC01): structural split by component.
+        out.layerOrderBlock = signal.score.layerOrderBlock;
+        out.layerFVG        = signal.score.layerFVG;
+
+        //--- FVG classifier + gap timestamps: TC04 serializes the FVG
+        //    detector's classification; until then rows carry UNKNOWN/0.
+        out.fvgClass       = "UNKNOWN";
+        out.fvgSize        = "UNKNOWN";
+        out.fvgStrength    = "UNKNOWN";
+        out.fvgCreatedTime = 0;
+        out.fvgFillTime    = 0;
         return true;
     }
 

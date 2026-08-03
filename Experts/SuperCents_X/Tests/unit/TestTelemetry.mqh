@@ -46,9 +46,36 @@ void TestHeader_V3ColumnCount(TestCounters &counters)
     }
 }
 
-void TestSchema_Version3(TestCounters &counters)
+// ─── Sprint 20 TC01: schema v3.1 (v4) evidence contract ────────────
+
+void TestHeader_V31ColumnCount(TestCounters &counters)
 {
-    TEST_INT_EQ(3, TELEMETRY_SCHEMA_VERSION, "Active schema version is 3");
+    string v3parts[];
+    int v3n = StringSplit(TELEMETRY_CSV_HEADER_V3, ',', v3parts);
+
+    string parts[];
+    int n = StringSplit(TELEMETRY_CSV_HEADER_V31, ',', parts);
+    TEST_INT_EQ(75, n, "v3.1 header has 75 columns (68 v3 + 7 TC01)");
+    TEST_INT_EQ(68 + 7, n, "v3.1 is strictly append-only over v3");
+    TEST_STR_EQ("schemaVersion", parts[0], "v3.1 header starts with schemaVersion");
+    TEST_STR_EQ("fvgFillTime", parts[74], "v3.1 header ends with fvgFillTime");
+    TEST_STR_EQ("layerOrderBlock", parts[68], "column 69 is layerOrderBlock");
+    TEST_STR_EQ("layerFVG", parts[69], "column 70 is layerFVG");
+    TEST_STR_EQ("fvgClass", parts[70], "column 71 is fvgClass");
+    TEST_STR_EQ("fvgSize", parts[71], "column 72 is fvgSize");
+    TEST_STR_EQ("fvgStrength", parts[72], "column 73 is fvgStrength");
+    TEST_STR_EQ("fvgCreatedTime", parts[73], "column 74 is fvgCreatedTime");
+
+    for(int i = 0; i < v3n; i++)
+    {
+        string msg = StringFormat("v3.1 keeps v3 column %d (%s) in place", i, v3parts[i]);
+        TEST_STR_EQ(v3parts[i], parts[i], msg);
+    }
+}
+
+void TestSchema_Version31(TestCounters &counters)
+{
+    TEST_INT_EQ(4, TELEMETRY_SCHEMA_VERSION, "Active schema version is 4 (v3.1)");
     TEST_STR_EQ("v3.0", TELEMETRY_EA_VERSION, "EA version string updated");
     TEST_STR_EQ("rule-layer-v1", TELEMETRY_SCORE_ARCHITECTURE, "score architecture versioned");
     TEST_STR_EQ("rule-layer", TELEMETRY_TELEMETRY_ARCHITECTURE, "telemetry architecture tagged");
@@ -102,7 +129,7 @@ void TestRowBuilder_NormalizedConfidence(TestCounters &counters)
     bool ok = CTelemetryRowBuilder::Build(row, cr, newDec, true, legacyDec, 0.60,
                                           w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
     TEST_TRUE(ok, "Build succeeds");
-    TEST_INT_EQ((int)TELEMETRY_SCHEMA_VERSION, (int)row.schemaVersion, "Row stamped schema v3");
+    TEST_INT_EQ((int)TELEMETRY_SCHEMA_VERSION, (int)row.schemaVersion, "Row stamped schema v3.1");
     TEST_DBL_NEAR(0.40, row.confidence, 1e-9, "confidence column normalized 0-1");
     TEST_DBL_NEAR(0.40, row.legacyConfidence, 1e-9, "legacyConfidence normalized 0-1 (was 0-100 in v1)");
     TEST_DBL_NEAR(0.40, row.newConfidence, 1e-9, "newConfidence 0-1");
@@ -218,7 +245,7 @@ void TestRowBuilder_EvidenceCapture(TestCounters &counters)
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
                                                       w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds");
-    TEST_INT_EQ(3, (int)row.schemaVersion, "Row stamped schema v3");
+    TEST_INT_EQ(4, (int)row.schemaVersion, "Row stamped schema v4 (v3.1)");
     TEST_DBL_NEAR(0.60, row.confidence, 1e-9, "v2 columns still populated (confidence)");
     TEST_DBL_NEAR(80.0, row.structureRaw, 1e-9, "legacy component columns still populated");
 
@@ -256,6 +283,47 @@ void TestRowBuilder_EvidenceCapture(TestCounters &counters)
     //    clock runs from the first bar, so pin the fixture to TimeCurrent()).
     TEST_TRUE(row.signalTime != 0, "signal time recorded");
     TEST_TRUE(row.signalTime <= row.timestamp, "signal precedes decision capture");
+
+    //--- v3.1 columns: fixture signal has no OB/FVG evidence, so the split
+    //    layers stay zero and the classifier strings stay UNKNOWN (TC04).
+    TEST_INT_EQ(0, row.layerOrderBlock, "layerOrderBlock zero when no OB");
+    TEST_INT_EQ(0, row.layerFVG, "layerFVG zero when no FVG");
+    TEST_STR_EQ("UNKNOWN", row.fvgClass, "fvgClass UNKNOWN until TC04");
+    TEST_STR_EQ("UNKNOWN", row.fvgSize, "fvgSize UNKNOWN until TC04");
+    TEST_STR_EQ("UNKNOWN", row.fvgStrength, "fvgStrength UNKNOWN until TC04");
+    TEST_INT_EQ(0, (int)row.fvgCreatedTime, "fvgCreatedTime zero until TC04");
+    TEST_INT_EQ(0, (int)row.fvgFillTime, "fvgFillTime zero until TC04");
+}
+
+void TestRowBuilder_LayerSplit(TestCounters &counters)
+{
+    //--- A signal with both structural sources: OB (15) + FVG (10) must
+    //    split into the two v3.1 columns (structural raw stays 25).
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_QUALIFIED;
+    newDec.confidence = 0.60;
+    newDec.direction = CONFLUENCE_BULLISH;
+    EntryDecision legacyDec;
+    legacyDec.status = DECISION_QUALIFIED;
+    legacyDec.confidence = 0.60;
+    legacyDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    ConfluenceSignal sig = MakeTestSignal();
+    sig.hasOrderBlock = true;
+    sig.hasFVG = true;
+    sig.score.structural = 25;
+    sig.score.layerOrderBlock = 15;
+    sig.score.layerFVG = 10;
+
+    TelemetryRow row;
+    bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+    TEST_TRUE(ok, "BuildWithEvidence succeeds with split layers");
+    TEST_INT_EQ(25, row.layerStructural, "structural raw still the sum");
+    TEST_INT_EQ(15, row.layerOrderBlock, "OB slice recorded");
+    TEST_INT_EQ(10, row.layerFVG, "FVG slice recorded");
 }
 
 void TestRowBuilder_EvidenceFallback(TestCounters &counters)
@@ -272,7 +340,7 @@ void TestRowBuilder_EvidenceFallback(TestCounters &counters)
     TelemetryRow row;
     CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
                                 w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
-    TEST_INT_EQ(3, (int)row.schemaVersion, "Build() stamps schema v3");
+    TEST_INT_EQ(4, (int)row.schemaVersion, "Build() stamps schema v4 (v3.1)");
     TEST_INT_EQ(0, row.componentData, "no evidence claim without a signal");
     TEST_INT_EQ(EV_UNKNOWN, row.hasBOS, "unevaluated flags stay UNKNOWN, not FALSE");
     TEST_INT_EQ(0, row.firedRuleId, "no fired rule");
@@ -427,12 +495,14 @@ TestCounters RunTelemetryTests()
     TestHeader_ColumnCount(counters);
     TestHeader_V2ColumnCount(counters);
     TestHeader_V3ColumnCount(counters);
-    TestSchema_Version3(counters);
+    TestHeader_V31ColumnCount(counters);
+    TestSchema_Version31(counters);
     TestTelemetryRuleNames(counters);
     TestRowBuilder_NormalizedConfidence(counters);
     TestRowBuilder_ComponentsAndValidators(counters);
     TestRowBuilder_Mismatch(counters);
     TestRowBuilder_EvidenceCapture(counters);
+    TestRowBuilder_LayerSplit(counters);
     TestRowBuilder_EvidenceFallback(counters);
     TestRow_ReplayDecisionThreshold(counters);
     TestRow_ReplayDecisionValidators(counters);

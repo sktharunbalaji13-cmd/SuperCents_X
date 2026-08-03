@@ -287,6 +287,8 @@ void CConfluenceEngine::Update(void)
             score.confirmation = layers.confirmation;
             score.total = layers.total;
             score.trendAligned = layers.trendAligned;
+            score.layerOrderBlock = layers.layerOrderBlock;
+            score.layerFVG = layers.layerFVG;
         }
     }
 
@@ -582,6 +584,8 @@ void CConfluenceEngine::BridgeConfluenceToSignal(const ConfluenceResult &cr,
     score.confirmation = 0;
     score.total = (int)cr.totalConfidence;
     score.trendAligned = false;
+    score.layerOrderBlock = 0;
+    score.layerFVG = 0;
 
     for(int i = 0; i < cr.componentCount; i++)
     {
@@ -592,6 +596,16 @@ void CConfluenceEngine::BridgeConfluenceToSignal(const ConfluenceResult &cr,
             score.liquidity += (int)cr.components[i].contribution;
         else
             score.confirmation += (int)cr.components[i].contribution;
+    }
+
+    //--- Schema v3.1 (TC01): structural split by component (additive).
+    for(int i = 0; i < cr.componentCount; i++)
+    {
+        ENUM_CONFLUENCE_COMPONENT t = cr.components[i].type;
+        if(t == COMPONENT_ORDER_BLOCK)
+            score.layerOrderBlock += (int)cr.components[i].contribution;
+        else if(t == COMPONENT_FVG)
+            score.layerFVG += (int)cr.components[i].contribution;
     }
 
     score.structural = fmin(score.structural, 50);

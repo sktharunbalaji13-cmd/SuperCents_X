@@ -53,7 +53,7 @@ private:
 
     bool WriteHeader(int handle)
     {
-        return FileWrite(handle, TELEMETRY_CSV_HEADER_V3) > 0;
+        return FileWrite(handle, TELEMETRY_CSV_HEADER_V31) > 0;
     }
 
     bool WriteRow(int handle, const TelemetryRow &row)
@@ -69,7 +69,8 @@ private:
             "%d,%s,%d,%.8f,%d,\"%s\",%d,"
             "%d,%d,%d,%d,"
             "%d,%d,%d,%d,%d,%d,"
-            "%s",
+            "%s,"
+            "%d,%d,%s,%s,%s,%s,%s",
             (int)row.schemaVersion,
             (ulong)row.configFingerprint,
             TimeToString(row.timestamp),
@@ -126,7 +127,15 @@ private:
             row.hasFVG,
             row.hasProtectedPoint,
             row.hasLiquiditySweep,
-            TimeToString(row.signalTime));
+            TimeToString(row.signalTime),
+            //--- Schema v3.1 evidence columns (append-only over v3).
+            row.layerOrderBlock,
+            row.layerFVG,
+            row.fvgClass,
+            row.fvgSize,
+            row.fvgStrength,
+            TimeToString(row.fvgCreatedTime),
+            TimeToString(row.fvgFillTime));
         return FileWrite(handle, line) > 0;
     }
 
