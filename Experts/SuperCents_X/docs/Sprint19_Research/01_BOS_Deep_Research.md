@@ -999,6 +999,38 @@ format incl. falsification.
 
 ---
 
+## Findings Summary — Research Confidence × Destination
+
+Every finding of this review routed to a home so nothing is lost
+(per §4.13 of the locked methodology). Confidence is in the
+*conclusion*, not the trade.
+
+| Finding | Where | Confidence | Destination |
+|---|---|---|---|
+| C2 — cold-start misattribution / historical break loss | P3.5.2 | **Very High** (deterministic code path + dataset cold-start signature) | Sprint 20 defect fix (E8) |
+| C3 — chart-reset stalls structure pipeline | P3.5.2 | **Very High** (deterministic code path: ID counter + `id ≤ lastProcessed` skip) | Sprint 20 defect fix (E11) |
+| C6 — no automated tests on any structure subsystem | P3.5 | High (grep-verifiable; Proof Matrix "Tests" = NO) | Sprint 20 test scaffolding |
+| C5 — dead `isBroken` field, duplicated source of truth | P3.5 | High (dead-field scan) | Sprint 20 cleanup |
+| C4 — O(B) per-bar history rescan | P3.5 | High (code path) | Sprint 20 refactor (low impact) |
+| C1 — array-orientation asymmetry swing stage vs docs | P3.5 | High (engine vs docs mismatch) | Standards/documentation fix during Sprint 20 defection work |
+| Rendering faithful to logical event (distinct schools draw BOS differently) | P4b | Very High (renderer mirrors detector semantics) | None — standards only, no redraw work |
+| BOS family underperforms baseline (wr 0.3115 vs base 0.3393) | P6 | **High** (frozen-dataset measurement, nth-of-166-signals 25.8%) | Sprint 20 gating/context experiment |
+| BOS + Liquidity worst (0.2976) | P6 | High | Sprint 20 context matrix cell (with E10/other OB-FVG cells) |
+| BOS + Order Block strongest (0.3731) | P6 | High | Sprint 20 confluence cell (M08) |
+| Late-night drain h22-23 (0.2156) | P6 | High | Session gate (M06) |
+| GBPJPY h13-17 strong (0.4414) | P6 | High | Session gate (M06) |
+| BOS should require displacement | P1/P7 | **Medium** (literature consensus, no telemetry yet) | Experiment — E1 → M30 |
+| BOS should require retest acceptance | P1/P7 | Medium | Experiment — E2 (telemetry first) |
+| BOS should require volume confirmation | P1/P7 | **Low** (no volume column; Wyckoff only) | Research backlog (E6), gated on telemetry schema v3.1 |
+| News-window gating | P4a/P6 | Medium | News gate M07 (18.12 E6) |
+
+Non-findings intentionally excluded: no claim is made that a
+"different schools" drawing difference is a bug (P4b); no
+recommendation to redesign BOS — outcome is **Improve**, not
+Redesign.
+
+---
+
 ## Final Research Verdict
 
 | Field | Value |
