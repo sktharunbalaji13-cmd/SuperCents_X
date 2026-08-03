@@ -2,6 +2,7 @@
 #define __SCORE_CALCULATOR_MQH__
 
 #include "SignalTypes.mqh"
+#include "ConfluenceWeights.mqh"
 #include "../Structure/TrendState.mqh"
 
 #define SCORE_STRUCTURAL_BOS       15
@@ -16,6 +17,7 @@
 #define SCORE_LIQUIDITY_MAX        30
 
 #define SCORE_CONFIRMATION_MAX     20
+#define SCORE_CONFIRMATION_TREND    5
 
 int CalculateStructuralScore(bool hasBOS, bool hasCHOCH, bool hasOrderBlock,
                              bool hasFVG, bool hasProtectedPoint)
@@ -46,7 +48,7 @@ int CalculateConfirmationScore(int structuralScore, int liquidityScore,
     if(structuralScore >= SCORE_STRUCTURAL_BOS + SCORE_STRUCTURAL_CHOCH) count++;
     if(liquidityScore >= SCORE_LIQUIDITY_SWEPT) count++;
 
-    int bonus = (count >= 2 ? 10 : 0) + (count >= 3 ? 10 : 0) + (trendAligned ? 5 : 0);
+    int bonus = (count >= 2 ? 10 : 0) + (count >= 3 ? 10 : 0) + (trendAligned ? SCORE_CONFIRMATION_TREND : 0);
     return fmin(bonus, SCORE_CONFIRMATION_MAX);
 }
 
@@ -137,7 +139,7 @@ LayerResult CalculateRuleLayers(const RuleResult &rule,
                             (rule.direction == CONFLUENCE_BEARISH && current == TREND_BEARISH);
         if(trendAligned)
         {
-            r.confirmation += 5;
+            r.confirmation += SCORE_CONFIRMATION_TREND;
             r.trendAligned = true;
         }
     }
@@ -146,6 +148,43 @@ LayerResult CalculateRuleLayers(const RuleResult &rule,
     r.total = fmin(r.structural + r.liquidity + r.confirmation, 100);
 
     return r;
+}
+
+//--- TC02: rule-path component raw/weight/contribution wiring.  The
+//    engine already computes the layer split (ScoreLayer); the legacy
+//    6-component columns are derived from it at decision time using the
+//    same formula the evaluator path uses (contribution = score * weight
+//    / 100, weight from the configured ConfluenceWeights).  Only slices
+//    with score > 0 become components (mirrors the evaluator path).
+void BuildRulePathComponents(const ScoreLayer &score,
+                             const ConfluenceWeights &weights,
+                             ConfluenceComponentResult &components[],
+                             int &compCount)
+{
+    compCount = 0;
+
+    ENUM_CONFLUENCE_COMPONENT types[5] = { COMPONENT_STRUCTURE,
+                                           COMPONENT_ORDER_BLOCK,
+                                           COMPONENT_FVG,
+                                           COMPONENT_LIQUIDITY,
+                                           COMPONENT_TREND };
+    double slices[5];
+    slices[0] = (double)(score.structural - score.layerOrderBlock - score.layerFVG);
+    slices[1] = (double)score.layerOrderBlock;
+    slices[2] = (double)score.layerFVG;
+    slices[3] = (double)score.liquidity;
+    slices[4] = (score.trendAligned ? (double)SCORE_CONFIRMATION_TREND : 0.0);
+
+    for(int i = 0; i < 5 && compCount < MAX_CONFLUENCE_COMPONENTS; i++)
+    {
+        if(slices[i] <= 0.0)
+            continue;
+        components[compCount].type = types[i];
+        components[compCount].score = slices[i];
+        components[compCount].weight = weights.GetWeight(types[i]);
+        components[compCount].contribution = slices[i] * weights.GetWeight(types[i]) / 100.0;
+        compCount++;
+    }
 }
 
 #endif

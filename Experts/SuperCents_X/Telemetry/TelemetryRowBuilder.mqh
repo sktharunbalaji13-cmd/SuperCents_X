@@ -157,6 +157,24 @@ public:
         out.layerConfirmation = signal.score.confirmation;
         out.layerTotal = signal.score.total;
 
+        //--- TC02 contract: the component split may only claim evidence
+        //    backed by a layer result. When the engine produced no layer
+        //    decomposition (total == 0, e.g. a shadow-rejected decision
+        //    whose latest signal was never scored), the raw/weight/
+        //    contribution fields copied from `cr` above describe a
+        //    different logical state than the signal. Zero them so the
+        //    row stays SplitConsistent (all-zero split) for the health gate.
+        if(signal.score.total == 0)
+        {
+            const double zero = 0.0;
+            out.SetComponent(COMPONENT_STRUCTURE,        zero, zero, zero);
+            out.SetComponent(COMPONENT_ORDER_BLOCK,      zero, zero, zero);
+            out.SetComponent(COMPONENT_FVG,              zero, zero, zero);
+            out.SetComponent(COMPONENT_TREND,            zero, zero, zero);
+            out.SetComponent(COMPONENT_LIQUIDITY,        zero, zero, zero);
+            out.SetComponent(COMPONENT_PREMIUM_DISCOUNT, zero, zero, zero);
+        }
+
         //--- Evidence flags (tristate: never assume false for unevaluated).
         out.hasBOS = TelemetryEvidenceState(signal.hasBOS);
         out.hasCHOCH = TelemetryEvidenceState(signal.hasCHOCH);

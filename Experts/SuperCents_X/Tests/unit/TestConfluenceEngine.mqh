@@ -383,6 +383,118 @@ TestCounters RunConfluenceEngineTests(void)
         TEST_TRUE(StringLen(result.summaryExplanation) > 0, "Summary explanation should not be empty");
     }
 
+    // Test 27: TC02 rule-path wiring — BOS+OB rule slices become
+    //          structure/OB components with weight and contribution.
+    {
+        RuleResult rule;
+        rule.matched = true;
+        rule.type = RULE_BOS_OB_BULLISH;
+        rule.direction = CONFLUENCE_BULLISH;
+        rule.score = 45;
+        rule.evidenceCount = 2;
+
+        LayerResult layers = CalculateRuleLayers(rule, NULL, NULL, NULL, NULL, NULL);
+        TEST_INT_EQ(30, layers.structural, "BOS+OB structural 30");
+        TEST_INT_EQ(15, layers.layerOrderBlock, "OB slice 15");
+        TEST_INT_EQ(0, layers.layerFVG, "no FVG slice");
+        TEST_INT_EQ(10, layers.confirmation, "two-evidence confirmation 10");
+        TEST_FALSE(layers.trendAligned, "no trend bonus without trend state");
+
+        ScoreLayer score;
+        score.structural = layers.structural;
+        score.liquidity = layers.liquidity;
+        score.confirmation = layers.confirmation;
+        score.total = layers.total;
+        score.trendAligned = layers.trendAligned;
+        score.layerOrderBlock = layers.layerOrderBlock;
+        score.layerFVG = layers.layerFVG;
+
+        ConfluenceWeights w;
+        ConfluenceComponentResult comps[MAX_CONFLUENCE_COMPONENTS];
+        int compCount = 0;
+        BuildRulePathComponents(score, w, comps, compCount);
+
+        TEST_INT_EQ(2, compCount, "structure + OB components");
+        TEST_INT_EQ((int)COMPONENT_STRUCTURE, comps[0].type, "first component structure");
+        TEST_DBL_NEAR(15.0, comps[0].score, 1e-9, "structure slice = BOS");
+        TEST_DBL_NEAR(25.0, comps[0].weight, 1e-9, "structure weight 25");
+        TEST_DBL_NEAR(3.75, comps[0].contribution, 1e-9, "15 * 25 / 100 contribution");
+        TEST_INT_EQ((int)COMPONENT_ORDER_BLOCK, comps[1].type, "second component OB");
+        TEST_DBL_NEAR(15.0, comps[1].score, 1e-9, "OB slice 15");
+        TEST_DBL_NEAR(20.0, comps[1].weight, 1e-9, "OB weight 20");
+        TEST_DBL_NEAR(3.0, comps[1].contribution, 1e-9, "15 * 20 / 100 contribution");
+    }
+
+    // Test 28: TC02 rule-path wiring — liquidity-sweep rule.
+    {
+        RuleResult rule;
+        rule.matched = true;
+        rule.type = RULE_LIQUIDITY_BOS_BULLISH;
+        rule.direction = CONFLUENCE_BULLISH;
+        rule.score = 55;
+        rule.evidenceCount = 2;
+
+        LayerResult layers = CalculateRuleLayers(rule, NULL, NULL, NULL, NULL, NULL);
+        TEST_INT_EQ(15, layers.structural, "BOS structural 15");
+        TEST_INT_EQ(30, layers.liquidity, "sweep liquidity 30");
+        TEST_INT_EQ(10, layers.confirmation, "two-evidence confirmation 10");
+        TEST_INT_EQ(55, layers.total, "total 55");
+
+        ScoreLayer score;
+        score.structural = layers.structural;
+        score.liquidity = layers.liquidity;
+        score.confirmation = layers.confirmation;
+        score.total = layers.total;
+        score.trendAligned = layers.trendAligned;
+        score.layerOrderBlock = layers.layerOrderBlock;
+        score.layerFVG = layers.layerFVG;
+
+        ConfluenceWeights w;
+        ConfluenceComponentResult comps[MAX_CONFLUENCE_COMPONENTS];
+        int compCount = 0;
+        BuildRulePathComponents(score, w, comps, compCount);
+
+        TEST_INT_EQ(2, compCount, "structure + liquidity components");
+        TEST_DBL_NEAR(15.0, comps[0].score, 1e-9, "structure slice 15");
+        TEST_DBL_NEAR(30.0, comps[1].score, 1e-9, "liquidity slice 30");
+        TEST_DBL_NEAR(15.0, comps[1].weight, 1e-9, "liquidity weight 15");
+        TEST_DBL_NEAR(4.5, comps[1].contribution, 1e-9, "30 * 15 / 100 contribution");
+    }
+
+    // Test 29: TC02 rule-path wiring — trend bonus slice.
+    {
+        ScoreLayer score;
+        score.structural = 15;
+        score.liquidity = 0;
+        score.confirmation = 15;
+        score.total = 30;
+        score.trendAligned = true;
+        score.layerOrderBlock = 0;
+        score.layerFVG = 0;
+
+        ConfluenceWeights w;
+        ConfluenceComponentResult comps[MAX_CONFLUENCE_COMPONENTS];
+        int compCount = 0;
+        BuildRulePathComponents(score, w, comps, compCount);
+
+        TEST_INT_EQ(2, compCount, "structure + trend components");
+        TEST_INT_EQ((int)COMPONENT_TREND, comps[1].type, "trend component second");
+        TEST_DBL_NEAR(5.0, comps[1].score, 1e-9, "trend slice = confirmation bonus");
+        TEST_DBL_NEAR(15.0, comps[1].weight, 1e-9, "trend weight 15");
+        TEST_DBL_NEAR(0.75, comps[1].contribution, 1e-9, "5 * 15 / 100 contribution");
+    }
+
+    // Test 30: TC02 rule-path wiring — all-zero layers produce no
+    //          components (no rule fired).
+    {
+        ScoreLayer score;
+        ConfluenceWeights w;
+        ConfluenceComponentResult comps[MAX_CONFLUENCE_COMPONENTS];
+        int compCount = 99;
+        BuildRulePathComponents(score, w, comps, compCount);
+        TEST_INT_EQ(0, compCount, "no components when nothing fired");
+    }
+
     SUITE_END("Confluence Engine Tests");
     return counters;
 }

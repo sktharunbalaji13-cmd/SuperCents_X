@@ -298,7 +298,14 @@ void CConfluenceEngine::Update(void)
         m_latestConfluence.valid = true;
         m_latestConfluence.direction = dir;
         m_latestConfluence.totalConfidence = (double)score.total;
-        m_latestConfluence.componentCount = 0;
+        //--- TC02: component raw/weight/contribution wiring at decision
+        //    time.  The evaluator path copies cr (components already
+        //    populated by CConfluenceScoreCalculator); the rule path
+        //    derives them from the layer slices already computed.
+        if(m_evaluatorCount <= 0)
+            BuildRulePathComponents(score, m_weights,
+                                    m_latestConfluence.components,
+                                    m_latestConfluence.componentCount);
         m_latestConfluence.summaryExplanation = bestRule.explanation;
     }
 

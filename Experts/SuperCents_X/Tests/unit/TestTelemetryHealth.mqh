@@ -59,6 +59,28 @@ TelemetryRow HealthRow(int ruleId = 5, int decisionId = 0, int outcome = 1)
     row.layerLiquidity = 30;
     row.layerConfirmation = 15;
     row.layerTotal = 60;
+
+    //--- TC02 wiring contract: split raws with weights/contributions
+    //    (rule path: contribution = raw * weight / 100).  BOS 15,
+    //    sweep 30, trend bonus 5 — split-consistent with the layers.
+    row.structureRaw = 15.0;
+    row.structureWeight = 25.0;
+    row.structureContribution = 3.75;
+    row.obRaw = 0.0;
+    row.obWeight = 20.0;
+    row.obContribution = 0.0;
+    row.fvgRaw = 0.0;
+    row.fvgWeight = 15.0;
+    row.fvgContribution = 0.0;
+    row.liquidityRaw = 30.0;
+    row.liquidityWeight = 15.0;
+    row.liquidityContribution = 4.5;
+    row.trendRaw = 5.0;
+    row.trendWeight = 15.0;
+    row.trendContribution = 0.75;
+    row.pdRaw = 0.0;
+    row.pdWeight = 10.0;
+    row.pdContribution = 0.0;
     row.hasBOS = EV_TRUE;
     row.hasCHOCH = EV_FALSE;
     row.hasOrderBlock = EV_FALSE;
@@ -324,14 +346,24 @@ void TestHealth_MixedV3V4Rows(TestCounters &counters)
 }
 
 //--- A genuine v3 (68-column) line: truncate the 75-column v3.1
-//    serialization at the end of field 68 and relabel the version. The
-//    v3.1 layout is strictly append-only over v3, so this reproduces the
-//    exact legacy file format written before Sprint 20 TC01. Commas
+//    serialization at the end of field 68. The v3.1 layout is strictly
+//    append-only over v3, so this reproduces the exact legacy file format
+//    written before Sprint 20 — including the pre-TC02 contract of
+//    zero legacy raws (the v3.0 engine never computed them). Commas
 //    inside the quoted ruleEvidenceIds field must not count as
 //    separators.
 string HealthV3Line(const TelemetryRow &row)
 {
-    string line = CTelemetryHealthAnalyzer::SerializeRow(row);
+    TelemetryRow v3 = row;
+    v3.schemaVersion = 3;
+    v3.structureRaw = 0.0;       v3.structureWeight = 0.0;       v3.structureContribution = 0.0;
+    v3.obRaw = 0.0;              v3.obWeight = 0.0;              v3.obContribution = 0.0;
+    v3.fvgRaw = 0.0;             v3.fvgWeight = 0.0;             v3.fvgContribution = 0.0;
+    v3.trendRaw = 0.0;           v3.trendWeight = 0.0;           v3.trendContribution = 0.0;
+    v3.liquidityRaw = 0.0;       v3.liquidityWeight = 0.0;       v3.liquidityContribution = 0.0;
+    v3.pdRaw = 0.0;              v3.pdWeight = 0.0;              v3.pdContribution = 0.0;
+
+    string line = CTelemetryHealthAnalyzer::SerializeRow(v3);
     int len = StringLen(line);
     int commaCount = 0;
     int cut = -1;
@@ -353,9 +385,38 @@ string HealthV3Line(const TelemetryRow &row)
     }
     if(cut < 0)
         return line;
-    line = StringSubstr(line, 0, cut);
-    StringSetCharacter(line, 0, '3');
-    return line;
+    return StringSubstr(line, 0, cut);
+}
+
+//====================================================================
+//  Evaluator-path rows (TC02): raws carry no rule-path meaning; the
+//  contribution slices rebuild the engine's int-truncated layers.
+//====================================================================
+void TestHealth_ContribInvariant(TestCounters &counters)
+{
+    TelemetryRow r1 = HealthRow(5, 0, 1);
+    TelemetryRow r2 = HealthRow(5, 1, 2);
+    r2.structureRaw = 0.0;        r2.obRaw = 0.0;        r2.fvgRaw = 0.0;
+    r2.liquidityRaw = 0.0;        r2.trendRaw = 0.0;     r2.pdRaw = 0.0;
+    r2.structureContribution = 20.0;
+    r2.liquidityContribution = 10.0;
+    r2.trendContribution = 5.0;
+    r2.layerStructural = 20;
+    r2.layerLiquidity = 10;
+    r2.layerConfirmation = 5;
+    r2.layerTotal = 35;
+    TelemetryRow rows[2];
+    rows[0] = r1; rows[1] = r2;
+
+    CCalibrationDataset ds;
+    TEST_TRUE(HealthWriteLoad("contrib", rows, 2, ds), "contrib dataset loads");
+
+    CTelemetryHealthAnalyzer a;
+    TelemetryHealthReport rep = a.Analyze(ds);
+
+    TEST_TRUE(rep.schema.legacyConsistencyPass, "contribution-split rows pass the gate");
+    TEST_INT_EQ(100, rep.healthScore, "score 100");
+    TEST_INT_EQ(HEALTH_PASS, rep.verdict, "verdict PASS");
 }
 
 //====================================================================
@@ -373,7 +434,7 @@ void TestHealth_LegacyInconsistent(TestCounters &counters)
     CTelemetryHealthAnalyzer a;
     TelemetryHealthReport rep = a.Analyze(ds);
 
-    TEST_FALSE(rep.schema.legacyConsistencyPass, "legacy raws on v3 evidence row flagged");
+    TEST_FALSE(rep.schema.legacyConsistencyPass, "raws violating the v4 split flagged");
     TEST_INT_EQ(90, rep.healthScore, "score 90 (10 pts lost)");
     TEST_INT_EQ(HEALTH_WARN, rep.verdict, "verdict WARN");
 }
@@ -544,6 +605,12 @@ void TestHealth_LayerDistribution(TestCounters &counters)
     r2.layerLiquidity = 10;
     r2.layerConfirmation = 5;
     r2.layerTotal = 20;
+    r2.structureRaw = 5.0;        // split-consistent with the layers
+    r2.liquidityRaw = 10.0;
+    r2.structureContribution = 1.25;
+    r2.liquidityContribution = 1.5;
+    r2.trendRaw = 5.0;            // trendAligned stays EV_TRUE
+    r2.trendContribution = 0.75;
     TelemetryRow rows[2];
     rows[0] = r1; rows[1] = r2;
 
@@ -675,6 +742,7 @@ TestCounters RunTelemetryHealthTests(void)
     TestHealth_LegacyV3FileStillLoads(counters);
     TestHealth_MixedV3V4Rows(counters);
     TestHealth_LegacyInconsistent(counters);
+    TestHealth_ContribInvariant(counters);
     TestHealth_MissingMarkers(counters);
     TestHealth_FlagCoverage(counters);
     TestHealth_RuleFrequency(counters);

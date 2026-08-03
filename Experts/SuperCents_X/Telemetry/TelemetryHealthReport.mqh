@@ -331,16 +331,18 @@ private:
         return count;
     }
 
-    //--- Legacy consistency: v3 rows should have zero legacy raws;
-    //    v2 rows should have them populated (or at least not all-zero
-    //    when the legacy engine ran).  We check that v3 rows with
-    //    componentData == 1 do NOT carry legacy component raws (the
-    //    v3.0 engine never computes them).
+    //--- Legacy consistency (TC02 wiring contract):
+    //    v2 rows — populated by the legacy engine; unchecked here.
+    //    v3 rows (pre-wiring files) — componentData==1 rows must NOT
+    //        carry legacy raws (the v3.0 engine never computed them).
+    //    v4 rows (post-wiring) — componentData==1 rows must satisfy one
+    //        of the two split invariants against the layer decomposition
+    //        the engine stamped on the same row.
     static bool LegacyRowConsistent(const TelemetryRow &row)
     {
-        if(row.schemaVersion >= 3 && row.componentData == 1)
+        if(row.schemaVersion <= 3 && row.componentData == 1)
         {
-            //--- v3/v3.1 evidence rows: legacy raws should all be zero.
+            //--- v3 evidence rows: legacy raws should all be zero.
             if(MathAbs(row.structureRaw) > 1e-9) return false;
             if(MathAbs(row.obRaw) > 1e-9) return false;
             if(MathAbs(row.fvgRaw) > 1e-9) return false;
@@ -348,7 +350,50 @@ private:
             if(MathAbs(row.liquidityRaw) > 1e-9) return false;
             if(MathAbs(row.pdRaw) > 1e-9) return false;
         }
+        else if(row.schemaVersion >= 4 && row.componentData == 1)
+        {
+            if(!SplitConsistent(row))
+                return false;
+        }
         return true;
+    }
+
+    //--- TC02 split invariants.  A v4 row is consistent when either
+    //    (a) rule path: the raw slices sum to the layer split, each
+    //        slice matches the layer the engine computed, and each
+    //        component obeys contribution == score * weight / 100 (the
+    //        BuildRuleComponents formula), or
+    //    (b) evaluator path: the contribution slices rebuild the layers
+    //        (CConfluenceEngine::BridgeConfluenceToSignal truncates
+    //        contributions to ints when rebuilding the score layers).
+    static bool SplitConsistent(const TelemetryRow &row)
+    {
+        const double tol = 1e-6;
+
+        //--- (a) Rule path: raw slices == layer split.
+        if(MathAbs(row.structureRaw + row.obRaw + row.fvgRaw - (double)row.layerStructural) <= tol &&
+           MathAbs(row.obRaw - (double)row.layerOrderBlock) <= tol &&
+           MathAbs(row.fvgRaw - (double)row.layerFVG) <= tol &&
+           MathAbs(row.liquidityRaw - (double)row.layerLiquidity) <= tol &&
+           MathAbs(row.pdRaw) <= tol &&
+           MathAbs(row.structureContribution - row.structureRaw * row.structureWeight / 100.0) <= tol &&
+           MathAbs(row.obContribution - row.obRaw * row.obWeight / 100.0) <= tol &&
+           MathAbs(row.fvgContribution - row.fvgRaw * row.fvgWeight / 100.0) <= tol &&
+           MathAbs(row.liquidityContribution - row.liquidityRaw * row.liquidityWeight / 100.0) <= tol &&
+           MathAbs(row.trendContribution - row.trendRaw * row.trendWeight / 100.0) <= tol &&
+           ((row.trendAligned == (int)EV_TRUE && row.trendRaw > 0.0) ||
+            (row.trendAligned != (int)EV_TRUE && MathAbs(row.trendRaw) <= tol)))
+            return true;
+
+        //--- (b) Evaluator path: contribution slices == layer split.
+        if((int)row.structureContribution + (int)row.obContribution + (int)row.fvgContribution == row.layerStructural &&
+           (int)row.obContribution == row.layerOrderBlock &&
+           (int)row.fvgContribution == row.layerFVG &&
+           (int)row.liquidityContribution == row.layerLiquidity &&
+           (int)row.trendContribution + (int)row.pdContribution == row.layerConfirmation)
+            return true;
+
+        return false;
     }
 
 public:

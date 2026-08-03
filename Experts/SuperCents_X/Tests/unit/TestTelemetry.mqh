@@ -326,6 +326,45 @@ void TestRowBuilder_LayerSplit(TestCounters &counters)
     TEST_INT_EQ(10, row.layerFVG, "FVG slice recorded");
 }
 
+void TestRowBuilder_EngineUnsettledSplit(TestCounters &counters)
+{
+    //--- TC02 contract: when the engine produced no layer result
+    //    (signal.score.total == 0, e.g. a shadow-rejected decision whose
+    //    latest signal was never scored), the component split copied from
+    //    `cr` must be zeroed so the row stays SplitConsistent.
+    ConfluenceResult cr = MakeTestConfluence();   // components 80/25/20, 60/15/9
+    EntryDecision newDec;
+    newDec.status = DECISION_REJECTED;
+    newDec.confidence = 0.35;
+    newDec.direction = CONFLUENCE_BULLISH;
+    EntryDecision legacyDec;
+    legacyDec.status = DECISION_QUALIFIED;
+    legacyDec.confidence = 0.80;
+    legacyDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    ConfluenceSignal sig = MakeTestSignal();
+    sig.score.structural = 0;
+    sig.score.liquidity = 0;
+    sig.score.confirmation = 0;
+    sig.score.total = 0;
+
+    TelemetryRow row;
+    bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+    TEST_TRUE(ok, "BuildWithEvidence succeeds with unsettled engine signal");
+    TEST_INT_EQ(0, row.layerTotal, "no layer result recorded");
+    TEST_DBL_NEAR(0.0, row.structureRaw, 1e-9, "structureRaw zeroed without layer backing");
+    TEST_DBL_NEAR(0.0, row.obRaw, 1e-9, "obRaw zeroed without layer backing");
+    TEST_DBL_NEAR(0.0, row.fvgRaw, 1e-9, "fvgRaw zeroed without layer backing");
+    TEST_DBL_NEAR(0.0, row.trendRaw, 1e-9, "trendRaw zeroed without layer backing");
+    TEST_DBL_NEAR(0.0, row.liquidityRaw, 1e-9, "liquidityRaw zeroed without layer backing");
+    TEST_DBL_NEAR(0.0, row.pdRaw, 1e-9, "pdRaw zeroed without layer backing");
+    TEST_DBL_NEAR(0.0, row.structureContribution, 1e-9, "structureContribution zeroed");
+    TEST_DBL_NEAR(0.0, row.trendContribution, 1e-9, "trendContribution zeroed");
+    TEST_INT_EQ(1, row.componentData, "evidence row flag still set (split is all-zero)");
+}
+
 void TestRowBuilder_EvidenceFallback(TestCounters &counters)
 {
     //--- The v2-compatible Build() path stamps schema v3 but must NOT
@@ -504,6 +543,7 @@ TestCounters RunTelemetryTests()
     TestRowBuilder_EvidenceCapture(counters);
     TestRowBuilder_LayerSplit(counters);
     TestRowBuilder_EvidenceFallback(counters);
+    TestRowBuilder_EngineUnsettledSplit(counters);
     TestRow_ReplayDecisionThreshold(counters);
     TestRow_ReplayDecisionValidators(counters);
     TestRow_ConfluenceGateSkipped(counters);

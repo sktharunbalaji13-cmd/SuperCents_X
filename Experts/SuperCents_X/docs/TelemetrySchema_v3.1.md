@@ -65,7 +65,7 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | Column(s) | Note |
 |---|---|
 | `actualOutcome`, `actualOutcomeSource` | Reserved for future outcome replay; never repurposed. |
-| Legacy component raws (`structureRaw`..`pdContribution`) | Always `0` for v3/v3.1 rows (legacy 6-component model is not computed); kept for backward compatibility and flagged by `LegacyRowConsistent`. |
+| Legacy component raws (`structureRaw`..`pdContribution`) | **TC02 (2026-08-03): populated at decision time.** Rule path: derived from the layer split already computed (`BuildRuleComponents`; `contribution = raw * weight / 100`, configured `ConfluenceWeights`). Evaluator path: scores/weights/contributions from `CConfluenceScoreCalculator`. **Engine-unsettled rows** (signal `score.total == 0`, e.g. shadow-rejected decisions whose latest signal was never scored): the split stays all-`0` — the row must not claim component evidence without a layer result backing it (`BuildWithEvidence` zeroes the split in this case). v3 (pre-wiring) files carry `0`; v4 rows are enforced split-consistent by `LegacyRowConsistent`. |
 | `ruleName`/`ruleScore`/`ruleConfidence` on non-evidence rows | `""`/`0`/`0` when `componentData = 0`. |
 
 ## 4. Producer / consumer matrix
@@ -80,7 +80,9 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | Consumer | `Telemetry/TelemetryHealthReport.mqh` | Schema gate = 100% v3+ (v3 + v4 both count); round-trip audits v4 rows only; v3-only files stay healthy. |
 | Consumer | `Calibration/ExperimentRunner.mqh` | `schemaVersion >= 3` gates evidence diagnostics; v4 rows flow through unchanged. |
 | Consumer | `SignalTypes.mqh` / `ScoreCalculator.mqh` | `ScoreLayer.layerOrderBlock/layerFVG` (split) + `LayerResult` — additive, no semantic change. |
-| Consumer | `Confluence/ConfluenceEngine.mqh` | Copies the split into the signal score (rule path + evaluator path). |
+| Consumer | `Confluence/ConfluenceEngine.mqh` | Copies the split into the signal score (rule path + evaluator path); **TC02**: `m_latestConfluence.components/componentCount` populated at decision time on the rule path (evaluator path preserved). |
+| Consumer | `Confluence/ScoreCalculator.mqh` | **TC02**: `BuildRuleComponents` free function derives the 6 legacy component rows from `ScoreLayer` + `ConfluenceWeights`. |
+| Consumer | `Telemetry/TelemetryHealthReport.mqh` | **TC02**: `LegacyRowConsistent` enforces split invariants on v4 rows (raw-slice invariant for the rule path; contribution-slice invariant for the evaluator path); v3 rows keep the zero-raws contract. |
 
 ## 5. Validation (TC01 acceptance)
 
@@ -93,6 +95,8 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | Header contract | `TestHeader_V31ColumnCount` (75 cols, append-only over v3, trailing `fvgFillTime`). |
 | Zero behavioral change | No scoring/gating/detector constant or code-path changed; `TestRegression` (frozen) unchanged. |
 | Row builder split | `TestRowBuilder_LayerSplit` (OB 15 + FVG 10 -> `layerStructural` 25). |
+| TC02: rule-path components populated at decision time | `BuildRuleComponents` unit tests (BOS+OB, liquidity-sweep, trend-bonus, empty layers) in `TestConfluenceEngine`. |
+| TC02: v4 split invariants enforced by the health gate | `TestHealth_ContribInvariant` (evaluator-path contributions), `TestHealth_LegacyInconsistent` (split violation flagged), `TestHealth_LegacyV3FileStillLoads` (v3 zero-raws contract preserved). |
 
 ## 6. Follow-ups
 
