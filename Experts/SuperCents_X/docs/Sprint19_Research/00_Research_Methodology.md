@@ -1,7 +1,8 @@
 # Sprint 19 — Algorithm Verification Program (AVP) — Methodology v1.0
 
 Status: **FROZEN — AVP Methodology v1.0** (2026-08-03, finalized
-with §4.13 Research Confidence × Destination annotation baked in).
+with §4.13 Research Confidence × Destination × Outcome
+Classification annotation baked in).
 
 This document is the constitution for every Sprint 19 (AVP)
 verification review. It is locked: every AVP document in this series
@@ -309,12 +310,13 @@ Block with fields:
 Plus a 3–5 sentence justification citing the scorecard and the
 strongest/weakest artifact.
 
-### 4.13 Every finding carries Confidence + Destination (locked)
+### 4.13 Every finding carries Confidence + Destination + Outcome Classification (locked)
 
-Finalized into v1.0 before freeze (2026-08-03). Two tables are
-**mandatory in every AVP document** wherever findings are listed
-(at minimum: P3.5 Findings, P4a/P4b verdicts, P6 conclusions, and
-as a consolidated summary):
+Finalized into v1.0 before freeze (2026-08-03; Outcome
+Classification added as the second and final annotation 2026-08-03).
+Three tables are **mandatory in every AVP document** wherever
+findings are listed (at minimum: P3.5 Findings, P4a/P4b verdicts, P6
+conclusions, and as a consolidated summary):
 
 **(a) Research Confidence** — the reviewer's confidence *in the
 conclusion itself*, not the trade. Lets Sprint 20 separate
@@ -337,9 +339,28 @@ backlog, research backlog, or "none / standards only"):
 | C2 cold-start misattribution | Very High | Sprint 20 (defect fix) |
 | BOS family weak overall | High | Sprint 20 gating experiment |
 
+**(c) Verification Outcome Classification** — the type of every
+finding, so Sprint 20 can separate *bugs to fix*, *features to add*
+and *experiments to run* without re-deriving intent:
+
+| Type | Meaning |
+|---|---|
+| Implementation Defect | Code bug — deterministic, reproducible, fixable |
+| Missing Feature | Research/industry says the feature is absent from the implementation |
+| Architectural Limitation | The current design/system shape prevents a behaviour |
+| Measurement Gap | Telemetry or dataset cannot prove the claim |
+| Research Hypothesis | A claim requiring an experiment on real data |
+
+Typical mappings seen in the series (for consistency):
+BOS C2/C3 → Implementation Defect; CHOCH bullish-only rule → Missing
+Feature; MSS confirmation absent → Architectural Limitation; session
+edge / late-night drain → Research Hypothesis; "cannot measure X" →
+Measurement Gap; "no unit tests" → Measurement Gap (verification
+cannot prove the claim).
+
 Every AVP doc ends with a consolidated
 "**Findings Summary — Confidence × Destination**" table covering all
-of its findings.
+of its findings, each row carrying its **Outcome Classification**.
 
 ---
 
@@ -366,10 +387,10 @@ Methodology v1.1**, applying only to the next verification cycle.
 Every AVP doc states its methodology version in its passport so that
 future readers know the exact standard under which it was graded.
 
-The §4.13 annotation (Research Confidence + Finding Destination) is
-the **only** amendment accepted into v1.0; it was applied at
-finalization (2026-08-03) before docs 01–06 were graded and does not
-change the phases, artifacts, or scoring of the standard. From this
-point the standard is frozen for the entire series; methodology
-review happens once after doc 06, producing v1.1 only for the next
-verification cycle.
+The §4.13 annotation (Research Confidence + Finding Destination +
+**Outcome Classification**) is the **only** set of amendments accepted
+into v1.0; both were applied at finalization (2026-08-03) before
+docs 01–06 were graded and do not change the phases, artifacts, or
+scoring of the standard. From this point the standard is frozen for
+the entire series; methodology review happens once after doc 06,
+producing v1.1 only for the next verification cycle.
