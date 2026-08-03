@@ -32,6 +32,20 @@ Priority scale:
 
 ---
 
+## Sprint 20 Epic Groups (added 19.4)
+
+Cross-cutting groupings so Sprint 20 plans epics, not dozens of isolated fixes.
+
+| Epic | Includes | Work item shape |
+|---|---|---|
+| **LC — Lifecycle & Reset** | E11 family (BOS, CHOCH, Swing, Liquidity) | Define a common lifecycle contract (init / reset / history reload / chart refresh / TF change / EA restart); one audit that every detector must satisfy |
+| **TC — Telemetry Completeness** | T01 (raw raws 0.00), T02 (no unit tests), has* flag redundancy, M41 schema appends | Make every detection persist raw evidence; establish baseline + CI for "evidence reachable" per component |
+| **DD — Dead / Disconnected Logic** | C01 (PD evaluator dead), C10 (classification never written), C09 (sweep confirmation absent), C02 (cold start), C03 (bullish-only CHoCH), C08 (entry unreachability) | Re-verify each dead path as a wiring fix; add unit test per fix |
+| **ED — Event Definition Refinement** | Liquidity E1 sweep confirmation, planned OB/FVG confirmation tightening | Paper-first experiments that re-define the *event* without touching entry machinery, on the frozen set |
+| **VF — Visualization Framework** | S5 (no liquidity renderer), visual consistency checks, palette drift C07 | Renderer for every detector + parity check against detector state (like swingForensic) |
+
+---
+
 ## Registered issues
 
 | ID | Issue | Type | Found in | Priority | Destination |
