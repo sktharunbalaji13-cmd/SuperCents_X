@@ -1,6 +1,7 @@
 # Sprint 19 — Algorithm Verification Program (AVP) — Methodology v1.0
 
-Status: **FROZEN — AVP Methodology v1.0** (2026-08-03).
+Status: **FROZEN — AVP Methodology v1.0** (2026-08-03, finalized
+with §4.13 Research Confidence × Destination annotation baked in).
 
 This document is the constitution for every Sprint 19 (AVP)
 verification review. It is locked: every AVP document in this series
@@ -83,10 +84,12 @@ Verification → Evidence → Experiment → Implementation.**
 | — | Traceability Matrix | table | every P7 experiment → cited evidence (§4.10) |
 | — | Verification Scorecard | numerics 0–100 | per-area scores, comparable across subsystems (§4.11) |
 | — | Final Research Verdict | disposition | six quality ratings + confidence + recommendation (§4.12) |
+| — | **Findings Summary** | table | every finding → **Research Confidence × Destination** (§4.13) |
 
 Phases P1–P1.5 never mention the subsystem being verified. P3 begins
 only after P1, P1.5 and P2 are complete — this ordering prevents
-implementation bias.
+implementation bias. When this section says "the format is locked",
+the §4.13 annotation above is part of that lock.
 
 ## 4. Artifact formats (locked)
 
@@ -306,6 +309,38 @@ Block with fields:
 Plus a 3–5 sentence justification citing the scorecard and the
 strongest/weakest artifact.
 
+### 4.13 Every finding carries Confidence + Destination (locked)
+
+Finalized into v1.0 before freeze (2026-08-03). Two tables are
+**mandatory in every AVP document** wherever findings are listed
+(at minimum: P3.5 Findings, P4a/P4b verdicts, P6 conclusions, and
+as a consolidated summary):
+
+**(a) Research Confidence** — the reviewer's confidence *in the
+conclusion itself*, not the trade. Lets Sprint 20 separate
+"almost certain implementation defects" from "hypotheses requiring
+experiments":
+
+| Level | Meaning |
+|---|---|
+| Very High | Deterministic from code paths / direct measurement on frozen data |
+| High | Strong code evidence + evidence-table agreement; no counter-evidence |
+| Medium | Code-read or single-cell evidence; mechanism plausible, not proven |
+| Low | Texture/literature-based; no code or data confirmation |
+
+**(b) Finding Destination** — every finding routes to a concrete home
+so nothing is lost (Sprint 20 item, an M-card from the master
+backlog, research backlog, or "none / standards only"):
+
+| Finding | Confidence | Destination |
+|---|---|---|
+| C2 cold-start misattribution | Very High | Sprint 20 (defect fix) |
+| BOS family weak overall | High | Sprint 20 gating experiment |
+
+Every AVP doc ends with a consolidated
+"**Findings Summary — Confidence × Destination**" table covering all
+of its findings.
+
 ---
 
 ## 5. Doc schedule (docs/Sprint19_Research/)
@@ -330,3 +365,11 @@ docs 01–06. Any change required by experience becomes **AVP
 Methodology v1.1**, applying only to the next verification cycle.
 Every AVP doc states its methodology version in its passport so that
 future readers know the exact standard under which it was graded.
+
+The §4.13 annotation (Research Confidence + Finding Destination) is
+the **only** amendment accepted into v1.0; it was applied at
+finalization (2026-08-03) before docs 01–06 were graded and does not
+change the phases, artifacts, or scoring of the standard. From this
+point the standard is frozen for the entire series; methodology
+review happens once after doc 06, producing v1.1 only for the next
+verification cycle.
