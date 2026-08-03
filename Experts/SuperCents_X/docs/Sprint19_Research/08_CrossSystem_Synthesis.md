@@ -92,8 +92,29 @@ Order of work is deliberate: **measurement precedes selection changes; wiring pr
 | Architecture Quality | 68–85 (≈72 avg) | CE componentCount=0 + missing layer columns |
 | Visualization Quality | 0–90 (≈70 avg; 0 = Liquidity no renderer) | FVG clean, Liquidity none |
 | Evidence Quality | 52–58 | capped by T01, not by evidence work |
+| Evidence | 52–58 | capped by T01, not by evidence work |
 | Confidence | **B** | flag/layer proxies exact; raw evidence impossible |
 | **Overall** | **IMPROVE** | 64–74 across passports; platform-first Sprint 20 |
+
+---
+
+## S9. Cross-document traceability matrix
+
+Every Sprint-20 engineering task must point back to the exact AVP findings that justify it. This matrix is the single index: each cell carries the doc-coded finding behind the task.
+
+Legend: ● root finding this doc · ○ secondary / affected (reported in another doc, implicated here) · ✓ correct / verified · △ present-but-defective (drift/minor) · ✗ absent (defect) · — not evaluatable.
+
+| Finding family (ledger) | 01 BOS | 02 CHOCH | 03 Swing | 04 Liquidity | 05 OB | 06 FVG | Sprint 20 link |
+|---|---|---|---|---|---|---|---|
+| T01 — structural evidence inert (raws 0, missing layer cols) | ○ (structureRaw 0) | ○ (raw 0) | ● (hasProtectedPoint never TRUE) | ● | ● (no `layerOrderBlock` col) | ● (no `layerFVG` col, classifier dead) | TC — schema v3.1 + raw wiring |
+| T02 — no subsystem unit tests | ● | ● | ● | ● | ● | ● | test scaffold |
+| E11 — lifecycle/reset | ● | ● | ● | ● | ● | ○ (reload reference; shrink still unhandled) | LC lifecycle audit |
+| Funnel/gate — worst admitted, better rejected (C08/R13) | ○ (BOS_OB paper-only) | ● (CHOCH_OB never entered) | — | ● (89.4% admitted = worst family) | ● (0/13,178) | ● (0/12,320) | gating M15 (after TC) |
+| Dead logic — computed but never consumed | ○ | ● (C05) | ● (C01) | ● (C10) | ● | ● (C16) | DD wiring |
+| Visualization | ✓ | △ (C07 drift) | ✓ (90, forensic) | ✗ (no renderer) | △ (drift) | ✓ (clean, reference) | VF epic |
+| Reload handling — time-discontinuity rescan | — | — | — | — | — | ✓ (**reference impl**) | LC epic adoption pattern |
+
+Example per-task justification template (used by Sprint 20): *TC #1 draws evidence ① from rows 1–2; gating #4 from row 4; VF #6 from row 6.*
 
 ---
 
