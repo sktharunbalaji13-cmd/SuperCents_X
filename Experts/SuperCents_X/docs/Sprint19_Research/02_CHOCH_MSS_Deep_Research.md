@@ -707,20 +707,25 @@ Banding: 74 ∈ [60-74] — "verified with significant gaps".
 
 ## Findings Summary — Research Confidence × Destination
 
-| Finding | Confidence | Destination |
-|---|---|---|
-| C2 — chart-reset dedup stall (m_lastProcessedBar monotonic gate) | **Very High** (deterministic code path) | Sprint 20 defect fix (shares E11 remediation family with BOS C3) |
-| C1 — no unit tests for CHOCHDetector | High (test artifacts absent) | Sprint 20 test scaffold |
-| C3 — bearish CHoCH never signals (bullish-only rule) | High (rule inspection + 342/342 bull rows) | Sprint 20: add mirror rule (E2) or document as scope decision |
-| C4 — no MSS confirmation layer (displacement/sweep/FVG) | High (P1 consensus + code) | Sprint 20 label discipline; E1 experiment → M30 |
-| C6 — cold-start misattribution (first-crossing unrecorded) | High (code path) | Sprint 20 (shared with BOS C2/E8) |
-| C5 — hasCHOCH flag redundant with ruleName | High (telemetry inspection) | Sprint 20 cleanup |
-| P6 — GBPJPY H1 is the only replicated winner (exact 18.11) | **Very High** (exact frozen replication) | Sprint 20 gating branch E5 → M02/M04 |
-| P6 — session effect (h08-12 positive, h22-23 drain) | High (measured, consistent with [18.12]) | M06 session gate (E3) |
-| P6 — Monday > Wed/Thu | Medium (small n) | M06 — validate before use (E4) |
-| P6 — displacement/FVG/sweep cells unmeasurable (6.8) | High (zero co-occurrence rows) | E1 telemetry (schema v3.1) |
-| P4b — palette drift (spec #996B00/#593E00 vs #808080/#606060) | High (spec vs code) | Sprint 20 cosmetic fix |
-| Entry unreachability (18.9: validator admits only LIQUIDITY_BOS) | High (entry doc) | Decision required before any CHOCH experiment ships |
+Per §4.13 of the locked methodology. Confidence is in the
+*conclusion*, not the trade. Each row carries its Outcome
+Classification (Implementation Defect / Missing Feature /
+Architectural Limitation / Measurement Gap / Research Hypothesis).
+
+| Finding | Confidence | Classification | Destination |
+|---|---|---|---|
+| C2 — chart-reset dedup stall (m_lastProcessedBar monotonic gate) | **Very High** (deterministic code path) | Implementation Defect | Sprint 20 defect fix (shares E11 remediation family with BOS C3) |
+| C1 — no unit tests for CHOCHDetector | High (test artifacts absent) | Measurement Gap | Sprint 20 test scaffold |
+| C3 — bearish CHoCH never signals (bullish-only rule) | High (rule inspection + 342/342 bull rows) | **Missing Feature** | Sprint 20: add mirror rule (E2) or document as scope decision |
+| C4 — no MSS confirmation layer (displacement/sweep/FVG) | High (P1 consensus + code) | **Architectural Limitation** | Sprint 20 label discipline; E1 experiment → M30 |
+| C6 — cold-start misattribution (first-crossing unrecorded) | High (code path) | Implementation Defect | Sprint 20 (shared with BOS C2/E8) |
+| C5 — hasCHOCH flag redundant with ruleName | High (telemetry inspection) | Implementation Defect | Sprint 20 cleanup |
+| P6 — GBPJPY H1 is the only replicated winner (exact 18.11) | **Very High** (exact frozen replication) | Research Hypothesis | Sprint 20 gating branch E5 → M02/M04 |
+| P6 — session effect (h08-12 positive, h22-23 drain) | High (measured, consistent with [18.12]) | Research Hypothesis | M06 session gate (E3) |
+| P6 — Monday > Wed/Thu | Medium (small n) | Research Hypothesis | M06 — validate before use (E4) |
+| P6 — displacement/FVG/sweep cells unmeasurable (6.8) | High (zero co-occurrence rows) | Measurement Gap | E1 telemetry (schema v3.1) |
+| P4b — palette drift (spec #996B00/#593E00 vs #808080/#606060) | High (spec vs code) | Implementation Defect | Sprint 20 cosmetic fix |
+| Entry unreachability (18.9: validator admits only LIQUIDITY_BOS) | High (entry doc) | Architectural Limitation | Decision required before any CHOCH experiment ships |
 
 ---
 
