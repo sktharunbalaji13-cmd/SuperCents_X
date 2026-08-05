@@ -1,0 +1,47 @@
+﻿{
+    "freezeId":  "B4",
+    "frozenAt":  "2026-08-05T19:31:17",
+    "commit":  "aea90c6",
+    "profile":  "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)",
+    "symbol":  "EURUSD",
+    "period":  "H1",
+    "fromDate":  "2026.01.01",
+    "toDate":  "2026.02.01",
+    "rows":  500,
+    "csvBytes":  607266,
+    "csvSha256":  "2890A7AFA60014CF71945958BCA61BD806EE8708DAF25F646E97F9A4EFC52D3E",
+    "headerColumns":  75,
+    "firstSignalTime":  "2026.01.02 04:00",
+    "lastSignalTime":  "2026.01.30 23:00",
+    "counters":  {
+                     "rows":  500,
+                     "decisionIdsUnique":  500,
+                     "ruleName":  {
+                                      "(none)":  37,
+                                      "OB_FVG_BEARISH":  140,
+                                      "LIQUIDITY_BOS_BEARISH":  61,
+                                      "BOS_OB_BEARISH":  14,
+                                      "CHOCH_OB_REVERSAL":  18,
+                                      "BOS_OB_BULLISH":  8,
+                                      "OB_FVG_BULLISH":  151,
+                                      "LIQUIDITY_BOS_BULLISH":  71
+                                  },
+                     "outcome":  {
+                                     "2":  302,
+                                     "1":  148,
+                                     "0":  50
+                                 },
+                     "componentData1":  500,
+                     "firstSignalTime":  "2026.01.02 04:00",
+                     "lastSignalTime":  "2026.01.30 23:00"
+                 },
+    "perf":  {
+                 "peakMemMB":  289.3,
+                 "suiteMs":  15152,
+                 "replayMs":  18934,
+                 "rowsPerSec":  26.4,
+                 "csvBytes":  607266
+             },
+    "perfFrozenFromFirstRun":  true,
+    "perfFrozenCommit":  "aea90c6"
+}
