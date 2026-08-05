@@ -80,7 +80,7 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | Consumer | `Telemetry/TelemetryHealthReport.mqh` | Schema gate = 100% v3+ (v3 + v4 both count); round-trip audits v4 rows only; v3-only files stay healthy. |
 | Consumer | `Calibration/ExperimentRunner.mqh` | `schemaVersion >= 3` gates evidence diagnostics; v4 rows flow through unchanged. |
 | Consumer | `SignalTypes.mqh` / `ScoreCalculator.mqh` | `ScoreLayer.layerOrderBlock/layerFVG` (split) + `LayerResult` — additive, no semantic change. |
-| Consumer | `Confluence/ConfluenceEngine.mqh` | Copies the split into the signal score (rule path + evaluator path); **TC02**: `m_latestConfluence.components/componentCount` populated at decision time on the rule path (evaluator path preserved). |
+| Consumer | `Confluence/ConfluenceEngine.mqh` | Copies the split into the signal score (rule path + evaluator path); **TC02**: `m_latestConfluence.components/componentCount` populated at decision time on the rule path (evaluator path preserved). **TC03**: `hasProtectedPoint` traced from the manager's active high/low at decision time (pure trace — rule/evaluator scoring untouched). |
 | Consumer | `Confluence/ScoreCalculator.mqh` | **TC02**: `BuildRuleComponents` free function derives the 6 legacy component rows from `ScoreLayer` + `ConfluenceWeights`. |
 | Consumer | `Telemetry/TelemetryHealthReport.mqh` | **TC02**: `LegacyRowConsistent` enforces split invariants on v4 rows (raw-slice invariant for the rule path; contribution-slice invariant for the evaluator path); v3 rows keep the zero-raws contract. |
 
@@ -97,11 +97,12 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | Row builder split | `TestRowBuilder_LayerSplit` (OB 15 + FVG 10 -> `layerStructural` 25). |
 | TC02: rule-path components populated at decision time | `BuildRuleComponents` unit tests (BOS+OB, liquidity-sweep, trend-bonus, empty layers) in `TestConfluenceEngine`. |
 | TC02: v4 split invariants enforced by the health gate | `TestHealth_ContribInvariant` (evaluator-path contributions), `TestHealth_LegacyInconsistent` (split violation flagged), `TestHealth_LegacyV3FileStillLoads` (v3 zero-raws contract preserved). |
+| TC03: protected-point evidence reachable | `Test 31` in `TestConfluenceEngine` (no-PP-manager contract stays false) + real-run CSV shows `hasProtectedPoint='2'` wherever a protected point exists. |
 
 ## 6. Follow-ups
 
-- **TC02** (raw evidence wiring), **TC03** (protected-point evidence), **TC04** (populate
-  `fvgClass/Size/Strength` + gap timestamps) are required to complete M1 (Telemetry
-  Complete); until TC04 the classifier columns carry their defined defaults.
+- **TC04** (populate `fvgClass/Size/Strength` + gap timestamps) is the last M1 (Telemetry
+  Complete) task; until TC04 the classifier columns carry their defined defaults.
+- **TC03** (protected-point evidence) shipped 2026-08-04.
 - Historical re-runs (doc 06 numbers) are reproducible after TC04 from the same frozen
   telemetry; v3 files remain the ground truth for pre-TC04 periods.

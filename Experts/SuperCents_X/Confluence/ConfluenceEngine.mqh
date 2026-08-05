@@ -329,7 +329,15 @@ void CConfluenceEngine::Update(void)
                              bestRule.type == RULE_OB_FVG_BULLISH || bestRule.type == RULE_OB_FVG_BEARISH ||
                              bestRule.type == RULE_CHOCH_OB_REVERSAL);
     sig.hasFVG           = (bestRule.type == RULE_OB_FVG_BULLISH || bestRule.type == RULE_OB_FVG_BEARISH);
-    sig.hasProtectedPoint = false;
+    //--- TC03: trace the engine's active protected-point state into the
+    //    signal.  The manager holds an active high or low from the moment
+    //    ProcessCurrentTrend activates one (on trend change) until the next
+    //    trend change resets it.  Pure trace of engine state at decision
+    //    time — does not feed rule or evaluator scoring.
+    ProtectedPoint ppProbe;
+    sig.hasProtectedPoint = (m_protectedPointManager != NULL &&
+                             (m_protectedPointManager.GetActiveHigh(ppProbe) ||
+                              m_protectedPointManager.GetActiveLow(ppProbe)));
     sig.hasLiquiditySweep = (bestRule.type == RULE_LIQUIDITY_BOS_BULLISH || bestRule.type == RULE_LIQUIDITY_BOS_BEARISH);
     sig.trendAligned     = score.trendAligned;
 

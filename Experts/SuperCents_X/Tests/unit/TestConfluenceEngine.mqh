@@ -495,6 +495,21 @@ TestCounters RunConfluenceEngineTests(void)
         TEST_INT_EQ(0, compCount, "no components when nothing fired");
     }
 
+    // Test 31: TC03 — signal trace with no PP manager stays false.
+    //          Guards the wiring NULL-check: the engine must never
+    //          assume a protected point exists when the manager is
+    //          absent (unit-level mirror of the empty-engine contract).
+    {
+        CConfluenceEngine engine;
+        engine.Init();
+        engine.Update();
+
+        ConfluenceSignal sig;
+        bool hasSignal = engine.GetLatestSignal(sig);
+        TEST_TRUE(hasSignal, "Rule fallback should produce a signal");
+        TEST_FALSE(sig.hasProtectedPoint, "No PP manager -> hasProtectedPoint false");
+    }
+
     SUITE_END("Confluence Engine Tests");
     return counters;
 }
