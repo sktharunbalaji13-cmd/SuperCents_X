@@ -356,6 +356,39 @@ void CConfluenceEngine::Update(void)
         if(sig.hasLiquiditySweep && sig.liquidityLevelId < 0) sig.liquidityLevelId = eid;
     }
 
+    //--- TC04: serialize the FVG classifier for the rule's FVG evidence.
+    //    The evidence id is matched against the detector by id
+    //    (position-independent; evidenceIds order differs per rule).
+    //    Guarded by hasFVG so the evaluator path (component-type ids in
+    //    evidenceIds) can never coincidentally match a low FVG id.
+    //    `sig.fvgId` itself is left untouched (entry pricing consumes it).
+    sig.fvgClass = 0;          // FVG_CLASS_UNKNOWN
+    sig.fvgSize = 0;           // FVG_SIZE_UNKNOWN
+    sig.fvgStrength = 0;       // FVG_STRENGTH_UNKNOWN
+    sig.fvgCreatedTime = 0;
+    sig.fvgFillTime = 0;
+    if(sig.hasFVG && m_fvgDetector != NULL)
+    {
+        for(int e = 0; e < bestRule.evidenceCount; e++)
+        {
+            int eid = bestRule.evidenceIds[e];
+            if(eid <= 0) continue;
+            for(int j = 0; j < m_fvgDetector.GetFVGCount(); j++)
+            {
+                FairValueGap f;
+                if(!m_fvgDetector.GetFVG(j, f)) continue;
+                if(f.id != eid) continue;
+                sig.fvgClass = (int)f.fvgClass;
+                sig.fvgSize = (int)f.sizeCategory;
+                sig.fvgStrength = (int)f.strength;
+                sig.fvgCreatedTime = f.time;
+                sig.fvgFillTime = f.fillTime;
+                break;
+            }
+            if(sig.fvgClass != 0) break;
+        }
+    }
+
     int idx = m_signalCount;
     ArrayResize(m_signals, idx + 1);
     m_signals[idx] = sig;

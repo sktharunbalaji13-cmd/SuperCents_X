@@ -224,6 +224,14 @@ ConfluenceSignal MakeTestSignal(void)
     sig.hasProtectedPoint = false;
     sig.hasLiquiditySweep = true;
     sig.trendAligned = true;
+
+    //--- TC04 classifier snapshot: the engine always sets these at signal
+    //    build time; the fixture mirrors the no-FVG contract (all defaults).
+    sig.fvgClass = 0;
+    sig.fvgSize = 0;
+    sig.fvgStrength = 0;
+    sig.fvgCreatedTime = 0;
+    sig.fvgFillTime = 0;
     return sig;
 }
 
@@ -285,14 +293,15 @@ void TestRowBuilder_EvidenceCapture(TestCounters &counters)
     TEST_TRUE(row.signalTime <= row.timestamp, "signal precedes decision capture");
 
     //--- v3.1 columns: fixture signal has no OB/FVG evidence, so the split
-    //    layers stay zero and the classifier strings stay UNKNOWN (TC04).
+    //    layers stay zero and the classifier strings stay UNKNOWN (the
+    //    no-FVG default contract; populated only when FVG evidence exists).
     TEST_INT_EQ(0, row.layerOrderBlock, "layerOrderBlock zero when no OB");
     TEST_INT_EQ(0, row.layerFVG, "layerFVG zero when no FVG");
-    TEST_STR_EQ("UNKNOWN", row.fvgClass, "fvgClass UNKNOWN until TC04");
-    TEST_STR_EQ("UNKNOWN", row.fvgSize, "fvgSize UNKNOWN until TC04");
-    TEST_STR_EQ("UNKNOWN", row.fvgStrength, "fvgStrength UNKNOWN until TC04");
-    TEST_INT_EQ(0, (int)row.fvgCreatedTime, "fvgCreatedTime zero until TC04");
-    TEST_INT_EQ(0, (int)row.fvgFillTime, "fvgFillTime zero until TC04");
+    TEST_STR_EQ("UNKNOWN", row.fvgClass, "fvgClass UNKNOWN without FVG evidence");
+    TEST_STR_EQ("UNKNOWN", row.fvgSize, "fvgSize UNKNOWN without FVG evidence");
+    TEST_STR_EQ("UNKNOWN", row.fvgStrength, "fvgStrength UNKNOWN without FVG evidence");
+    TEST_INT_EQ(0, (int)row.fvgCreatedTime, "fvgCreatedTime zero without FVG evidence");
+    TEST_INT_EQ(0, (int)row.fvgFillTime, "fvgFillTime zero without FVG evidence");
 }
 
 void TestRowBuilder_LayerSplit(TestCounters &counters)
@@ -363,6 +372,50 @@ void TestRowBuilder_EngineUnsettledSplit(TestCounters &counters)
     TEST_DBL_NEAR(0.0, row.structureContribution, 1e-9, "structureContribution zeroed");
     TEST_DBL_NEAR(0.0, row.trendContribution, 1e-9, "trendContribution zeroed");
     TEST_INT_EQ(1, row.componentData, "evidence row flag still set (split is all-zero)");
+}
+
+void TestRowBuilder_FVGClassifierSerialized(TestCounters &counters)
+{
+    //--- TC04: the classifier snapshot carried in the signal is serialized
+    //    into the v3.1 columns; rows without FVG evidence keep defaults.
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_QUALIFIED;
+    newDec.confidence = 0.60;
+    newDec.direction = CONFLUENCE_BULLISH;
+    EntryDecision legacyDec;
+    legacyDec.status = DECISION_QUALIFIED;
+    legacyDec.confidence = 0.60;
+    legacyDec.direction = CONFLUENCE_BULLISH;
+
+    ConfluenceWeights w;
+    ConfluenceSignal sig = MakeTestSignal();
+    sig.hasFVG = true;
+    sig.fvgClass = 1;        // FVG_CLASS_BREAKAWAY
+    sig.fvgSize = 2;         // FVG_SIZE_MEDIUM
+    sig.fvgStrength = 3;     // FVG_STRENGTH_STRONG
+    sig.fvgCreatedTime = D'2026.01.05 12:00';
+    sig.fvgFillTime = D'2026.01.06 03:00';
+
+    TelemetryRow row;
+    bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+    TEST_TRUE(ok, "BuildWithEvidence succeeds with classifier snapshot");
+    TEST_STR_EQ("BREAKAWAY", row.fvgClass, "class mapped BREAKAWAY");
+    TEST_STR_EQ("MEDIUM", row.fvgSize, "size mapped MEDIUM");
+    TEST_STR_EQ("STRONG", row.fvgStrength, "strength mapped STRONG");
+    TEST_INT_EQ((int)D'2026.01.05 12:00', (int)row.fvgCreatedTime, "created time serialized");
+    TEST_INT_EQ((int)D'2026.01.06 03:00', (int)row.fvgFillTime, "fill time serialized");
+
+    //--- Mapping helpers: unknown/out-of-range collapse to UNKNOWN.
+    TEST_STR_EQ("UNKNOWN", CTelemetryRowBuilder::TelemetryFVGClass(0), "class UNKNOWN for 0");
+    TEST_STR_EQ("UNKNOWN", CTelemetryRowBuilder::TelemetryFVGClass(9), "class UNKNOWN for out-of-range");
+    TEST_STR_EQ("CONTINUATION", CTelemetryRowBuilder::TelemetryFVGClass(2), "class CONTINUATION");
+    TEST_STR_EQ("REVERSAL", CTelemetryRowBuilder::TelemetryFVGClass(3), "class REVERSAL");
+    TEST_STR_EQ("SMALL", CTelemetryRowBuilder::TelemetryFVGSize(1), "size SMALL");
+    TEST_STR_EQ("LARGE", CTelemetryRowBuilder::TelemetryFVGSize(3), "size LARGE");
+    TEST_STR_EQ("WEAK", CTelemetryRowBuilder::TelemetryFVGStrength(1), "strength WEAK");
+    TEST_STR_EQ("NORMAL", CTelemetryRowBuilder::TelemetryFVGStrength(2), "strength NORMAL");
 }
 
 void TestRowBuilder_EvidenceFallback(TestCounters &counters)
@@ -544,6 +597,7 @@ TestCounters RunTelemetryTests()
     TestRowBuilder_LayerSplit(counters);
     TestRowBuilder_EvidenceFallback(counters);
     TestRowBuilder_EngineUnsettledSplit(counters);
+    TestRowBuilder_FVGClassifierSerialized(counters);
     TestRow_ReplayDecisionThreshold(counters);
     TestRow_ReplayDecisionValidators(counters);
     TestRow_ConfluenceGateSkipped(counters);

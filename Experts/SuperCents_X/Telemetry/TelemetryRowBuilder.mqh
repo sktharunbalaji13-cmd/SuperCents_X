@@ -189,14 +189,43 @@ public:
         out.layerOrderBlock = signal.score.layerOrderBlock;
         out.layerFVG        = signal.score.layerFVG;
 
-        //--- FVG classifier + gap timestamps: TC04 serializes the FVG
-        //    detector's classification; until then rows carry UNKNOWN/0.
-        out.fvgClass       = "UNKNOWN";
-        out.fvgSize        = "UNKNOWN";
-        out.fvgStrength    = "UNKNOWN";
-        out.fvgCreatedTime = 0;
-        out.fvgFillTime    = 0;
+        //--- FVG classifier + gap timestamps (TC04): serialized from the
+        //    detector snapshot carried in the signal.  Rows without FVG
+        //    evidence keep the defined defaults (UNKNOWN/0).
+        out.fvgClass       = TelemetryFVGClass(signal.fvgClass);
+        out.fvgSize        = TelemetryFVGSize(signal.fvgSize);
+        out.fvgStrength    = TelemetryFVGStrength(signal.fvgStrength);
+        out.fvgCreatedTime = signal.fvgCreatedTime;
+        out.fvgFillTime    = signal.fvgFillTime;
         return true;
+    }
+
+    //--- FVG classifier string mapping.  Enum values are frozen in
+    //    Utils/Types.mqh; mapped by literal so the row builder keeps its
+    //    include graph (TelemetryTypes pulls only Constants/Types via
+    //    ConfluenceTypes, not the FVG enums).
+    static string TelemetryFVGClass(const int cls)
+    {
+        if(cls == 1) return "BREAKAWAY";     // FVG_CLASS_BREAKAWAY
+        if(cls == 2) return "CONTINUATION";  // FVG_CLASS_CONTINUATION
+        if(cls == 3) return "REVERSAL";      // FVG_CLASS_REVERSAL
+        return "UNKNOWN";
+    }
+
+    static string TelemetryFVGSize(const int sz)
+    {
+        if(sz == 1) return "SMALL";          // FVG_SIZE_SMALL
+        if(sz == 2) return "MEDIUM";         // FVG_SIZE_MEDIUM
+        if(sz == 3) return "LARGE";          // FVG_SIZE_LARGE
+        return "UNKNOWN";
+    }
+
+    static string TelemetryFVGStrength(const int st)
+    {
+        if(st == 1) return "WEAK";           // FVG_STRENGTH_WEAK
+        if(st == 2) return "NORMAL";         // FVG_STRENGTH_NORMAL
+        if(st == 3) return "STRONG";         // FVG_STRENGTH_STRONG
+        return "UNKNOWN";
     }
 
     static string PackEvidenceIds(const int &evidenceIds[], const int count)

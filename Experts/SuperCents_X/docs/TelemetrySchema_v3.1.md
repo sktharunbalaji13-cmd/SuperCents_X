@@ -52,11 +52,11 @@ Columns 69-75 are added in v3.1. `schemaVersion = 4` requires exactly 75 columns
 |---|---|---|---|---|---|
 | 69 | `layerOrderBlock` | int (0-15) | `ScoreCalculator::CalculateTotalScore` (via `ConfluenceEngine`, rule path & evaluator path) | RowBuilder -> CSV; TC04+ analytics | Order-block slice of `layerStructural`. `SCORE_STRUCTURAL_OB = 15` when `hasOrderBlock`, else 0. Telemetry-only split; `layerStructural` unchanged. |
 | 70 | `layerFVG` | int (0-10) | same chain | RowBuilder -> CSV; TC04+ analytics | FVG slice of `layerStructural`. `SCORE_STRUCTURAL_FVG = 10` when `hasFVG`, else 0. |
-| 71 | `fvgClass` | string (`REVERSAL` \| `BREAKAWAY` \| `CONTINUATION` \| `UNKNOWN`) | TC04 (currently `"UNKNOWN"`) | TC04+ analytics | FVG class as classified by `FVGDetector` (dead in v3.0; C16). |
-| 72 | `fvgSize` | string (`SMALL` \| `MEDIUM` \| `LARGE` \| `UNKNOWN`) | TC04 (currently `"UNKNOWN"`) | TC04+ analytics | `sizeCategory` from `FVG_SIZE_*` thresholds (3.0 / 10.0 pips). |
-| 73 | `fvgStrength` | string (`WEAK` \| `NORMAL` \| `STRONG` \| `UNKNOWN`) | TC04 (currently `"UNKNOWN"`) | TC04+ analytics | `strength` from `FVG_STRENGTH_BODY_*` thresholds (5.0 / 15.0 pips). |
-| 74 | `fvgCreatedTime` | datetime (`yyyy.MM.dd HH:mm:ss`, `0` when absent) | TC04 (currently `0`) | C17 guard studies | Gap creation time (first bar of the wick-to-wick gap). |
-| 75 | `fvgFillTime` | datetime (`yyyy.MM.dd HH:mm:ss`, `0` when absent) | TC04 (currently `0`) | C17 guard studies | Gap fill time (when price trades through the gap). `0` = unfilled at signal. |
+| 71 | `fvgClass` | string (`REVERSAL` \| `BREAKAWAY` \| `CONTINUATION` \| `UNKNOWN`) | TC04 shipped: `ConfluenceEngine` signal snapshot | TC04+ analytics | FVG class as classified by `FVGDetector` (dead in v3.0; C16). |
+| 72 | `fvgSize` | string (`SMALL` \| `MEDIUM` \| `LARGE` \| `UNKNOWN`) | TC04 shipped: `ConfluenceEngine` signal snapshot | TC04+ analytics | `sizeCategory` from `FVG_SIZE_*` thresholds (3.0 / 10.0 pips). |
+| 73 | `fvgStrength` | string (`WEAK` \| `NORMAL` \| `STRONG` \| `UNKNOWN`) | TC04 shipped: `ConfluenceEngine` signal snapshot | TC04+ analytics | `strength` from `FVG_STRENGTH_BODY_*` thresholds (5.0 / 15.0 pips). |
+| 74 | `fvgCreatedTime` | datetime (`yyyy.MM.dd HH:mm:ss`, `0` when absent) | TC04 shipped: `ConfluenceEngine` signal snapshot | C17 guard studies | Gap creation time (first bar of the wick-to-wick gap). |
+| 75 | `fvgFillTime` | datetime (`yyyy.MM.dd HH:mm:ss`, `0` when absent) | TC04 shipped: `ConfluenceEngine` signal snapshot | C17 guard studies | Gap fill time (when price trades through the gap). `0` = unfilled at signal. |
 
 ### 3.2 Deprecated / reserved columns
 
@@ -73,14 +73,14 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | Role | File | v3.1 behavior |
 |---|---|---|
 | Producer | `Telemetry/TelemetryTypes.mqh` | Struct fields + ctor defaults (`fvgClass/Size/Strength = "UNKNOWN"`, times `0`); `TELEMETRY_CSV_HEADER_V31`; version `4`. |
-| Producer | `Telemetry/TelemetryRowBuilder.mqh` | `BuildWithEvidence` copies `score.layerOrderBlock/layerFVG`; classifier fields stay `UNKNOWN`/`0` until TC04. |
+| Producer | `Telemetry/TelemetryRowBuilder.mqh` | `BuildWithEvidence` copies `score.layerOrderBlock/layerFVG`; **TC04**: classifier fields serialized via `TelemetryFVGClass/Size/Strength` mappers + `fvgCreatedTime/fvgFillTime` from the signal snapshot (was `UNKNOWN`/`0` until TC04). |
 | Producer | `Telemetry/TelemetryCollector.mqh` | `WriteHeader` emits `TELEMETRY_CSV_HEADER_V31`; `WriteRow` appends the 7 columns. |
 | Producer | `Telemetry/TelemetryHealthReport.mqh` | `SerializeRow` mirrors the collector (75 columns). |
 | Consumer | `Telemetry/CalibrationDataset.mqh` | `ParseRow` accepts v4/75; v3/68 and v2/45 still parse; version/column mismatch refused. |
 | Consumer | `Telemetry/TelemetryHealthReport.mqh` | Schema gate = 100% v3+ (v3 + v4 both count); round-trip audits v4 rows only; v3-only files stay healthy. |
 | Consumer | `Calibration/ExperimentRunner.mqh` | `schemaVersion >= 3` gates evidence diagnostics; v4 rows flow through unchanged. |
 | Consumer | `SignalTypes.mqh` / `ScoreCalculator.mqh` | `ScoreLayer.layerOrderBlock/layerFVG` (split) + `LayerResult` — additive, no semantic change. |
-| Consumer | `Confluence/ConfluenceEngine.mqh` | Copies the split into the signal score (rule path + evaluator path); **TC02**: `m_latestConfluence.components/componentCount` populated at decision time on the rule path (evaluator path preserved). **TC03**: `hasProtectedPoint` traced from the manager's active high/low at decision time (pure trace — rule/evaluator scoring untouched). |
+| Consumer | `Confluence/ConfluenceEngine.mqh` | Copies the split into the signal score (rule path + evaluator path); **TC02**: `m_latestConfluence.components/componentCount` populated at decision time on the rule path (evaluator path preserved). **TC03**: `hasProtectedPoint` traced from the manager's active high/low at decision time (pure trace — rule/evaluator scoring untouched). **TC04**: `fvgClass/Size/Strength/fvgCreatedTime/fvgFillTime` snapshotted from the detector FVG matched by id in `bestRule.evidenceIds` (position-independent; `sig.fvgId` untouched — entry pricing keys off it). |
 | Consumer | `Confluence/ScoreCalculator.mqh` | **TC02**: `BuildRuleComponents` free function derives the 6 legacy component rows from `ScoreLayer` + `ConfluenceWeights`. |
 | Consumer | `Telemetry/TelemetryHealthReport.mqh` | **TC02**: `LegacyRowConsistent` enforces split invariants on v4 rows (raw-slice invariant for the rule path; contribution-slice invariant for the evaluator path); v3 rows keep the zero-raws contract. |
 
@@ -98,11 +98,11 @@ None were removed. Reserved by prior contracts (must stay empty until used):
 | TC02: rule-path components populated at decision time | `BuildRuleComponents` unit tests (BOS+OB, liquidity-sweep, trend-bonus, empty layers) in `TestConfluenceEngine`. |
 | TC02: v4 split invariants enforced by the health gate | `TestHealth_ContribInvariant` (evaluator-path contributions), `TestHealth_LegacyInconsistent` (split violation flagged), `TestHealth_LegacyV3FileStillLoads` (v3 zero-raws contract preserved). |
 | TC03: protected-point evidence reachable | `Test 31` in `TestConfluenceEngine` (no-PP-manager contract stays false) + real-run CSV shows `hasProtectedPoint='2'` wherever a protected point exists. |
+| TC04: FVG classifier serialized | `TestRowBuilder_FVGClassifierSerialized` (row contract: class=1/size=2/strength=3 mapped to literal strings, both gap times stamped; helper asserts) + real-run CSV: classifier columns populated only where FVG evidence exists (0 non-FVG rows claim a class), values byte-consistent with the journal's `FVG-CREATED` lines; behavioral delta limited to the 4 classifier columns; suite 1053/1053. |
 
 ## 6. Follow-ups
 
-- **TC04** (populate `fvgClass/Size/Strength` + gap timestamps) is the last M1 (Telemetry
-  Complete) task; until TC04 the classifier columns carry their defined defaults.
+- **TC04** (populate `fvgClass/Size/Strength` + gap timestamps) shipped 2026-08-05 — **M1 (Telemetry Complete) achieved**; all 75 v3.1 columns now populated from live detection. `fvgFillTime` stays `0` until the gap actually fills (C17 guard studies); `fvgClass` may stay `UNKNOWN` where the classifier has no BOS/CHOCH + trend context.
 - **TC03** (protected-point evidence) shipped 2026-08-04.
 - Historical re-runs (doc 06 numbers) are reproducible after TC04 from the same frozen
   telemetry; v3 files remain the ground truth for pre-TC04 periods.

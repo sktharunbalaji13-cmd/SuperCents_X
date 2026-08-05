@@ -175,6 +175,15 @@ struct ConfluenceSignal
     int  fvgId;
     int  protectedPointId;
     int  liquidityLevelId;
+
+    //--- TC04: FVG classifier snapshot taken from the detector at decision
+    //    time.  Telemetry-only — feeds no scoring or entry logic (the
+    //    entry path keys off `fvgId`, which stays untouched).
+    int      fvgClass;      // FVG_CLASS_* enum value (Types.mqh)
+    int      fvgSize;       // FVG_SIZE_* enum value
+    int      fvgStrength;   // FVG_STRENGTH_* enum value
+    datetime fvgCreatedTime;
+    datetime fvgFillTime;
 };
 
 #endif
