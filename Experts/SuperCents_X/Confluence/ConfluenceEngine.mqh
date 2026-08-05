@@ -67,11 +67,14 @@ private:
 
     void    CheckSignalLifecycles(void);
     void    ExpireSignal(int index, ExpiryReason reason);
-    void    BuildDetectionContext(DetectionContext &context);
     bool    EvaluateViaEvaluators(ConfluenceDirection dir, ConfluenceResult &result);
     void    BridgeConfluenceToSignal(const ConfluenceResult &cr, RuleResult &bestRule, ScoreLayer &score);
 
 public:
+    //--- DD01: BuildDetectionContext is public for unit-test verification
+    //    of the swing-reference wiring (AVP C01 / Swing S1).  Pure state
+    //    builder — no behavioral change.
+    void    BuildDetectionContext(DetectionContext &context);
     CConfluenceEngine(void);
     ~CConfluenceEngine(void);
 
@@ -573,6 +576,24 @@ void CConfluenceEngine::BuildDetectionContext(DetectionContext &context)
     context.liquidityDetector = m_liquidityDetector;
     context.currentPrice = iClose(_Symbol, _Period, 0);
     context.currentTime = iTime(_Symbol, _Period, 0);
+
+    //--- DD01 (AVP C01 / Swing S1): wire the engine's active swing
+    //    references into the context so PremiumDiscountEvaluator receives
+    //    a live dealing range.  The manager holds the active swing
+    //    high/low from the moment ProcessCurrentTrend activates it (on
+    //    trend change) until the next trend change resets it.  Previously
+    //    these fields stayed 0.0 and the evaluator always scored
+    //    InvalidRange — a dead production code path.
+    context.swingHigh = 0.0;
+    context.swingLow = 0.0;
+    ProtectedPoint swingRef;
+    if(m_protectedPointManager != NULL)
+    {
+        if(m_protectedPointManager.GetActiveHigh(swingRef))
+            context.swingHigh = swingRef.price;
+        if(m_protectedPointManager.GetActiveLow(swingRef))
+            context.swingLow = swingRef.price;
+    }
 }
 
 bool CConfluenceEngine::EvaluateViaEvaluators(ConfluenceDirection dir, ConfluenceResult &result)

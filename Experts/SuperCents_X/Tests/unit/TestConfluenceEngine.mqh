@@ -510,6 +510,97 @@ TestCounters RunConfluenceEngineTests(void)
         TEST_FALSE(sig.hasProtectedPoint, "No PP manager -> hasProtectedPoint false");
     }
 
+    // Test 32: DD01 — BuildDetectionContext with no PP manager keeps the
+    //          swing references at 0.0 (NULL-guard contract, mirror of
+    //          Test 31).  Guards the DD01 wiring against assuming a
+    //          protected point exists when the manager is absent.
+    {
+        CConfluenceEngine engine;
+        engine.Init();
+
+        DetectionContext ctx;
+        engine.BuildDetectionContext(ctx);
+        TEST_DBL_NEAR(ctx.swingHigh, 0.0, 1e-9, "no manager -> swingHigh 0");
+        TEST_DBL_NEAR(ctx.swingLow, 0.0, 1e-9, "no manager -> swingLow 0");
+    }
+
+    // Test 33: DD01 — BuildDetectionContext copies the manager's active
+    //          swing references verbatim (AVP C01 / Swing S1 acceptance:
+    //          PremiumDiscountEvaluator now receives live swing refs).
+    //          Drives the production detector chain (swing -> pivot ->
+    //          BOS -> trend -> PP manager) over the tester's real history
+    //          exactly like CSymbolContext::Update does, then verifies the
+    //          context mirrors whichever active reference the manager
+    //          holds (the other stays 0.0).
+    {
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        CTrendState trend;
+        CProtectedPointManager pp;
+
+        TEST_TRUE(swing.Init(), "SwingDetector init");
+        TEST_TRUE(pivot.Init(), "PivotEngine init");
+        TEST_TRUE(bos.Init(), "BOSDetector init");
+        TEST_TRUE(trend.Init(), "TrendState init");
+        TEST_TRUE(pp.Init(), "ProtectedPointManager init");
+
+        int rates = iBars(_Symbol, _Period);
+        if(rates < 100)
+        {
+            TEST_TRUE(false, "insufficient bars for DD01 wiring test");
+        }
+        else
+        {
+            double high[], low[], close[];
+            datetime time[];
+            ArraySetAsSeries(high, true);
+            ArraySetAsSeries(low, true);
+            ArraySetAsSeries(close, true);
+            ArraySetAsSeries(time, true);
+
+            if(CopyHigh(_Symbol, _Period, 0, rates, high) <= 0 ||
+               CopyLow(_Symbol, _Period, 0, rates, low) <= 0 ||
+               CopyClose(_Symbol, _Period, 0, rates, close) <= 0 ||
+               CopyTime(_Symbol, _Period, 0, rates, time) <= 0)
+            {
+                TEST_TRUE(false, "CopyRates failed - history unavailable");
+            }
+            else
+            {
+                swing.Update(high, low, time, rates);
+                pivot.Update(&swing);
+                bos.Update(&pivot, close, time, rates);
+                trend.Update(&bos);
+
+                datetime currentBarTime[];
+                ArrayResize(currentBarTime, 1);
+                currentBarTime[0] = (rates >= 2) ? time[1] : time[0];
+                pp.Update(&pivot, &bos, &trend, currentBarTime);
+
+                ProtectedPoint ppHigh, ppLow;
+                bool hasHigh = pp.GetActiveHigh(ppHigh);
+                bool hasLow = pp.GetActiveLow(ppLow);
+                TEST_TRUE(hasHigh || hasLow, "manager holds an active swing reference after full-history scan");
+
+                CConfluenceEngine engine;
+                engine.Init();
+                engine.SetProtectedPointManager(&pp);
+
+                DetectionContext ctx;
+                engine.BuildDetectionContext(ctx);
+                if(hasHigh)
+                    TEST_DBL_NEAR(ctx.swingHigh, ppHigh.price, 1e-9, "swingHigh mirrors active high price")
+                else
+                    TEST_DBL_NEAR(ctx.swingHigh, 0.0, 1e-9, "no active high -> swingHigh 0")
+                if(hasLow)
+                    TEST_DBL_NEAR(ctx.swingLow, ppLow.price, 1e-9, "swingLow mirrors active low price")
+                else
+                    TEST_DBL_NEAR(ctx.swingLow, 0.0, 1e-9, "no active low -> swingLow 0")
+            }
+        }
+    }
+
     SUITE_END("Confluence Engine Tests");
     return counters;
 }
