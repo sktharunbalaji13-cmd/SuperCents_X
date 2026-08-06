@@ -8,6 +8,75 @@
 #include "../../Confluence/ConfluenceEngine.mqh"
 #include "../TestAssert.mqh"
 
+//--- DD02 synthetic-series helpers
+//    Time order B0 (oldest) .. B20 (newest); array index idx = 20 - k
+//    (as-series).  Structure chain (swing detection is newest-first, so
+//    swing ids run B15-low=1, B10-high=2, B6-low=3, B2-high=4):
+//      pivot 1 = low  7.50 @B15 (locked by pivot 2)
+//      pivot 2 = high 10.00 @B10 (locked by pivot 3)  <- bullish BOS target
+//      pivot 3 = low   8.00 @B6  (locked by pivot 4)  <- bearish BOS target
+//      pivot 4 = high  9.90 @B2  (unlocked)
+//    B2's close is 10.20: a pre-pivot "break" of the 10.00 level that must
+//    be excluded by the post-pivot window guard.
+//    Variants steer the crossing closes:
+//      FULL        : B13 close 7.90 (bearish first crossing @idx7) and
+//                    B17 close 10.10 (bullish first crossing @idx3)
+//      BULL_ONLY   : B13 9.30, B15 8.30 -> only the bullish crossing
+//      BAR1_ONLY   : + B17 9.95 -> only the bar-1 (idx1) crossing
+//      NO_CROSSING : + B19 9.98 -> no post-pivot crossing at all
+enum DD02Series
+{
+    DD02_SERIES_FULL,
+    DD02_SERIES_BULL_ONLY,
+    DD02_SERIES_BAR1_ONLY,
+    DD02_SERIES_NO_CROSSING
+};
+
+void DD02BuildSeries(int variant, double bar1Close, double &high[], double &low[], double &close[], datetime &time[], int &rates)
+{
+    rates = 21;
+    ArrayResize(high, rates);
+    ArrayResize(low, rates);
+    ArrayResize(close, rates);
+    ArrayResize(time, rates);
+    ArraySetAsSeries(high, true);
+    ArraySetAsSeries(low, true);
+    ArraySetAsSeries(close, true);
+    ArraySetAsSeries(time, true);
+
+    double b13Close = (variant == DD02_SERIES_FULL) ? 7.90 : 9.30;
+    double b15Close = (variant == DD02_SERIES_FULL) ? 7.60 : 8.30;
+    double b17Close = (variant == DD02_SERIES_FULL || variant == DD02_SERIES_BULL_ONLY) ? 10.10 : 9.95;
+    double b19Close = (variant == DD02_SERIES_NO_CROSSING) ? 9.98 : bar1Close;
+
+    // Chronological B0 (oldest) .. B20 (newest); array idx = 20 - k.
+    double h[21] = {9.50, 9.70, 9.90, 9.60, 9.40, 9.30, 9.00, 8.60, 9.20, 9.60, 10.00, 9.70, 9.40, 9.10, 8.60, 8.30, 8.60, 10.20, 10.10, 10.05, 10.00};
+    double l[21] = {9.30, 9.45, 9.55, 9.40, 9.20, 8.60, 8.00, 8.20, 8.50, 8.80, 9.20, 9.00, 8.70, 8.30, 8.00, 7.50, 7.90, 8.90, 9.70, 9.60, 9.55};
+    double c[21] = {9.45, 9.65, 10.20, 9.50, 9.30, 8.70, 8.10, 8.50, 9.00, 9.40, 9.80, 9.30, 8.90, b13Close, 8.20, b15Close, 8.30, b17Close, 9.90, b19Close, 9.95};
+
+    // B19's low must stay below its close (valid bar geometry)
+    l[19] = MathMin(l[19], b19Close - 0.10);
+
+    datetime base = D'2026.01.01 00:00';
+    for(int k = 0; k < rates; k++)
+    {
+        int idx = rates - 1 - k;
+        high[idx] = h[k];
+        low[idx]  = l[k];
+        close[idx] = c[k];
+        time[idx]  = base + k * 3600;
+    }
+}
+
+//--- Run the production detector chain over a synthetic series
+void DD02RunChain(const double &high[], const double &low[], const double &close[], const datetime &time[], int rates,
+                  CSwingDetector &swing, CStructuralPivotEngine &pivot, CBOSDetector &bos)
+{
+    swing.Update(high, low, time, rates);
+    pivot.Update(&swing);
+    bos.Update(&pivot, close, time, rates);
+}
+
 TestCounters RunConfluenceEngineTests(void)
 {
     TestCounters counters;
@@ -598,6 +667,211 @@ TestCounters RunConfluenceEngineTests(void)
                 else
                     TEST_DBL_NEAR(ctx.swingLow, 0.0, 1e-9, "no active low -> swingLow 0")
             }
+        }
+    }
+
+    // Test 34: DD02 — BOS cold-start attribution records the TRUE first
+    //          crossing bar (AVP BOS C2 / E8).  The pivot (10.00 @B10)
+    //          is broken by B17's close (10.10) and again by B19's close
+    //          (10.02); the first crossing is B17 (idx 3), NOT the newest
+    //          crossing B19 (idx 1).  The pre-pivot close 10.20 @B2 must
+    //          not be considered (window guard).
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_BULL_ONLY, 10.02, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        TEST_TRUE(swing.Init(), "SwingDetector init (BOS first-crossing)");
+        TEST_TRUE(pivot.Init(), "PivotEngine init (BOS first-crossing)");
+        TEST_TRUE(bos.Init(), "BOSDetector init (BOS first-crossing)");
+        DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
+
+        TEST_INT_EQ(1, bos.GetBOSCount(), "BOS count = 1 (bullish only)");
+        BOSEvent bosEvt;
+        if(bos.GetBOSCount() == 1 && bos.GetBOS(0, bosEvt))
+        {
+            TEST_TRUE(bosEvt.bullish, "BOS bullish");
+            TEST_INT_EQ(3, bosEvt.breakBar, "breakBar = first crossing bar (B17, idx 3)");
+            TEST_DATETIME_EQ(time[3], bosEvt.breakTime, "breakTime = first crossing bar time");
+            TEST_DBL_NEAR(10.10, bosEvt.closePrice, 1e-9, "closePrice = first crossing close");
+            TEST_DBL_NEAR(10.00, bosEvt.pivotPrice, 1e-9, "pivotPrice = locked high pivot");
+            TEST_INT_EQ(2, bosEvt.brokenPivotID, "brokenPivotID = high pivot 2 (10.00)");
+        }
+    }
+
+    // Test 35: DD02 — BOS window guard excludes pre-pivot bars.  With no
+    //          post-pivot crossing, the pre-pivot close 10.20 @B2 must not
+    //          produce a spurious BOS (the level break happened before the
+    //          pivot formed).
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_NO_CROSSING, 9.98, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        TEST_TRUE(swing.Init(), "SwingDetector init (BOS window guard)");
+        TEST_TRUE(pivot.Init(), "PivotEngine init (BOS window guard)");
+        TEST_TRUE(bos.Init(), "BOSDetector init (BOS window guard)");
+        DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
+
+        TEST_INT_EQ(0, bos.GetBOSCount(), "no spurious pre-pivot BOS");
+    }
+
+    // Test 36: DD02 — BOS normal-cadence equivalence: when only bar 1
+    //          crosses, the event stays attributed to bar 1 (no behavior
+    //          change under per-bar updates).
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_BAR1_ONLY, 10.02, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        TEST_TRUE(swing.Init(), "SwingDetector init (BOS bar-1 equivalence)");
+        TEST_TRUE(pivot.Init(), "PivotEngine init (BOS bar-1 equivalence)");
+        TEST_TRUE(bos.Init(), "BOSDetector init (BOS bar-1 equivalence)");
+        DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
+
+        TEST_INT_EQ(1, bos.GetBOSCount(), "BOS count = 1 (bar-1 crossing)");
+        BOSEvent bosEvt;
+        if(bos.GetBOSCount() == 1 && bos.GetBOS(0, bosEvt))
+        {
+            TEST_TRUE(bosEvt.bullish, "BOS bullish");
+            TEST_INT_EQ(1, bosEvt.breakBar, "breakBar = 1 (normal cadence unchanged)");
+            TEST_DBL_NEAR(10.02, bosEvt.closePrice, 1e-9, "closePrice = bar-1 close");
+        }
+    }
+
+    // Test 37: DD02 — BOS chronological emission: with BOTH the bearish
+    //          crossing (B13, idx 7) and the bullish crossing (B17, idx 3),
+    //          the older crossing is emitted first so BOS ids stay
+    //          time-ordered and the trend reflects the MOST RECENT break.
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_FULL, 10.02, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        TEST_TRUE(swing.Init(), "SwingDetector init (BOS chronology)");
+        TEST_TRUE(pivot.Init(), "PivotEngine init (BOS chronology)");
+        TEST_TRUE(bos.Init(), "BOSDetector init (BOS chronology)");
+        DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
+
+        TEST_INT_EQ(2, bos.GetBOSCount(), "BOS count = 2 (both directions)");
+        BOSEvent first, second;
+        if(bos.GetBOSCount() == 2 && bos.GetBOS(0, first) && bos.GetBOS(1, second))
+        {
+            TEST_FALSE(first.bullish, "older crossing first: bearish (B13, idx 7)");
+            TEST_INT_EQ(7, first.breakBar, "first.breakBar = 7");
+            TEST_DBL_NEAR(7.90, first.closePrice, 1e-9, "first.closePrice = 7.90");
+            TEST_DBL_NEAR(8.00, first.pivotPrice, 1e-9, "first.pivotPrice = locked low pivot");
+            TEST_TRUE(second.bullish, "newer crossing second: bullish (B17, idx 3)");
+            TEST_INT_EQ(3, second.breakBar, "second.breakBar = 3");
+            TEST_DBL_NEAR(10.10, second.closePrice, 1e-9, "second.closePrice = 10.10");
+            TEST_DBL_NEAR(10.00, second.pivotPrice, 1e-9, "second.pivotPrice = locked high pivot");
+        }
+    }
+
+    // Test 38: DD02 — CHOCH cold-start attribution (AVP CHOCH C6 / CH-F7).
+    //          With a backdated PP activation (activation at the pivot bar
+    //          time, as a cold-start/backfill caller would), the event is
+    //          attributed to the TRUE first crossing of the active low PP
+    //          (B13 close 7.90 < 8.00, idx 7) instead of the current bar.
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_FULL, 10.02, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        CTrendState trend;
+        CProtectedPointManager pp;
+        TEST_TRUE(swing.Init(), "SwingDetector init (CHOCH cold start)");
+        TEST_TRUE(pivot.Init(), "PivotEngine init (CHOCH cold start)");
+        TEST_TRUE(bos.Init(), "BOSDetector init (CHOCH cold start)");
+        TEST_TRUE(trend.Init(), "TrendState init (CHOCH cold start)");
+        TEST_TRUE(pp.Init(), "ProtectedPointManager init (CHOCH cold start)");
+
+        DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
+        trend.Update(&bos);
+
+        // Trend is BULLISH (last BOS bullish @idx3) -> active PP = the low
+        // (8.00 @B6, idx 14).  Backdated activation at the pivot bar time.
+        datetime actTime[];
+        ArrayResize(actTime, 1);
+        actTime[0] = time[14];
+        pp.Update(&pivot, &bos, &trend, actTime);
+
+        CCHOCHDetector choch;
+        TEST_TRUE(choch.Init(), "CHOCHDetector init (CHOCH cold start)");
+        choch.Update(&trend, &pp, close, time, rates, _Point);
+
+        TEST_INT_EQ(1, choch.GetCHOCHCount(), "CHOCH count = 1 (cold-start first crossing)");
+        CHOCHEvent chEvt;
+        if(choch.GetCHOCHCount() == 1 && choch.GetCHOCH(0, chEvt))
+        {
+            TEST_FALSE(chEvt.bullish, "bearish CHOCH (break of the low PP)");
+            TEST_INT_EQ(7, chEvt.barIndex, "barIndex = first crossing bar (B13, idx 7)");
+            TEST_DATETIME_EQ(time[7], chEvt.time, "event time = first crossing bar time");
+            TEST_DBL_NEAR(7.90, chEvt.breakPrice, 1e-9, "breakPrice = first crossing close");
+        }
+    }
+
+    // Test 39: DD02 — CHOCH normal-cadence equivalence: with the PP
+    //          activated at the current bar (production semantics) the
+    //          event stays at bar 1 (no behavior change under per-bar
+    //          updates).  The active low PP (8.00) was already consumed by
+    //          the bearish BOS (idx 7), so bar 1's re-break (7.90) does not
+    //          flip the trend and the CHOCH fires at bar 1.
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_FULL, 7.90, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        CTrendState trend;
+        CProtectedPointManager pp;
+        TEST_TRUE(swing.Init(), "SwingDetector init (CHOCH bar-1 equivalence)");
+        TEST_TRUE(pivot.Init(), "PivotEngine init (CHOCH bar-1 equivalence)");
+        TEST_TRUE(bos.Init(), "BOSDetector init (CHOCH bar-1 equivalence)");
+        TEST_TRUE(trend.Init(), "TrendState init (CHOCH bar-1 equivalence)");
+        TEST_TRUE(pp.Init(), "ProtectedPointManager init (CHOCH bar-1 equivalence)");
+
+        DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
+        trend.Update(&bos);
+
+        datetime actTime[];
+        ArrayResize(actTime, 1);
+        actTime[0] = time[1];
+        pp.Update(&pivot, &bos, &trend, actTime);
+
+        CCHOCHDetector choch;
+        TEST_TRUE(choch.Init(), "CHOCHDetector init (CHOCH bar-1 equivalence)");
+        choch.Update(&trend, &pp, close, time, rates, _Point);
+
+        TEST_INT_EQ(1, choch.GetCHOCHCount(), "CHOCH count = 1 (bar-1 crossing)");
+        CHOCHEvent chEvt;
+        if(choch.GetCHOCHCount() == 1 && choch.GetCHOCH(0, chEvt))
+        {
+            TEST_INT_EQ(1, chEvt.barIndex, "barIndex = 1 (normal cadence unchanged)");
+            TEST_DBL_NEAR(7.90, chEvt.breakPrice, 1e-9, "breakPrice = bar-1 close");
         }
     }
 

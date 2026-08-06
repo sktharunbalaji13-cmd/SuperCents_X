@@ -157,16 +157,56 @@ void CCHOCHDetector::Update(CTrendState *trendState, CProtectedPointManager *pro
         else
         {
             // Track PP activation for age computation
+            bool firstExam = false;
             if(activePoint.id != m_lastActiveLowId)
             {
                 m_lastActiveLowId = activePoint.id;
                 m_lowActivationRatesTotal = rates_total;
+                firstExam = true;
             }
 
             if(currentBarTime < activePoint.activationTime)
             {
                 m_stats.bearishGuardTime++;
                 LogPPSample(false, false, "guard_time", activePoint, currentClose, rates_total, pointSize, currentBarTime);
+            }
+            else if(firstExam)
+            {
+                //--- DD02 (AVP CHOCH C6 / CH-F7): on cold start / backfill the
+                //    PP activates at the current bar while the level was
+                //    actually crossed earlier.  Scan the closed bars back from
+                //    the oldest bar at/after activation and attribute the event
+                //    to the TRUE first crossing bar.  Under normal cadence the
+                //    activation is the current bar, so the window degrades to
+                //    bar 1 and behaviour is unchanged.
+                int crossBar = -1;
+                double crossClose = 0.0;
+                datetime crossTime = 0;
+                int maxBar = rates_total - 1;
+                if(maxBar >= ArraySize(close))
+                    maxBar = ArraySize(close) - 1;
+                for(int bar = maxBar; bar >= 1; bar--)
+                {
+                    if(time[bar] < activePoint.activationTime)
+                        continue;
+                    if(close[bar] < activePoint.price)
+                    {
+                        crossBar = bar;
+                        crossClose = close[bar];
+                        crossTime = time[bar];
+                        break;
+                    }
+                }
+                if(crossBar >= 0)
+                {
+                    if(CheckProtectedLevel(activePoint, currentTrend, crossClose, crossTime, crossBar))
+                        LogPPSample(false, true, "accepted", activePoint, crossClose, rates_total, pointSize, crossTime);
+                }
+                else
+                {
+                    m_stats.bearishPriceNotBroken++;
+                    LogPPSample(false, false, "price_not_broken", activePoint, currentClose, rates_total, pointSize, currentBarTime);
+                }
             }
             else if(currentClose >= activePoint.price)
             {
@@ -190,16 +230,50 @@ void CCHOCHDetector::Update(CTrendState *trendState, CProtectedPointManager *pro
         else
         {
             // Track PP activation for age computation
+            bool firstExam = false;
             if(activePoint.id != m_lastActiveHighId)
             {
                 m_lastActiveHighId = activePoint.id;
                 m_highActivationRatesTotal = rates_total;
+                firstExam = true;
             }
 
             if(currentBarTime < activePoint.activationTime)
             {
                 m_stats.bullishGuardTime++;
                 LogPPSample(true, false, "guard_time", activePoint, currentClose, rates_total, pointSize, currentBarTime);
+            }
+            else if(firstExam)
+            {
+                //--- DD02: cold-start first-crossing scan (see bullish branch)
+                int crossBar = -1;
+                double crossClose = 0.0;
+                datetime crossTime = 0;
+                int maxBar = rates_total - 1;
+                if(maxBar >= ArraySize(close))
+                    maxBar = ArraySize(close) - 1;
+                for(int bar = maxBar; bar >= 1; bar--)
+                {
+                    if(time[bar] < activePoint.activationTime)
+                        continue;
+                    if(close[bar] > activePoint.price)
+                    {
+                        crossBar = bar;
+                        crossClose = close[bar];
+                        crossTime = time[bar];
+                        break;
+                    }
+                }
+                if(crossBar >= 0)
+                {
+                    if(CheckProtectedLevel(activePoint, currentTrend, crossClose, crossTime, crossBar))
+                        LogPPSample(true, true, "accepted", activePoint, crossClose, rates_total, pointSize, crossTime);
+                }
+                else
+                {
+                    m_stats.bullishPriceNotBroken++;
+                    LogPPSample(true, false, "price_not_broken", activePoint, currentClose, rates_total, pointSize, currentBarTime);
+                }
             }
             else if(currentClose <= activePoint.price)
             {

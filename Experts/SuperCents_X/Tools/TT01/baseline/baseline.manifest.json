@@ -1,15 +1,15 @@
 ﻿{
-    "freezeId":  "B4",
-    "frozenAt":  "2026-08-05T19:31:17",
-    "commit":  "aea90c6",
+    "freezeId":  "B5",
+    "frozenAt":  "2026-08-06T05:33:19",
+    "commit":  "665d342",
     "profile":  "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)",
     "symbol":  "EURUSD",
     "period":  "H1",
     "fromDate":  "2026.01.01",
     "toDate":  "2026.02.01",
     "rows":  500,
-    "csvBytes":  607266,
-    "csvSha256":  "2890A7AFA60014CF71945958BCA61BD806EE8708DAF25F646E97F9A4EFC52D3E",
+    "csvBytes":  664182,
+    "csvSha256":  "3DD474ED2BE95B4308AA41F2058F102FF68DEA1D79C4E7E3E0A6D8A020D9D52C",
     "headerColumns":  75,
     "firstSignalTime":  "2026.01.02 04:00",
     "lastSignalTime":  "2026.01.30 23:00",
@@ -17,18 +17,15 @@
                      "rows":  500,
                      "decisionIdsUnique":  500,
                      "ruleName":  {
-                                      "(none)":  37,
-                                      "OB_FVG_BEARISH":  140,
-                                      "LIQUIDITY_BOS_BEARISH":  61,
-                                      "BOS_OB_BEARISH":  14,
-                                      "CHOCH_OB_REVERSAL":  18,
-                                      "BOS_OB_BULLISH":  8,
-                                      "OB_FVG_BULLISH":  151,
-                                      "LIQUIDITY_BOS_BULLISH":  71
+                                      "(none)":  41,
+                                      "OB_FVG_BEARISH":  73,
+                                      "LIQUIDITY_BOS_BEARISH":  144,
+                                      "LIQUIDITY_BOS_BULLISH":  170,
+                                      "BOS_OB_BEARISH":  72
                                   },
                      "outcome":  {
-                                     "2":  302,
-                                     "1":  148,
+                                     "2":  293,
+                                     "1":  157,
                                      "0":  50
                                  },
                      "componentData1":  500,
@@ -36,12 +33,12 @@
                      "lastSignalTime":  "2026.01.30 23:00"
                  },
     "perf":  {
-                 "peakMemMB":  289.3,
-                 "suiteMs":  15152,
-                 "replayMs":  18934,
+                 "peakMemMB":  284.2,
+                 "suiteMs":  12150,
+                 "replayMs":  18914,
                  "rowsPerSec":  26.4,
-                 "csvBytes":  607266
+                 "csvBytes":  664182
              },
     "perfFrozenFromFirstRun":  true,
-    "perfFrozenCommit":  "aea90c6"
+    "perfFrozenCommit":  "665d342"
 }

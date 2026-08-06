@@ -69,6 +69,7 @@ private:
     //--- Internal helpers
     void CheckBOS(const double &close[], const datetime &time[], int rates_total, CStructuralPivotEngine *pivotEngine);
     bool IsPivotBroken(int pivotId) const;
+    void EmitBOS(bool bullish, int pivotId, double pivotPrice, int bar, double barClose, datetime barTime);
 };
 
 //--- Inline implementation
@@ -145,6 +146,10 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
     int latestLockedLowId = -1;
     double latestLockedHighPrice = 0.0;
     double latestLockedLowPrice = 0.0;
+    int latestLockedHighBar = 0;
+    int latestLockedLowBar = 0;
+    datetime latestLockedHighTime = 0;
+    datetime latestLockedLowTime = 0;
 
     // Reset debug counters before counting
     m_lockedHighCount = 0;
@@ -163,12 +168,16 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
             m_lockedHighCount++;
             latestLockedHighId = pivot.id;
             latestLockedHighPrice = pivot.price;
+            latestLockedHighBar = pivot.barIndex;
+            latestLockedHighTime = pivot.time;
         }
         else if(!pivot.isHigh && pivot.isProtected)
         {
             m_lockedLowCount++;
             latestLockedLowId = pivot.id;
             latestLockedLowPrice = pivot.price;
+            latestLockedLowBar = pivot.barIndex;
+            latestLockedLowTime = pivot.time;
         }
         else
         {
@@ -192,107 +201,142 @@ void CBOSDetector::CheckBOS(const double &close[], const datetime &time[], int r
             latestLockedLowId, latestLockedLowPrice));
     }
 
-    // Check each closed bar (skip bar 0 - Rule 1)
-    for(int bar = 1; bar < rates_total && bar < ArraySize(close); bar++)
+    //--- DD02 (AVP BOS C2 / E8): attribute the break to the TRUE first
+    //    crossing bar.  The eligible bars are the closed bars AFTER the
+    //    pivot bar; the window is enforced by TIME (pivot.time), which is
+    //    index-space agnostic — the pivot engine's barIndex is
+    //    chronological while close[]/time[] here are series-flipped by
+    //    CSymbolContext::Update.  Scanning the array oldest-first and
+    //    emitting at the first qualifying close finds the true first
+    //    crossing.  The previous newest-first scan misattributed the event
+    //    to the newest qualifying bar (on cold start / backfill the
+    //    earliest rows could even fire on a pre-pivot bar, since any close
+    //    beyond the pivot price qualified).
+    int crossHighBar = -1;
+    double crossHighClose = 0.0;
+    int crossLowBar = -1;
+    double crossLowClose = 0.0;
+
+    if(latestLockedHighId >= 0 && !IsPivotBroken(latestLockedHighId))
     {
-        double barClose = close[bar];
-
-        // Bullish BOS: Close > latest locked Structural HIGH
-        if(latestLockedHighId >= 0 && !IsPivotBroken(latestLockedHighId))
+        int maxBar = rates_total - 1;
+        if(maxBar >= ArraySize(close))
+            maxBar = ArraySize(close) - 1;
+        for(int bar = maxBar; bar >= 1; bar--)
         {
-            if(barClose > latestLockedHighPrice)
+            if(time[bar] < latestLockedHighTime)
+                continue;
+            if(close[bar] > latestLockedHighPrice)
             {
-                int idx = m_bosCount;
-                if(idx >= ArraySize(m_bosIds))
-                {
-                    int newSize = ArraySize(m_bosIds) + 256;
-                    ArrayResize(m_bosIds, newSize);
-                    ArrayResize(m_brokenPivotIds, newSize);
-                    ArrayResize(m_bosBullish, newSize);
-                    ArrayResize(m_bosTimes, newSize);
-                    ArrayResize(m_bosBars, newSize);
-                    ArrayResize(m_bosPivotPrices, newSize);
-                    ArrayResize(m_bosClosePrices, newSize);
-                }
-
-                m_bosIds[idx] = m_nextBOSId++;
-                m_brokenPivotIds[idx] = latestLockedHighId;
-                m_bosBullish[idx] = true;
-                m_bosTimes[idx] = time[bar];
-                m_bosBars[idx] = bar;
-                m_bosPivotPrices[idx] = latestLockedHighPrice;
-                m_bosClosePrices[idx] = barClose;
-                m_bosCount++;
-
-                m_bullishBOSCount++;
-                m_brokenHighCount++;
-
-                m_logger.LogInfo(StringFormat(
-                    "BOS CONFIRMED #%d Bullish Bar:%d Time:%s Close:%.5f > Pivot:%.5f",
-                    m_bosIds[idx], bar, TimeToString(time[bar], TIME_DATE|TIME_MINUTES),
-                    barClose, latestLockedHighPrice));
-            }
-            else if(latestLockedHighPrice - barClose < 50 * _Point)
-            {
-                m_logger.LogDebug(StringFormat(
-                    "BOS CHECK Bullish REJECTED Bar:%d Close:%.5f <= Pivot:%.5f (gap:%.1fpips)",
-                    bar, barClose, latestLockedHighPrice,
-                    (latestLockedHighPrice - barClose) / _Point));
+                crossHighBar = bar;
+                crossHighClose = close[bar];
+                break;
             }
         }
-        else if(latestLockedHighId >= 0 && IsPivotBroken(latestLockedHighId))
+        if(crossHighBar < 0 && latestLockedHighPrice - close[1] < 50 * _Point)
         {
-            m_duplicatePrevented++;
-        }
-
-        // Bearish BOS: Close < latest locked Structural LOW
-        if(latestLockedLowId >= 0 && !IsPivotBroken(latestLockedLowId))
-        {
-            if(barClose < latestLockedLowPrice)
-            {
-                int idx = m_bosCount;
-                if(idx >= ArraySize(m_bosIds))
-                {
-                    int newSize = ArraySize(m_bosIds) + 256;
-                    ArrayResize(m_bosIds, newSize);
-                    ArrayResize(m_brokenPivotIds, newSize);
-                    ArrayResize(m_bosBullish, newSize);
-                    ArrayResize(m_bosTimes, newSize);
-                    ArrayResize(m_bosBars, newSize);
-                    ArrayResize(m_bosPivotPrices, newSize);
-                    ArrayResize(m_bosClosePrices, newSize);
-                }
-
-                m_bosIds[idx] = m_nextBOSId++;
-                m_brokenPivotIds[idx] = latestLockedLowId;
-                m_bosBullish[idx] = false;
-                m_bosTimes[idx] = time[bar];
-                m_bosBars[idx] = bar;
-                m_bosPivotPrices[idx] = latestLockedLowPrice;
-                m_bosClosePrices[idx] = barClose;
-                m_bosCount++;
-
-                m_bearishBOSCount++;
-                m_brokenLowCount++;
-
-                m_logger.LogInfo(StringFormat(
-                    "BOS CONFIRMED #%d Bearish Bar:%d Time:%s Close:%.5f < Pivot:%.5f",
-                    m_bosIds[idx], bar, TimeToString(time[bar], TIME_DATE|TIME_MINUTES),
-                    barClose, latestLockedLowPrice));
-            }
-            else if(barClose - latestLockedLowPrice < 50 * _Point)
-            {
-                m_logger.LogDebug(StringFormat(
-                    "BOS CHECK Bearish REJECTED Bar:%d Close:%.5f >= Pivot:%.5f (gap:%.1fpips)",
-                    bar, barClose, latestLockedLowPrice,
-                    (barClose - latestLockedLowPrice) / _Point));
-            }
-        }
-        else if(latestLockedLowId >= 0 && IsPivotBroken(latestLockedLowId))
-        {
-            m_duplicatePrevented++;
+            m_logger.LogDebug(StringFormat(
+                "BOS CHECK Bullish REJECTED Bar:%d Close:%.5f <= Pivot:%.5f (gap:%.1fpips)",
+                1, close[1], latestLockedHighPrice,
+                (latestLockedHighPrice - close[1]) / _Point));
         }
     }
+    else if(latestLockedHighId >= 0 && IsPivotBroken(latestLockedHighId))
+    {
+        m_duplicatePrevented++;
+    }
+
+    if(latestLockedLowId >= 0 && !IsPivotBroken(latestLockedLowId))
+    {
+        int maxBar = rates_total - 1;
+        if(maxBar >= ArraySize(close))
+            maxBar = ArraySize(close) - 1;
+        for(int bar = maxBar; bar >= 1; bar--)
+        {
+            if(time[bar] < latestLockedLowTime)
+                continue;
+            if(close[bar] < latestLockedLowPrice)
+            {
+                crossLowBar = bar;
+                crossLowClose = close[bar];
+                break;
+            }
+        }
+        if(crossLowBar < 0 && close[1] - latestLockedLowPrice < 50 * _Point)
+        {
+            m_logger.LogDebug(StringFormat(
+                "BOS CHECK Bearish REJECTED Bar:%d Close:%.5f >= Pivot:%.5f (gap:%.1fpips)",
+                1, close[1], latestLockedLowPrice,
+                (close[1] - latestLockedLowPrice) / _Point));
+        }
+    }
+    else if(latestLockedLowId >= 0 && IsPivotBroken(latestLockedLowId))
+    {
+        m_duplicatePrevented++;
+    }
+
+    //--- Emit in chronological order (older crossing first) so BOS ids
+    //    stay time-ordered and TrendState's final trend reflects the MOST
+    //    recent break (the newest crossing is emitted last).
+    if(crossHighBar >= 0 || crossLowBar >= 0)
+    {
+        bool highOlder = (crossHighBar >= 0 && (crossLowBar < 0 || crossHighBar > crossLowBar));
+        if(highOlder)
+        {
+            EmitBOS(true, latestLockedHighId, latestLockedHighPrice, crossHighBar, crossHighClose, time[crossHighBar]);
+            if(crossLowBar >= 0)
+                EmitBOS(false, latestLockedLowId, latestLockedLowPrice, crossLowBar, crossLowClose, time[crossLowBar]);
+        }
+        else
+        {
+            if(crossLowBar >= 0)
+                EmitBOS(false, latestLockedLowId, latestLockedLowPrice, crossLowBar, crossLowClose, time[crossLowBar]);
+            if(crossHighBar >= 0)
+                EmitBOS(true, latestLockedHighId, latestLockedHighPrice, crossHighBar, crossHighClose, time[crossHighBar]);
+        }
+    }
+}
+
+void CBOSDetector::EmitBOS(bool bullish, int pivotId, double pivotPrice, int bar, double barClose, datetime barTime)
+{
+    int idx = m_bosCount;
+    if(idx >= ArraySize(m_bosIds))
+    {
+        int newSize = ArraySize(m_bosIds) + 256;
+        ArrayResize(m_bosIds, newSize);
+        ArrayResize(m_brokenPivotIds, newSize);
+        ArrayResize(m_bosBullish, newSize);
+        ArrayResize(m_bosTimes, newSize);
+        ArrayResize(m_bosBars, newSize);
+        ArrayResize(m_bosPivotPrices, newSize);
+        ArrayResize(m_bosClosePrices, newSize);
+    }
+
+    m_bosIds[idx] = m_nextBOSId++;
+    m_brokenPivotIds[idx] = pivotId;
+    m_bosBullish[idx] = bullish;
+    m_bosTimes[idx] = barTime;
+    m_bosBars[idx] = bar;
+    m_bosPivotPrices[idx] = pivotPrice;
+    m_bosClosePrices[idx] = barClose;
+    m_bosCount++;
+
+    if(bullish)
+    {
+        m_bullishBOSCount++;
+        m_brokenHighCount++;
+    }
+    else
+    {
+        m_bearishBOSCount++;
+        m_brokenLowCount++;
+    }
+
+    m_logger.LogInfo(StringFormat(
+        bullish ? "BOS CONFIRMED #%d Bullish Bar:%d Time:%s Close:%.5f > Pivot:%.5f"
+                : "BOS CONFIRMED #%d Bearish Bar:%d Time:%s Close:%.5f < Pivot:%.5f",
+        m_bosIds[idx], bar, TimeToString(barTime, TIME_DATE|TIME_MINUTES),
+        barClose, pivotPrice));
 }
 
 void CBOSDetector::Shutdown(void)

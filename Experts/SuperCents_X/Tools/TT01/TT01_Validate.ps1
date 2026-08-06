@@ -298,7 +298,7 @@ if ($FreezeBaseline) {
     Write-Step "FREEZE: regenerating baseline manifest from frozen CSV"
     $counters = Get-TT01Counters $BaseCsv
     $man = [ordered]@{
-        freezeId = "B4"
+        freezeId = "B5"
         frozenAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss")
         commit = $gitHead
         profile = "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)"
