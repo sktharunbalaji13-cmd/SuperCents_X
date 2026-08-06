@@ -1,15 +1,15 @@
 ﻿{
-    "freezeId":  "B5",
-    "frozenAt":  "2026-08-06T05:33:19",
-    "commit":  "665d342",
+    "freezeId":  "B6",
+    "frozenAt":  "2026-08-06T19:22:32",
+    "commit":  "7e9bfb1",
     "profile":  "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)",
     "symbol":  "EURUSD",
     "period":  "H1",
     "fromDate":  "2026.01.01",
     "toDate":  "2026.02.01",
     "rows":  500,
-    "csvBytes":  664182,
-    "csvSha256":  "3DD474ED2BE95B4308AA41F2058F102FF68DEA1D79C4E7E3E0A6D8A020D9D52C",
+    "csvBytes":  637524,
+    "csvSha256":  "3D9C891A9F38B431D3FE3D91B246D2B427D0E873F6C689F8A79323E20030B5EE",
     "headerColumns":  75,
     "firstSignalTime":  "2026.01.02 04:00",
     "lastSignalTime":  "2026.01.30 23:00",
@@ -17,15 +17,15 @@
                      "rows":  500,
                      "decisionIdsUnique":  500,
                      "ruleName":  {
-                                      "(none)":  41,
-                                      "OB_FVG_BEARISH":  73,
-                                      "LIQUIDITY_BOS_BEARISH":  144,
-                                      "LIQUIDITY_BOS_BULLISH":  170,
-                                      "BOS_OB_BEARISH":  72
+                                      "(none)":  39,
+                                      "OB_FVG_BEARISH":  89,
+                                      "LIQUIDITY_BOS_BEARISH":  61,
+                                      "LIQUIDITY_BOS_BULLISH":  146,
+                                      "BOS_OB_BEARISH":  165
                                   },
                      "outcome":  {
-                                     "2":  293,
-                                     "1":  157,
+                                     "2":  284,
+                                     "1":  166,
                                      "0":  50
                                  },
                      "componentData1":  500,
@@ -33,12 +33,12 @@
                      "lastSignalTime":  "2026.01.30 23:00"
                  },
     "perf":  {
-                 "peakMemMB":  284.2,
-                 "suiteMs":  12150,
-                 "replayMs":  18914,
-                 "rowsPerSec":  26.4,
-                 "csvBytes":  664182
+                 "peakMemMB":  287,
+                 "suiteMs":  12156,
+                 "replayMs":  16116,
+                 "rowsPerSec":  31,
+                 "csvBytes":  637524
              },
     "perfFrozenFromFirstRun":  true,
-    "perfFrozenCommit":  "665d342"
+    "perfFrozenCommit":  "7e9bfb1"
 }

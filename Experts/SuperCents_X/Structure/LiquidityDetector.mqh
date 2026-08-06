@@ -51,7 +51,7 @@ private:
     void DetectEQH(void);
     void DetectEQL(void);
     void DetectExternal(void);
-    void DetectSweeps(const double &high[], const double &low[],
+    void DetectSweeps(const double &high[], const double &low[], const double &close[],
                       const datetime &time[], int rates_total);
     void DetectMitigations(const double &high[], const double &low[],
                            const datetime &time[], int rates_total);
@@ -62,7 +62,7 @@ public:
     ~CLiquidityDetector(void);
 
     bool Init(void);
-    void Update(const double &high[], const double &low[],
+    void Update(const double &high[], const double &low[], const double &close[],
                 const datetime &time[], int rates_total);
     void Shutdown(void);
 
@@ -122,7 +122,7 @@ bool CLiquidityDetector::Init(void)
     return true;
 }
 
-void CLiquidityDetector::Update(const double &high[], const double &low[],
+void CLiquidityDetector::Update(const double &high[], const double &low[], const double &close[],
                                  const datetime &time[], int rates_total)
 {
     if(!m_initialized)
@@ -133,7 +133,7 @@ void CLiquidityDetector::Update(const double &high[], const double &low[],
     DetectExternal();
 
     //--- Sprint 12.3: Sweep detection
-    DetectSweeps(high, low, time, rates_total);
+    DetectSweeps(high, low, close, time, rates_total);
 
     //--- Sprint 12.4: Mitigation detection (revisit of swept levels)
     DetectMitigations(high, low, time, rates_total);
@@ -401,15 +401,21 @@ void CLiquidityDetector::DetectExternal(void)
     m_lastBOSId = bosCount;
 }
 
-void CLiquidityDetector::DetectSweeps(const double &high[], const double &low[],
+void CLiquidityDetector::DetectSweeps(const double &high[], const double &low[], const double &close[],
                                        const datetime &time[], int rates_total)
 {
-    if(rates_total < 1)
+    //--- DD03 (AVP L C9 / doc 04 E1): evaluate only the last CLOSED bar
+    //--- (series index 1) and require close-back confirmation: a buy-side
+    //--- level is swept when the closed bar pierces above it (high >= level)
+    //--- AND closes back below (close < level); sell-side mirrors.  Forming-
+    //--- bar touches are no longer sweeps.
+    if(rates_total < 2)
         return;
 
     int curBar = rates_total - 1;
-    double curHigh = high[0];
-    double curLow  = low[0];
+    double curHigh = high[1];
+    double curLow  = low[1];
+    double curClose = close[1];
 
     for(int i = 0; i < m_levelCount; i++)
     {
@@ -425,12 +431,12 @@ void CLiquidityDetector::DetectSweeps(const double &high[], const double &low[],
                            m_levels[i].type == LIQUIDITY_EXTERNAL_LL ||
                            m_levels[i].type == LIQUIDITY_INTERNAL_LL);
 
-        if(isBuySide && curHigh >= m_levels[i].averagePrice)
+        if(isBuySide && curHigh >= m_levels[i].averagePrice && curClose < m_levels[i].averagePrice)
         {
             swept = true;
             distance = (curHigh - m_levels[i].averagePrice) / (_Point * 10);
         }
-        else if(isSellSide && curLow <= m_levels[i].averagePrice)
+        else if(isSellSide && curLow <= m_levels[i].averagePrice && curClose > m_levels[i].averagePrice)
         {
             swept = true;
             distance = (m_levels[i].averagePrice - curLow) / (_Point * 10);
@@ -440,7 +446,7 @@ void CLiquidityDetector::DetectSweeps(const double &high[], const double &low[],
         {
             int delay = (m_levels[i].detectedBar >= 0) ?
                         (curBar - m_levels[i].detectedBar) : 0;
-            if(SweepLevel(m_levels[i].id, curBar, time[0]))
+            if(SweepLevel(m_levels[i].id, curBar, time[1]))
             {
                 m_sweepDelayTotal += delay;
                 if(delay > m_sweepDelayMax)

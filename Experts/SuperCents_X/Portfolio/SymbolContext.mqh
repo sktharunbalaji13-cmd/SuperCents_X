@@ -705,7 +705,7 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
 
     s = GetMicrosecondCount();
     if(m_liquidityDetector != NULL)
-        m_liquidityDetector.Update(high, low, time, rates_total);
+        m_liquidityDetector.Update(high, low, close, time, rates_total);
     e = GetMicrosecondCount();
     if(m_metricsCollector != NULL) m_metricsCollector.RecordTiming(MODULE_LIQUIDITY_DETECTOR, e - s);
     perf += StringFormat(" Liq:%llu", e - s);

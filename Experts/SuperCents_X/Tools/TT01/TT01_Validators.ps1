@@ -186,45 +186,167 @@ function Test-TT01Evidence {
 }
 
 function Test-TT01Behavior {
-    param([string]$RunPath, [string]$BasePath, [string[]]$AllowDelta = @())
+    param([string]$RunPath, [string]$BasePath, [string[]]$AllowDelta = @(), [int]$ExpectedRows = 0, [string[]]$AllowDecisionIds = @())
     $detail = [System.Collections.Generic.List[string]]::new()
     $fail = 0
     $run = Import-Csv -LiteralPath $RunPath
     $base = Import-Csv -LiteralPath $BasePath
-    if ($run.Count -ne $base.Count) {
+    if ($ExpectedRows -gt 0 -and $run.Count -ne $ExpectedRows) {
         $fail++
-        $detail.Add("row count $($run.Count) != baseline $($base.Count)")
+        $detail.Add("row count $($run.Count) != expected $ExpectedRows")
         New-TT01Result -Name "BEHAVIOR-REGRESSION" -Pass $false -Details $detail.ToArray()
         return
     }
-    $diffCols = @()
-    $cols = $base[0].PSObject.Properties.Name
-    foreach ($c in $cols) {
-        $d = 0
-        for ($i = 0; $i -lt $run.Count; $i++) { if ($run[$i].$c -ne $base[$i].$c) { $d++ } }
-        if ($d -gt 0) { $diffCols += "$c=$d" }
+    if ($ExpectedRows -eq 0 -and $run.Count -ne $base.Count) {
+        $fail++
+        $detail.Add("row count $($run.Count) != baseline $($base.Count) (no -ExpectedRows given)")
+        New-TT01Result -Name "BEHAVIOR-REGRESSION" -Pass $false -Details $detail.ToArray()
+        return
     }
-    if ($diffCols.Count -eq 0) {
-        $detail.Add("all $($cols.Count) columns byte-identical across $($run.Count) rows")
+    $cols = $base[0].PSObject.Properties.Name
+
+    #--- decision identity invariant (always enforced): the same logical
+    #--- decisions must be compared (sequence, time, config, symbol, timeframe).
+    $identityBad = 0
+    foreach ($k in @("decisionId","signalTime","configFingerprint","symbol","timeframe")) {
+        $d = 0
+        for ($i = 0; $i -lt $run.Count; $i++) { if ($run[$i].$k -ne $base[$i].$k) { $d++ } }
+        if ($d -gt 0) { $identityBad++; $detail.Add("identity '$k' differs on $d rows (sequence shifted - FAIL)") }
+    }
+    if ($identityBad -gt 0) { $fail++ }
+    else { $detail.Add("decision identity invariant holds: decisionId/signalTime/configFingerprint/symbol/timeframe identical on all $($run.Count) rows") }
+
+    if ($AllowDecisionIds.Count -gt 0) {
+        #--- row-rooted localization: only the allowlisted decisions may differ;
+        #--- every other row must be byte-identical on ALL columns.
+        $allowed = @{}
+        foreach ($id in $AllowDecisionIds) { $allowed[$id] = $true }
+        $changedIds = @{}
+        $unexpected = 0; $attributionBad = 0; $changedTotal = 0
+        foreach ($i in 0..($run.Count - 1)) {
+            $diff = @($cols | Where-Object { $run[$i].$_ -ne $base[$i].$_ })
+            if ($diff.Count -eq 0) { continue }
+            $changedTotal++
+            $changedIds[$run[$i].decisionId] = $true
+            if (-not $allowed.ContainsKey($run[$i].decisionId)) {
+                $unexpected++
+                if ($unexpected -le 5) { $detail.Add("unexpected changed row $i (decisionId $($run[$i].decisionId), rule $($run[$i].ruleName)) not in allowlist") }
+            } else {
+                #--- attribution invariant: the change must originate from the
+                #--- liquidity cascade (sweep flag, liquidity rule, level evidence,
+                #--- or the legacy confidence echo of a changed decision).
+                $liq = ($run[$i].hasLiquiditySweep -ne $base[$i].hasLiquiditySweep) -or
+                       ($run[$i].ruleName -like "LIQUIDITY_*") -or ($base[$i].ruleName -like "LIQUIDITY_*") -or
+                       ($run[$i].ruleEvidenceIds -ne $base[$i].ruleEvidenceIds) -or
+                       ($run[$i].legacyConfidence -ne $base[$i].legacyConfidence)
+                if (-not $liq) {
+                    $attributionBad++
+                    if ($attributionBad -le 5) { $detail.Add("decisionId $($run[$i].decisionId) changed without liquidity attribution (rule $($base[$i].ruleName) -> $($run[$i].ruleName))") }
+                }
+            }
+        }
+        $missing = @($AllowDecisionIds | Where-Object { -not $changedIds.ContainsKey($_) }).Count
+        if ($unexpected -gt 0) { $fail++; $detail.Add("completeness FAIL: $unexpected changed rows outside the allowlist") }
+        if ($missing -gt 0) { $fail++; $detail.Add("completeness FAIL: $missing allowlisted decisions did not change") }
+        if ($attributionBad -gt 0) { $fail++; $detail.Add("attribution FAIL: $attributionBad allowed decisions not liquidity-attributable") }
+        if ($unexpected -eq 0 -and $missing -eq 0) { $detail.Add("completeness invariant holds: changed rows ($changedTotal) == allowlist ($($AllowDecisionIds.Count))") }
+        if ($attributionBad -eq 0) { $detail.Add("attribution invariant holds: all $($AllowDecisionIds.Count) allowed decisions trace to the liquidity cascade") }
+        $detail.Add("unchanged decisions: $($run.Count - $changedTotal)/$($run.Count) byte-identical on all columns")
+        $cRun = Get-TT01Counters $RunPath
+        $cBase = Get-TT01Counters $BasePath
+        foreach ($rule in @($cBase.ruleName.Keys + @($cRun.ruleName.Keys) | Sort-Object -Unique)) {
+            $b = if ($cBase.ruleName.ContainsKey($rule)) { $cBase.ruleName[$rule] } else { 0 }
+            $r = if ($cRun.ruleName.ContainsKey($rule)) { $cRun.ruleName[$rule] } else { 0 }
+            if ($r -ne $b) { $detail.Add("rule '$rule' count $b -> $r (inside allowlisted decisions)") }
+        }
+        New-TT01Result -Name "BEHAVIOR-REGRESSION" -Pass ($fail -eq 0) -Details $detail.ToArray()
+        return
+    }
+
+    #--- legacy column-level comparison (no allowlist) / -AllowDelta path
+    $rowDelta = $run.Count -ne $base.Count
+    $diffCols = @()
+    if ($rowDelta) {
+        # decisionId-aligned comparison: shared ids must be byte-identical on
+        # non-allowlisted columns; added/missing rows are permitted only when
+        # their rule is allowlisted (e.g. LIQUIDITY_BOS_* during DD03).
+        $baseById = @{}; foreach ($r in $base) { $baseById[$r.decisionId] = $r }
+        $runById  = @{}; foreach ($r in $run)  { $runById[$r.decisionId]  = $r }
+        $sharedBad = 0; $added = 0; $missing = 0
+        foreach ($id in $runById.Keys) {
+            if (-not $baseById.ContainsKey($id)) { $added++; continue }
+            foreach ($c in $cols) {
+                if ($AllowDelta -contains $c) { continue }
+                if ($runById[$id].$c -ne $baseById[$id].$c) {
+                    $sharedBad++
+                    if ($sharedBad -le 5) { $detail.Add("shared decisionId $id differs on column $c") }
+                }
+            }
+        }
+        foreach ($id in $baseById.Keys) { if (-not $runById.ContainsKey($id)) { $missing++ } }
+        if ($sharedBad -gt 0) { $fail++; $detail.Add("$sharedBad column diffs on shared decisionIds (row-set delta)") }
+        else { $detail.Add("all non-allowlisted columns identical on $($runById.Count - $added) shared decisions") }
+        foreach ($id in $runById.Keys) {
+            if ($baseById.ContainsKey($id)) { continue }
+            if ($AllowDelta -notcontains $runById[$id].ruleName) { $fail++; $detail.Add("added decisionId $id with non-allowlisted rule '$($runById[$id].ruleName)'") }
+        }
+        foreach ($id in $baseById.Keys) {
+            if ($runById.ContainsKey($id)) { continue }
+            if ($AllowDelta -notcontains $baseById[$id].ruleName) { $fail++; $detail.Add("missing baseline decisionId $id with non-allowlisted rule '$($baseById[$id].ruleName)'") }
+        }
+        $detail.Add("row-set delta: +$added added, -$missing missing (rows $($base.Count) -> $($run.Count))")
     } else {
-        $bad = @($diffCols | Where-Object { $name = ($_ -split "=")[0]; $AllowDelta -notcontains $name })
-        foreach ($d in $diffCols) { $detail.Add("differing column: $d") }
-        if ($bad.Count -gt 0) { $fail++ }
-        else { $detail.Add("differences confined to allowlisted columns: $($AllowDelta -join ',')") }
+        foreach ($c in $cols) {
+            $d = 0
+            for ($i = 0; $i -lt $run.Count; $i++) { if ($run[$i].$c -ne $base[$i].$c) { $d++ } }
+            if ($d -gt 0) { $diffCols += "$c=$d" }
+        }
+        if ($diffCols.Count -eq 0) {
+            $detail.Add("all $($cols.Count) columns byte-identical across $($run.Count) rows")
+        } else {
+            $bad = @($diffCols | Where-Object { $name = ($_ -split "=")[0]; $AllowDelta -notcontains $name })
+            foreach ($d in $diffCols) { $detail.Add("differing column: $d") }
+            if ($bad.Count -gt 0) { $fail++ }
+            else { $detail.Add("differences confined to allowlisted columns: $($AllowDelta -join ',')") }
+        }
     }
     $cRun = Get-TT01Counters $RunPath
     $cBase = Get-TT01Counters $BasePath
-    foreach ($k in @("rows","decisionIdsUnique","firstSignalTime","lastSignalTime","componentData1")) {
-        if ($cRun.$k -ne $cBase.$k) { $fail++; $detail.Add("counter '$k' $($cRun.$k) != baseline $($cBase.$k)") }
+    if ($rowDelta) {
+        if ($cRun.decisionIdsUnique -lt $cBase.decisionIdsUnique) {
+            $detail.Add("decisionIdsUnique $($cRun.decisionIdsUnique) < baseline $($cBase.decisionIdsUnique)")
+        }
+    } else {
+        foreach ($k in @("rows","decisionIdsUnique","firstSignalTime","lastSignalTime","componentData1")) {
+            if ($cRun.$k -ne $cBase.$k) { $fail++; $detail.Add("counter '$k' $($cRun.$k) != baseline $($cBase.$k)") }
+        }
     }
-    foreach ($rule in @($cBase.ruleName.Keys)) {
-        if ($cRun.ruleName[$rule] -ne $cBase.ruleName[$rule]) { $fail++; $detail.Add("rule '$rule' count $($cRun.ruleName[$rule]) != baseline $($cBase.ruleName[$rule])") }
+    foreach ($rule in @($cBase.ruleName.Keys + @($cRun.ruleName.Keys) | Sort-Object -Unique)) {
+        $b = if ($cBase.ruleName.ContainsKey($rule)) { $cBase.ruleName[$rule] } else { 0 }
+        $r = if ($cRun.ruleName.ContainsKey($rule)) { $cRun.ruleName[$rule] } else { 0 }
+        if ($r -ne $b) {
+            if ($AllowDelta -contains $rule) { $detail.Add("rule '$rule' count $b -> $r (allowlisted)") }
+            else { $fail++; $detail.Add("rule '$rule' count $r != baseline $b") }
+        }
     }
-    foreach ($o in @($cBase.outcome.Keys)) {
-        if ($cRun.outcome[$o] -ne $cBase.outcome[$o]) { $fail++; $detail.Add("outcome '$o' count $($cRun.outcome[$o]) != baseline $($cBase.outcome[$o])") }
+    if (-not $rowDelta) {
+        foreach ($o in @($cBase.outcome.Keys + @($cRun.outcome.Keys) | Sort-Object -Unique)) {
+            $b = if ($cBase.outcome.ContainsKey($o)) { $cBase.outcome[$o] } else { 0 }
+            $r = if ($cRun.outcome.ContainsKey($o)) { $cRun.outcome[$o] } else { 0 }
+            if ($r -ne $b) {
+                $allowed = $true
+                for ($i = 0; $i -lt $run.Count; $i++) {
+                    if ($run[$i].outcome -ne $base[$i].outcome) {
+                        if ($AllowDelta -notcontains $run[$i].ruleName -and $AllowDelta -notcontains $base[$i].ruleName) { $allowed = $false }
+                    }
+                }
+                if ($allowed) { $detail.Add("outcome '$o' count $b -> $r (confined to allowlisted rules)") }
+                else { $fail++; $detail.Add("outcome '$o' count $r != baseline $b") }
+            }
+        }
     }
     if ($fail -eq 0) {
-        $detail.Add("counters match baseline: $($cBase.decisionIdsUnique) unique decisions, rules $($cBase.ruleName.Count), outcomes $($cBase.outcome.Count)")
+        $detail.Add("counters match: $($cRun.decisionIdsUnique) unique decisions, rules $($cRun.ruleName.Count), outcomes $($cRun.outcome.Count)")
     }
     New-TT01Result -Name "BEHAVIOR-REGRESSION" -Pass ($fail -eq 0) -Details $detail.ToArray()
 }

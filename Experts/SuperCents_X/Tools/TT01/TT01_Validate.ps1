@@ -6,7 +6,7 @@
 #        TELEMETRY-CONTRACT | EVIDENCE-REGRESSION | BEHAVIOR-REGRESSION (vs frozen baseline)
 #        PERFORMANCE (record + warn)  -> artifacts\TT01_<runId>\manifest.json
 #
-# Baseline history (canonical = B5):
+# Baseline history (canonical = B6):
 #   B4 (2026-08-05, commit aea90c6, original code) - SUPERSEDED. The B4 replay
 #   environment proved non-deterministic: the terminal's tick cache drifted
 #   between runs (5062 vs 1533 replay updates; pivot re-promotions 20000 vs
@@ -14,17 +14,35 @@
 #   byte-identical (first-scan swing counts h=803/804, l=857/856) and no code
 #   touched the swing/pivot/PP paths. The drift was environmental (tick-cache
 #   refresh), NOT an algorithm change.
-#   B5 (2026-08-06, commit 3de40b3, DD02 code, freezeId=B5) - the canonical
-#   TT01 regression baseline. Frozen only from verified green code; verified
-#   deterministic (byte-identical reruns).
+#   B5 (2026-08-06, commit 3de40b3, DD02 code, freezeId=B5) - the first
+#   canonical TT01 regression baseline. Frozen only from verified green code;
+#   verified deterministic (byte-identical reruns).
+#   DD03 (2026-08-06) - first intentional algorithm correction: liquidity
+#   sweep semantics changed from "forming-bar touch" to "confirmed closed-bar
+#   reclaim" (AVP L C9 / doc 04 E1). Differences vs B5 are expected and must
+#   be confined to the liquidity evidence whitelist (-AllowDelta) and the row
+#   count (-ExpectedRows); everything else remains protected.
+#   B6 (2026-08-06, DD03 code, freezeId=B6) - the first doctrinal baseline:
+#   frozen after an evidence-backed algorithm improvement, not infrastructure
+#   fixes. Transition chain: B4 (environment issue) -> B5 (platform stable)
+#   -> DD03 (intentional algorithm correction) -> B6 (first doctrinal baseline).
 #   Freeze procedure: run TT01 replay with the new code, copy the run CSV over
-#   baseline\telemetry_v4_20260130.csv, then run with -FreezeBaseline (also
-#   bump freezeId in this script).
+#   baseline\telemetry_v4_20260130.csv, then run with -FreezeBaseline -FreezeId B6
+#   (freezeId default is B6 in this script).
 #
 # Switches:
 #   -Skip compile,suite,replay : skip those phases (validators still run on captured CSV)
-#   -AllowDelta fvgClass,fvgSize : permit these columns to differ from the frozen baseline
+#   -AllowDelta fvgClass,fvgSize : permit these columns/rules to differ from the frozen baseline
+#   -ExpectedRows 500 : expected telemetry row count (replaces the baseline count
+#        when a Sprint 20 fix intentionally changes the decision population)
+#   -AllowDecisionIds 22,45,.. : row-rooted localization (DD03+). Only these
+#        decisions may differ; all others must be byte-identical on ALL columns.
+#        Enforces three invariants: decision identity (decisionId/signalTime/
+#        configFingerprint/symbol/timeframe), completeness (changed == allowed),
+#        and attribution (each allowed change traces to the liquidity cascade).
+#        Pass a list or a file: -AllowDecisionIds (Get-Content allowlist.txt)
 #   -FreezeBaseline : regenerate baseline\baseline.manifest.json from the frozen baseline CSV
+#   -FreezeId B6 : baseline id stamped into the manifest at freeze time
 #   -ArtifactsKeep 3 : number of per-run artifact dirs to retain
 # Exit code: 0 = all gates PASS, 1 = any gate FAIL, 2 = environment error.
 
@@ -32,7 +50,10 @@
 param(
     [string[]]$Skip = @(),
     [string[]]$AllowDelta = @(),
+    [int]$ExpectedRows = 500,
+    [string[]]$AllowDecisionIds = @(),
     [switch]$FreezeBaseline,
+    [string]$FreezeId = "B6",
     [int]$ArtifactsKeep = 3
 )
 
@@ -243,9 +264,9 @@ function Invoke-TT01Replay {
         }
         if (-not $ok) { Start-Sleep -Seconds 5 }
     }
-    $pass = ($rows -eq 500) -and ($faults -eq 0) -and $healthVerdict -and $ok
+    $pass = ($rows -eq $ExpectedRows) -and ($faults -eq 0) -and $healthVerdict -and $ok
     $script:Perf.csvBytes = (Get-Item -LiteralPath $OutCsv -ErrorAction SilentlyContinue).Length
-    New-Gate "REPLAY" $pass @("rows=$rows faults=$faults health=$healthy critical=$crit csvCaptured=$ok")
+    New-Gate "REPLAY" $pass @("rows=$rows expected=$ExpectedRows faults=$faults health=$healthy critical=$crit csvCaptured=$ok")
 }
 
 function Invoke-TT01Contract {
@@ -261,14 +282,14 @@ function Invoke-TT01Evidence {
 }
 
 function Invoke-TT01Behavior {
-    $res = Test-TT01Behavior -RunPath $OutCsv -BasePath $BaseCsv -AllowDelta $AllowDelta
+    $res = Test-TT01Behavior -RunPath $OutCsv -BasePath $BaseCsv -AllowDelta $AllowDelta -ExpectedRows $ExpectedRows -AllowDecisionIds $AllowDecisionIds
     $script:Results.Add($res)
 }
 
 function Invoke-TT01Perf {
     $detail = [System.Collections.Generic.List[string]]::new()
     $detail.Add("replayMs=$($script:Perf.replayMs) suiteMs=$($script:Perf.suiteMs) peakMemMB=$($script:Perf.peakMemMB)")
-    if ($script:Perf.csvBytes) { $detail.Add("csvBytes=$($script:Perf.csvBytes) rowsPerSec=$([math]::Round(500 / ($script:Perf.replayMs / 1000.0), 1))") }
+    if ($script:Perf.csvBytes) { $detail.Add("csvBytes=$($script:Perf.csvBytes) rowsPerSec=$([math]::Round($ExpectedRows / ($script:Perf.replayMs / 1000.0), 1))") }
     $warn = 0
     if (Test-Path -LiteralPath $BaseMan) {
         $base = Get-Content -LiteralPath $BaseMan -Raw | ConvertFrom-Json
@@ -288,7 +309,7 @@ function Update-TT01BaselinePerf {
     $base.perf.replayMs = $script:Perf.replayMs
     $base.perf.suiteMs = $script:Perf.suiteMs
     $base.perf.csvBytes = $script:Perf.csvBytes
-    $base.perf.rowsPerSec = [math]::Round(500 / ($script:Perf.replayMs / 1000.0), 1)
+    $base.perf.rowsPerSec = [math]::Round($ExpectedRows / ($script:Perf.replayMs / 1000.0), 1)
     $base.perf.peakMemMB = $script:Perf.peakMemMB
     $base | Add-Member -NotePropertyName perfFrozenFromFirstRun -NotePropertyValue $true -Force
     $base | Add-Member -NotePropertyName perfFrozenCommit -NotePropertyValue (git -C $ScriptDir rev-parse --short HEAD) -Force
@@ -307,13 +328,13 @@ $runArt = Join-Path $ArtDir $runId
 New-Item -ItemType Directory -Path $runArt -Force | Out-Null
 
 Write-Host "=== TT01 Platform Validation Harness ===" -ForegroundColor Cyan
-Write-Host "runId=$runId git=$gitHead skip=$($Skip -join ',') allowDelta=$($AllowDelta -join ',')"
+Write-Host "runId=$runId git=$gitHead skip=$($Skip -join ',') allowDelta=$($AllowDelta -join ',') expectedRows=$ExpectedRows allowDecisionIds=$($AllowDecisionIds.Count)"
 
 if ($FreezeBaseline) {
     Write-Step "FREEZE: regenerating baseline manifest from frozen CSV"
     $counters = Get-TT01Counters $BaseCsv
     $man = [ordered]@{
-        freezeId = "B5"
+        freezeId = $FreezeId
         frozenAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss")
         commit = $gitHead
         profile = "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)"
@@ -363,6 +384,8 @@ $manifest = [ordered]@{
     gitHead = $gitHead
     overall = if ($allPass) { "PASS" } else { "FAIL" }
     allowDelta = $AllowDelta
+    expectedRows = $ExpectedRows
+    allowDecisionIds = $AllowDecisionIds.Count
     gates = @($script:Results | ForEach-Object { [ordered]@{ name = $_.Name; pass = $_.Pass; details = @($_.Details) } })
     perf = $script:Perf
 }

@@ -875,6 +875,187 @@ TestCounters RunConfluenceEngineTests(void)
         }
     }
 
+    // Test 40: DD03 — buy-side sweep requires close-back on the last CLOSED
+    //          bar (AVP L C9 / doc 04 E1).  Bar idx1 pierces the EQH level
+    //          (high >= P) and closes back below it (close < P): confirmed.
+    //          Level is seeded directly (CreateLevel is the production seam).
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (buy confirmed)");
+        const double P = 10.00;
+        int levelId = liq.CreateLevel(LIQUIDITY_EQH, P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(levelId >= 0, "EQH level created (buy confirmed)");
+
+        double high[], low[], close[];
+        datetime time[];
+        ArrayResize(high, 5); ArrayResize(low, 5); ArrayResize(close, 5); ArrayResize(time, 5);
+        datetime base = D'2026.01.01 00:00';
+        for(int k = 0; k < 5; k++)
+        {
+            int idx = 4 - k;
+            high[idx] = 9.50; low[idx] = 9.30; close[idx] = 9.40;
+            time[idx] = base + k * 3600;
+        }
+        high[1] = 10.20; low[1] = 9.90; close[1] = 9.95;   // pierce + close-back
+
+        liq.Update(high, low, close, time, 5);
+
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (buy confirmed)");
+        TEST_TRUE(ll.swept, "pierce + close-back = swept (buy)");
+        TEST_DATETIME_EQ(time[1], ll.sweptTime, "sweptTime = closed-bar time (buy)");
+    }
+
+    // Test 41: DD03 — buy-side pierce WITHOUT close-back is NOT a sweep.
+    //          The bar trades above the EQH but closes above it (no reclaim).
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (buy no reclaim)");
+        const double P = 10.00;
+        liq.CreateLevel(LIQUIDITY_EQH, P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+
+        double high[], low[], close[];
+        datetime time[];
+        ArrayResize(high, 5); ArrayResize(low, 5); ArrayResize(close, 5); ArrayResize(time, 5);
+        datetime base = D'2026.01.01 00:00';
+        for(int k = 0; k < 5; k++)
+        {
+            int idx = 4 - k;
+            high[idx] = 9.50; low[idx] = 9.30; close[idx] = 9.40;
+            time[idx] = base + k * 3600;
+        }
+        high[1] = 10.20; low[1] = 9.90; close[1] = 10.05;  // closes ABOVE P
+
+        liq.Update(high, low, close, time, 5);
+
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (buy no reclaim)");
+        TEST_FALSE(ll.swept, "pierce without close-back = not swept (buy)");
+    }
+
+    // Test 42: DD03 — a FORMING-bar (idx0) touch is NOT a sweep: the C09
+    //          defect swept on high[0] while the bar was still open.  The
+    //          closed bar (idx1) never pierces -> level stays ACTIVE.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (forming-bar touch)");
+        const double P = 10.00;
+        liq.CreateLevel(LIQUIDITY_EQH, P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+
+        double high[], low[], close[];
+        datetime time[];
+        ArrayResize(high, 5); ArrayResize(low, 5); ArrayResize(close, 5); ArrayResize(time, 5);
+        datetime base = D'2026.01.01 00:00';
+        for(int k = 0; k < 5; k++)
+        {
+            int idx = 4 - k;
+            high[idx] = 9.50; low[idx] = 9.30; close[idx] = 9.40;
+            time[idx] = base + k * 3600;
+        }
+        high[0] = 10.20; low[0] = 9.95; close[0] = 10.05;  // forming bar pierces only
+
+        liq.Update(high, low, close, time, 5);
+
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (forming-bar touch)");
+        TEST_FALSE(ll.swept, "forming-bar touch = not swept (closed-bar eval)");
+        TEST_INT_EQ(LIQUIDITY_STATUS_ACTIVE, ll.status, "level still ACTIVE");
+    }
+
+    // Test 43: DD03 — sell-side symmetric: bar idx1 pierces the EQL level
+    //          (low <= P) and closes back above it (close > P): confirmed.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (sell confirmed)");
+        const double P = 10.00;
+        liq.CreateLevel(LIQUIDITY_EQL, P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+
+        double high[], low[], close[];
+        datetime time[];
+        ArrayResize(high, 5); ArrayResize(low, 5); ArrayResize(close, 5); ArrayResize(time, 5);
+        datetime base = D'2026.01.01 00:00';
+        for(int k = 0; k < 5; k++)
+        {
+            int idx = 4 - k;
+            high[idx] = 10.80; low[idx] = 10.55; close[idx] = 10.60;
+            time[idx] = base + k * 3600;
+        }
+        high[1] = 10.30; low[1] = 9.80; close[1] = 10.05;   // pierce + close-back
+
+        liq.Update(high, low, close, time, 5);
+
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (sell confirmed)");
+        TEST_TRUE(ll.swept, "pierce + close-back = swept (sell)");
+    }
+
+    // Test 44: DD03 — sell-side pierce WITHOUT close-back is NOT a sweep.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (sell no reclaim)");
+        const double P = 10.00;
+        liq.CreateLevel(LIQUIDITY_EQL, P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+
+        double high[], low[], close[];
+        datetime time[];
+        ArrayResize(high, 5); ArrayResize(low, 5); ArrayResize(close, 5); ArrayResize(time, 5);
+        datetime base = D'2026.01.01 00:00';
+        for(int k = 0; k < 5; k++)
+        {
+            int idx = 4 - k;
+            high[idx] = 10.80; low[idx] = 10.55; close[idx] = 10.60;
+            time[idx] = base + k * 3600;
+        }
+        high[1] = 10.30; low[1] = 9.80; close[1] = 9.90;   // closes BELOW P
+
+        liq.Update(high, low, close, time, 5);
+
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (sell no reclaim)");
+        TEST_FALSE(ll.swept, "pierce without close-back = not swept (sell)");
+    }
+
+    // Test 45: DD03 — closed-bar cadence: while the piercing bar is FORMING
+    //          (idx0) there is no sweep; once it CLOSES (idx1) the sweep is
+    //          confirmed at the closed-bar time.  Mirrors per-bar updates.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (closed-bar cadence)");
+        const double P = 10.00;
+        liq.CreateLevel(LIQUIDITY_EQH, P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+
+        double high[], low[], close[];
+        datetime time[];
+        ArrayResize(high, 6); ArrayResize(low, 6); ArrayResize(close, 6); ArrayResize(time, 6);
+        datetime base = D'2026.01.01 00:00';
+        for(int k = 0; k < 6; k++)
+        {
+            int idx = 5 - k;
+            high[idx] = 9.50; low[idx] = 9.30; close[idx] = 9.40;
+            time[idx] = base + k * 3600;
+        }
+        // Pass 1: piercing bar at idx0 (still forming)
+        high[0] = 10.20; low[0] = 9.90; close[0] = 9.95;
+        liq.Update(high, low, close, time, 6);
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (cadence pass 1)");
+        TEST_FALSE(ll.swept, "no sweep while bar forming");
+
+        // Pass 2: a new forming bar appears; the piercing bar is now idx1 (closed)
+        for(int k = 0; k < 6; k++)
+        {
+            int idx = 5 - k;
+            high[idx] = 9.50; low[idx] = 9.30; close[idx] = 9.40;
+            time[idx] = base + k * 3600;
+        }
+        high[0] = 9.55; low[0] = 9.35; close[0] = 9.45;    // new forming bar
+        high[1] = 10.20; low[1] = 9.90; close[1] = 9.95;   // closed: pierce + close-back
+        liq.Update(high, low, close, time, 6);
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (cadence pass 2)");
+        TEST_TRUE(ll.swept, "sweep confirmed on bar close");
+        TEST_DATETIME_EQ(time[1], ll.sweptTime, "sweptTime = piercing bar close time");
+    }
+
     SUITE_END("Confluence Engine Tests");
     return counters;
 }
