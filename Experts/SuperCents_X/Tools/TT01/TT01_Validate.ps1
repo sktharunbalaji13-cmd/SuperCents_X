@@ -6,6 +6,21 @@
 #        TELEMETRY-CONTRACT | EVIDENCE-REGRESSION | BEHAVIOR-REGRESSION (vs frozen baseline)
 #        PERFORMANCE (record + warn)  -> artifacts\TT01_<runId>\manifest.json
 #
+# Baseline history (canonical = B5):
+#   B4 (2026-08-05, commit aea90c6, original code) - SUPERSEDED. The B4 replay
+#   environment proved non-deterministic: the terminal's tick cache drifted
+#   between runs (5062 vs 1533 replay updates; pivot re-promotions 20000 vs
+#   ~3500; locked-pivot sighting 1602 vs 267) while the OHLC data was
+#   byte-identical (first-scan swing counts h=803/804, l=857/856) and no code
+#   touched the swing/pivot/PP paths. The drift was environmental (tick-cache
+#   refresh), NOT an algorithm change.
+#   B5 (2026-08-06, commit 3de40b3, DD02 code, freezeId=B5) - the canonical
+#   TT01 regression baseline. Frozen only from verified green code; verified
+#   deterministic (byte-identical reruns).
+#   Freeze procedure: run TT01 replay with the new code, copy the run CSV over
+#   baseline\telemetry_v4_20260130.csv, then run with -FreezeBaseline (also
+#   bump freezeId in this script).
+#
 # Switches:
 #   -Skip compile,suite,replay : skip those phases (validators still run on captured CSV)
 #   -AllowDelta fvgClass,fvgSize : permit these columns to differ from the frozen baseline
