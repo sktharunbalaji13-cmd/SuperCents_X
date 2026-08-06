@@ -144,6 +144,175 @@ void TestConfluenceValidator_BoundaryPass(TestCounters &counters)
     TEST_INT_EQ(FILTER_PASS, out.result, "ConfluenceValidator boundary at-min (60.0)");
 }
 
+// ─── DD05: per-family floors ───────────────────────────────────────
+
+void TestConfluenceValidator_FamilyLiquidityFloor(TestCounters &counters)
+{
+    CConfluenceValidator v;
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r55 = MakeResult(55.0, CONFLUENCE_BULLISH, 3);
+    r55.winningRuleFamily = RULE_FAMILY_LIQUIDITY;
+    v.Validate(r55, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "Liquidity floor FAIL (55.0 < 0.60)");
+
+    ConfluenceResult r60 = MakeResult(60.0, CONFLUENCE_BULLISH, 3);
+    r60.winningRuleFamily = RULE_FAMILY_LIQUIDITY;
+    v.Validate(r60, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "Liquidity floor PASS at (60.0)");
+
+    ConfluenceResult r65 = MakeResult(65.0, CONFLUENCE_BULLISH, 3);
+    r65.winningRuleFamily = RULE_FAMILY_LIQUIDITY;
+    v.Validate(r65, ctx, out);
+    TEST_INT_EQ(FILTER_WARNING, out.result, "Liquidity floor WARNING (65.0)");
+}
+
+void TestConfluenceValidator_FamilyFVGFloor(TestCounters &counters)
+{
+    CConfluenceValidator v;
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r39 = MakeResult(39.0, CONFLUENCE_BULLISH, 3);
+    r39.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r39, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "FVG floor FAIL (39.0 < 0.40)");
+
+    ConfluenceResult r40 = MakeResult(40.0, CONFLUENCE_BULLISH, 3);
+    r40.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r40, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "FVG floor PASS at (40.0)");
+
+    ConfluenceResult r43 = MakeResult(43.0, CONFLUENCE_BULLISH, 3);
+    r43.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r43, ctx, out);
+    TEST_INT_EQ(FILTER_WARNING, out.result, "FVG floor WARNING (43.0)");
+
+    ConfluenceResult r55 = MakeResult(55.0, CONFLUENCE_BULLISH, 3);
+    r55.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r55, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "FVG PASS above global floor (55.0 >= 0.40)");
+}
+
+void TestConfluenceValidator_FamilyBOSFloor(TestCounters &counters)
+{
+    CConfluenceValidator v;
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r34 = MakeResult(34.0, CONFLUENCE_BULLISH, 3);
+    r34.winningRuleFamily = RULE_FAMILY_BOS;
+    v.Validate(r34, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "BOS floor FAIL (34.0 < 0.35)");
+
+    ConfluenceResult r35 = MakeResult(35.0, CONFLUENCE_BULLISH, 3);
+    r35.winningRuleFamily = RULE_FAMILY_BOS;
+    v.Validate(r35, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "BOS floor PASS at (35.0)");
+
+    ConfluenceResult r37 = MakeResult(37.0, CONFLUENCE_BULLISH, 3);
+    r37.winningRuleFamily = RULE_FAMILY_BOS;
+    v.Validate(r37, ctx, out);
+    TEST_INT_EQ(FILTER_WARNING, out.result, "BOS floor WARNING (37.0)");
+}
+
+void TestConfluenceValidator_FamilyCHOCHFloor(TestCounters &counters)
+{
+    CConfluenceValidator v;
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r34 = MakeResult(34.0, CONFLUENCE_BULLISH, 3);
+    r34.winningRuleFamily = RULE_FAMILY_CHOCH;
+    v.Validate(r34, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "CHOCH floor FAIL (34.0 < 0.35)");
+
+    ConfluenceResult r35 = MakeResult(35.0, CONFLUENCE_BULLISH, 3);
+    r35.winningRuleFamily = RULE_FAMILY_CHOCH;
+    v.Validate(r35, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "CHOCH floor PASS at (35.0)");
+}
+
+void TestConfluenceValidator_FamilyOrderBlockFloor(TestCounters &counters)
+{
+    CConfluenceValidator v;
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r34 = MakeResult(34.0, CONFLUENCE_BULLISH, 3);
+    r34.winningRuleFamily = RULE_FAMILY_ORDER_BLOCK;
+    v.Validate(r34, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "ORDER_BLOCK floor FAIL (34.0 < 0.35)");
+
+    ConfluenceResult r35 = MakeResult(35.0, CONFLUENCE_BULLISH, 3);
+    r35.winningRuleFamily = RULE_FAMILY_ORDER_BLOCK;
+    v.Validate(r35, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "ORDER_BLOCK floor PASS at (35.0)");
+}
+
+void TestConfluenceValidator_UnknownFallbackGlobal(TestCounters &counters)
+{
+    CConfluenceValidator v;
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r59 = MakeResult(59.0, CONFLUENCE_BULLISH, 3);
+    r59.winningRuleFamily = RULE_FAMILY_UNKNOWN;
+    v.Validate(r59, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "UNKNOWN family falls back to global floor (59.0 FAIL)");
+
+    ConfluenceResult r60 = MakeResult(60.0, CONFLUENCE_BULLISH, 3);
+    r60.winningRuleFamily = RULE_FAMILY_UNKNOWN;
+    v.Validate(r60, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "UNKNOWN family falls back to global floor (60.0 PASS)");
+}
+
+void TestConfluenceValidator_CustomFloorOverride(TestCounters &counters)
+{
+    ConfluenceConfig cfg;
+    cfg.familyFloorFVG = 0.50;
+    CConfluenceValidator v(cfg);
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r49 = MakeResult(49.0, CONFLUENCE_BULLISH, 3);
+    r49.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r49, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "custom FVG floor FAIL (49.0 < 0.50)");
+
+    ConfluenceResult r50 = MakeResult(50.0, CONFLUENCE_BULLISH, 3);
+    r50.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r50, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "custom FVG floor PASS at (50.0)");
+}
+
+// ─── DD05: rule identity helpers ───────────────────────────────────
+
+void TestRuleTypeToFamily_AllRules(TestCounters &counters)
+{
+    TEST_INT_EQ((int)RULE_FAMILY_BOS, (int)RuleTypeToFamily(RULE_BOS_OB_BULLISH), "BOS_OB_BULLISH -> BOS");
+    TEST_INT_EQ((int)RULE_FAMILY_BOS, (int)RuleTypeToFamily(RULE_BOS_OB_BEARISH), "BOS_OB_BEARISH -> BOS");
+    TEST_INT_EQ((int)RULE_FAMILY_FVG, (int)RuleTypeToFamily(RULE_OB_FVG_BULLISH), "OB_FVG_BULLISH -> FVG");
+    TEST_INT_EQ((int)RULE_FAMILY_FVG, (int)RuleTypeToFamily(RULE_OB_FVG_BEARISH), "OB_FVG_BEARISH -> FVG");
+    TEST_INT_EQ((int)RULE_FAMILY_LIQUIDITY, (int)RuleTypeToFamily(RULE_LIQUIDITY_BOS_BULLISH), "LIQUIDITY_BOS_BULLISH -> LIQUIDITY");
+    TEST_INT_EQ((int)RULE_FAMILY_LIQUIDITY, (int)RuleTypeToFamily(RULE_LIQUIDITY_BOS_BEARISH), "LIQUIDITY_BOS_BEARISH -> LIQUIDITY");
+    TEST_INT_EQ((int)RULE_FAMILY_CHOCH, (int)RuleTypeToFamily(RULE_CHOCH_OB_REVERSAL), "CHOCH_OB_REVERSAL -> CHOCH");
+    TEST_INT_EQ((int)RULE_FAMILY_UNKNOWN, (int)RuleTypeToFamily(RULE_NONE), "RULE_NONE -> UNKNOWN");
+}
+
+void TestRuleTypeToName_AllRules(TestCounters &counters)
+{
+    TEST_STR_EQ("BOS_OB_BULLISH", RuleTypeToName(RULE_BOS_OB_BULLISH), "name BOS_OB_BULLISH");
+    TEST_STR_EQ("BOS_OB_BEARISH", RuleTypeToName(RULE_BOS_OB_BEARISH), "name BOS_OB_BEARISH");
+    TEST_STR_EQ("OB_FVG_BULLISH", RuleTypeToName(RULE_OB_FVG_BULLISH), "name OB_FVG_BULLISH");
+    TEST_STR_EQ("OB_FVG_BEARISH", RuleTypeToName(RULE_OB_FVG_BEARISH), "name OB_FVG_BEARISH");
+    TEST_STR_EQ("LIQUIDITY_BOS_BULLISH", RuleTypeToName(RULE_LIQUIDITY_BOS_BULLISH), "name LIQUIDITY_BOS_BULLISH");
+    TEST_STR_EQ("LIQUIDITY_BOS_BEARISH", RuleTypeToName(RULE_LIQUIDITY_BOS_BEARISH), "name LIQUIDITY_BOS_BEARISH");
+    TEST_STR_EQ("CHOCH_OB_REVERSAL", RuleTypeToName(RULE_CHOCH_OB_REVERSAL), "name CHOCH_OB_REVERSAL");
+    TEST_STR_EQ("", RuleTypeToName(RULE_NONE), "RULE_NONE has no name");
+}
+
 // ─── FreshnessValidator ────────────────────────────────────────────
 
 void TestFreshnessValidator_Pass(TestCounters &counters)
@@ -574,6 +743,16 @@ TestCounters RunValidatorTests()
     TestConfluenceValidator_Fail(counters);
     TestConfluenceValidator_BoundaryFail(counters);
     TestConfluenceValidator_BoundaryPass(counters);
+
+    TestConfluenceValidator_FamilyLiquidityFloor(counters);
+    TestConfluenceValidator_FamilyFVGFloor(counters);
+    TestConfluenceValidator_FamilyBOSFloor(counters);
+    TestConfluenceValidator_FamilyCHOCHFloor(counters);
+    TestConfluenceValidator_FamilyOrderBlockFloor(counters);
+    TestConfluenceValidator_UnknownFallbackGlobal(counters);
+    TestConfluenceValidator_CustomFloorOverride(counters);
+    TestRuleTypeToFamily_AllRules(counters);
+    TestRuleTypeToName_AllRules(counters);
 
     TestFreshnessValidator_Pass(counters);
     TestFreshnessValidator_Warning(counters);

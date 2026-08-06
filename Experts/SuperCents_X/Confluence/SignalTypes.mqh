@@ -41,6 +41,58 @@ enum RuleType
     RULE_CHOCH_OB_REVERSAL
 };
 
+//--- DD05: rule family classification (Sprint 19 research families).
+//    Research-derived families (doc 05:299 layer fingerprint):
+//      LIQUIDITY_BOS_*  -> LIQUIDITY  (admission ceiling ~0.60)
+//      OB_FVG_*         -> FVG        (ceiling ~0.40)
+//      BOS_OB_*         -> BOS        (ceiling ~0.35; doc 01:681)
+//      CHOCH_OB_REVERSAL-> CHOCH      (ceiling ~0.35)
+//    ORDER_BLOCK is declared for completeness (reserved for GR01
+//    routing; no rule maps to it today).
+enum ENUM_RULE_FAMILY
+{
+    RULE_FAMILY_UNKNOWN       = 0,
+    RULE_FAMILY_LIQUIDITY,
+    RULE_FAMILY_FVG,
+    RULE_FAMILY_ORDER_BLOCK,
+    RULE_FAMILY_BOS,
+    RULE_FAMILY_CHOCH
+};
+
+//--- Frozen rule-ID -> name mapping.  Mirrors the RuleType enum order
+//    (rule ids are stable; names may evolve).
+string RuleTypeToName(const RuleType ruleId)
+{
+    switch(ruleId)
+    {
+        case RULE_BOS_OB_BULLISH:        return "BOS_OB_BULLISH";
+        case RULE_BOS_OB_BEARISH:        return "BOS_OB_BEARISH";
+        case RULE_OB_FVG_BULLISH:        return "OB_FVG_BULLISH";
+        case RULE_OB_FVG_BEARISH:        return "OB_FVG_BEARISH";
+        case RULE_LIQUIDITY_BOS_BULLISH: return "LIQUIDITY_BOS_BULLISH";
+        case RULE_LIQUIDITY_BOS_BEARISH: return "LIQUIDITY_BOS_BEARISH";
+        case RULE_CHOCH_OB_REVERSAL:     return "CHOCH_OB_REVERSAL";
+    }
+    return "";
+}
+
+//--- Rule -> family mapping (single-valued: each rule belongs to exactly
+//    one admission family).
+ENUM_RULE_FAMILY RuleTypeToFamily(const RuleType ruleId)
+{
+    switch(ruleId)
+    {
+        case RULE_LIQUIDITY_BOS_BULLISH:
+        case RULE_LIQUIDITY_BOS_BEARISH: return RULE_FAMILY_LIQUIDITY;
+        case RULE_OB_FVG_BULLISH:
+        case RULE_OB_FVG_BEARISH:        return RULE_FAMILY_FVG;
+        case RULE_BOS_OB_BULLISH:
+        case RULE_BOS_OB_BEARISH:        return RULE_FAMILY_BOS;
+        case RULE_CHOCH_OB_REVERSAL:     return RULE_FAMILY_CHOCH;
+    }
+    return RULE_FAMILY_UNKNOWN;
+}
+
 enum CandidateStatus
 {
     CANDIDATE_CREATED = 0,

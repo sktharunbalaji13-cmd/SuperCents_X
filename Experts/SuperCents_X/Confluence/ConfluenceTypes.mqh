@@ -51,12 +51,23 @@ struct ConfluenceResult
     int                         componentCount;
     string                      summaryExplanation;
 
+    //--- DD05: winning rule identity (stamped by the engine rule path).
+    //    The evaluator path cannot identify a rule and keeps the
+    //    RULE_NONE/UNKNOWN defaults (the ConfluenceValidator then falls
+    //    back to the global minConfidence floor).
+    RuleType                    winningRuleId;
+    string                      winningRuleName;
+    ENUM_RULE_FAMILY            winningRuleFamily;
+
     ConfluenceResult(void)
         : valid(false)
         , direction(CONFLUENCE_NONE)
         , totalConfidence(0.0)
         , componentCount(0)
         , summaryExplanation("")
+        , winningRuleId(RULE_NONE)
+        , winningRuleName("")
+        , winningRuleFamily(RULE_FAMILY_UNKNOWN)
     {}
 };
 

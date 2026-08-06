@@ -22,6 +22,7 @@
 #include "../Confluence/ConfluenceTypes.mqh"
 #include "../Confluence/ConfluenceWeights.mqh"
 #include "../Entry/EntryDecisionTypes.mqh"
+#include "../Entry/Validators/ValidatorConfig.mqh"
 
 class CTelemetryRowBuilder
 {
@@ -32,7 +33,8 @@ private:
                                     const int timeframe,
                                     const string disabledValidators,
                                     const string spreadMode,
-                                    const int brokerDigits)
+                                    const int brokerDigits,
+                                    const ConfluenceConfig &confluenceCfg)
     {
         CalibrationConfig cfg;
         cfg.minConfidence = confThreshold;
@@ -47,6 +49,14 @@ private:
         cfg.brokerDigits = brokerDigits;
         cfg.telemetryEnabled = true;
         cfg.useProductionProviders = false;
+        //--- DD05: the per-family admission floors participate in the
+        //    fingerprint (they change which rows qualify, hence
+        //    outcomes).  Two floor sets must never share a fingerprint.
+        cfg.familyFloorLiquidity = confluenceCfg.familyFloorLiquidity;
+        cfg.familyFloorFVG = confluenceCfg.familyFloorFVG;
+        cfg.familyFloorOrderBlock = confluenceCfg.familyFloorOrderBlock;
+        cfg.familyFloorBOS = confluenceCfg.familyFloorBOS;
+        cfg.familyFloorCHOCH = confluenceCfg.familyFloorCHOCH;
         return CConfigFingerprint::Compute(cfg, symbol, timeframe, "FixedRR", "1");
     }
 
@@ -62,12 +72,14 @@ public:
                       const int timeframe,
                       const string disabledValidators,
                       const string spreadMode,
-                      const int brokerDigits)
+                      const int brokerDigits,
+                      const ConfluenceConfig &confluenceCfg)
     {
         out = TelemetryRow();
         out.configFingerprint = ComputeFingerprint(confThreshold, weights, symbol,
                                                    timeframe, disabledValidators,
-                                                   spreadMode, brokerDigits);
+                                                   spreadMode, brokerDigits,
+                                                   confluenceCfg);
         out.timestamp = TimeCurrent();
         out.symbol = symbol;
         out.timeframe = timeframe;
@@ -127,11 +139,12 @@ public:
                                   const string disabledValidators,
                                   const string spreadMode,
                                   const int brokerDigits,
+                                  const ConfluenceConfig &confluenceCfg,
                                   const ConfluenceSignal &signal)
     {
         if(!Build(out, cr, newDecision, hasLegacy, legacyDecision, confThreshold,
                   weights, symbol, timeframe, disabledValidators,
-                  spreadMode, brokerDigits))
+                  spreadMode, brokerDigits, confluenceCfg))
             return false;
 
         //--- Metadata (schema identity; refusal checks key off these).

@@ -14,12 +14,26 @@ struct SessionRange
     {}
 };
 
+//--- DD05: per-family admission floors.  Research-derived initialization
+//    values (Sprint 19 deep research: liquidity ceiling ~0.60, FVG ~0.40,
+//    OB/BOS/CHOCH ~0.35).  Temporary engineering defaults — GR01 replaces
+//    them with evidence-derived thresholds.
 struct ConfluenceConfig
 {
-    double minConfidence;
+    double minConfidence;               // global fallback floor (UNKNOWN family / legacy)
+    double familyFloorLiquidity;        // RULE_FAMILY_LIQUIDITY
+    double familyFloorFVG;              // RULE_FAMILY_FVG
+    double familyFloorOrderBlock;       // RULE_FAMILY_ORDER_BLOCK (reserved for GR01)
+    double familyFloorBOS;              // RULE_FAMILY_BOS
+    double familyFloorCHOCH;            // RULE_FAMILY_CHOCH
 
     ConfluenceConfig(void)
         : minConfidence(0.6)
+        , familyFloorLiquidity(0.60)
+        , familyFloorFVG(0.40)
+        , familyFloorOrderBlock(0.35)
+        , familyFloorBOS(0.35)
+        , familyFloorCHOCH(0.35)
     {}
 };
 

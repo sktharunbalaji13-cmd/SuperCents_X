@@ -207,14 +207,26 @@ function Test-TT01Behavior {
 
     #--- decision identity invariant (always enforced): the same logical
     #--- decisions must be compared (sequence, time, config, symbol, timeframe).
+    #--- During row-rooted localization (-AllowDecisionIds) configFingerprint is
+    #--- exempted: the fingerprint records the routing policy (e.g. DD05
+    #--- per-family admission floors) and is expected to change globally between
+    #--- baselines; its constancy WITHIN the run is verified by the CONTRACT
+    #--- gate, and sequence identity is proven by the remaining keys.
+    $identityKeys = @("decisionId","signalTime","configFingerprint","symbol","timeframe")
+    if ($AllowDecisionIds.Count -gt 0) { $identityKeys = @("decisionId","signalTime","symbol","timeframe") }
     $identityBad = 0
-    foreach ($k in @("decisionId","signalTime","configFingerprint","symbol","timeframe")) {
+    foreach ($k in $identityKeys) {
         $d = 0
         for ($i = 0; $i -lt $run.Count; $i++) { if ($run[$i].$k -ne $base[$i].$k) { $d++ } }
         if ($d -gt 0) { $identityBad++; $detail.Add("identity '$k' differs on $d rows (sequence shifted - FAIL)") }
     }
+    if ($AllowDecisionIds.Count -gt 0) {
+        $fpDiff = 0
+        for ($i = 0; $i -lt $run.Count; $i++) { if ($run[$i].configFingerprint -ne $base[$i].configFingerprint) { $fpDiff++ } }
+        if ($fpDiff -gt 0) { $detail.Add("configFingerprint differs on $fpDiff rows (expected policy recording; constancy verified by CONTRACT gate)") }
+    }
     if ($identityBad -gt 0) { $fail++ }
-    else { $detail.Add("decision identity invariant holds: decisionId/signalTime/configFingerprint/symbol/timeframe identical on all $($run.Count) rows") }
+    else { $detail.Add("decision identity invariant holds: $($identityKeys -join '/') identical on all $($run.Count) rows") }
 
     if ($AllowDecisionIds.Count -gt 0) {
         #--- row-rooted localization: only the allowlisted decisions may differ;
@@ -224,7 +236,11 @@ function Test-TT01Behavior {
         $changedIds = @{}
         $unexpected = 0; $attributionBad = 0; $changedTotal = 0
         foreach ($i in 0..($run.Count - 1)) {
-            $diff = @($cols | Where-Object { $run[$i].$_ -ne $base[$i].$_ })
+            $diff = @($cols | Where-Object {
+                $c = $_
+                if ($AllowDecisionIds.Count -gt 0 -and $c -eq "configFingerprint") { return $false }
+                return $run[$i].$c -ne $base[$i].$c
+            })
             if ($diff.Count -eq 0) { continue }
             $changedTotal++
             $changedIds[$run[$i].decisionId] = $true
@@ -234,23 +250,50 @@ function Test-TT01Behavior {
             } else {
                 #--- attribution invariant: the change must originate from the
                 #--- liquidity cascade (sweep flag, liquidity rule, level evidence,
-                #--- or the legacy confidence echo of a changed decision).
+                #--- or the legacy confidence echo of a changed decision), or from
+                #--- the admission gate (DD05): the ONLY validator result that
+                #--- changed is ConfluenceValidator (per-family admission floor),
+                #--- and the changed columns are confined to the validator/decision
+                #--- echo columns.
                 $liq = ($run[$i].hasLiquiditySweep -ne $base[$i].hasLiquiditySweep) -or
                        ($run[$i].ruleName -like "LIQUIDITY_*") -or ($base[$i].ruleName -like "LIQUIDITY_*") -or
                        ($run[$i].ruleEvidenceIds -ne $base[$i].ruleEvidenceIds) -or
                        ($run[$i].legacyConfidence -ne $base[$i].legacyConfidence)
+                $admission = $false
                 if (-not $liq) {
+                    $vb = @{}; $vr = @{}
+                    foreach ($p in ($base[$i].validatorResults -split "\|")) { if ($p -match "^([^=]+)=(\d+)") { $vb[$Matches[1]] = $Matches[2] } }
+                    foreach ($p in ($run[$i].validatorResults -split "\|")) { if ($p -match "^([^=]+)=(\d+)") { $vr[$Matches[1]] = $Matches[2] } }
+                    #--- ConfluenceValidator (the admission gate) must have flipped.
+                    $confluenceFlip = $vb.ContainsKey("ConfluenceValidator") -and $vr.ContainsKey("ConfluenceValidator") -and ($vb["ConfluenceValidator"] -ne $vr["ConfluenceValidator"])
+                    $consistent = $true
+                    foreach ($k in $vb.Keys) {
+                        if ($k -eq "ConfluenceValidator") { continue }
+                        #--- every shared component must be identical...
+                        if (-not $vr.ContainsKey($k) -or $vb[$k] -ne $vr[$k]) { $consistent = $false }
+                    }
+                    #--- ...and any NEW component appeared only because the pipeline
+                    #--- ran past the gate (short-circuit collection on rejection).
+                    #--- A hard reject (2) among them must not contradict the
+                    #--- recorded verdict: it requires the run decision to be rejected.
+                    $hardRejectNew = $false
+                    foreach ($k in $vr.Keys) { if (-not $vb.ContainsKey($k) -and $vr[$k] -eq "2") { $hardRejectNew = $true } }
+                    $verdictConsistent = (-not $hardRejectNew) -or ($run[$i].newDecision -eq "0")
+                    $nonEcho = @($diff | Where-Object { $_ -notin @("validatorResults","newDecision","decisionMatch") }).Count
+                    $admission = ($confluenceFlip -and $consistent -and $verdictConsistent -and $nonEcho -eq 0)
+                }
+                if (-not $liq -and -not $admission) {
                     $attributionBad++
-                    if ($attributionBad -le 5) { $detail.Add("decisionId $($run[$i].decisionId) changed without liquidity attribution (rule $($base[$i].ruleName) -> $($run[$i].ruleName))") }
+                    if ($attributionBad -le 5) { $detail.Add("decisionId $($run[$i].decisionId) changed without liquidity or admission attribution (rule $($base[$i].ruleName) -> $($run[$i].ruleName))") }
                 }
             }
         }
         $missing = @($AllowDecisionIds | Where-Object { -not $changedIds.ContainsKey($_) }).Count
         if ($unexpected -gt 0) { $fail++; $detail.Add("completeness FAIL: $unexpected changed rows outside the allowlist") }
         if ($missing -gt 0) { $fail++; $detail.Add("completeness FAIL: $missing allowlisted decisions did not change") }
-        if ($attributionBad -gt 0) { $fail++; $detail.Add("attribution FAIL: $attributionBad allowed decisions not liquidity-attributable") }
+        if ($attributionBad -gt 0) { $fail++; $detail.Add("attribution FAIL: $attributionBad allowed decisions not attributable to the liquidity cascade or the admission gate") }
         if ($unexpected -eq 0 -and $missing -eq 0) { $detail.Add("completeness invariant holds: changed rows ($changedTotal) == allowlist ($($AllowDecisionIds.Count))") }
-        if ($attributionBad -eq 0) { $detail.Add("attribution invariant holds: all $($AllowDecisionIds.Count) allowed decisions trace to the liquidity cascade") }
+        if ($attributionBad -eq 0) { $detail.Add("attribution invariant holds: all $($AllowDecisionIds.Count) allowed decisions trace to the liquidity cascade or the admission gate") }
         $detail.Add("unchanged decisions: $($run.Count - $changedTotal)/$($run.Count) byte-identical on all columns")
         $cRun = Get-TT01Counters $RunPath
         $cBase = Get-TT01Counters $BasePath

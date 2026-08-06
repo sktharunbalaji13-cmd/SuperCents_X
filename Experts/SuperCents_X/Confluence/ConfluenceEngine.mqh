@@ -301,6 +301,14 @@ void CConfluenceEngine::Update(void)
         m_latestConfluence.valid = true;
         m_latestConfluence.direction = dir;
         m_latestConfluence.totalConfidence = (double)score.total;
+        //--- DD05: stamp the winning rule identity.  Runs after bestRule
+        //    is final on both paths (rule path: results[bestIdx];
+        //    evaluator path: BridgeConfluenceToSignal leaves RULE_NONE,
+        //    so the family stays UNKNOWN and the validator falls back to
+        //    the global floor).
+        m_latestConfluence.winningRuleId = bestRule.type;
+        m_latestConfluence.winningRuleName = RuleTypeToName(bestRule.type);
+        m_latestConfluence.winningRuleFamily = RuleTypeToFamily(bestRule.type);
         //--- TC02: component raw/weight/contribution wiring at decision
         //    time.  The evaluator path copies cr (components already
         //    populated by CConfluenceScoreCalculator); the rule path

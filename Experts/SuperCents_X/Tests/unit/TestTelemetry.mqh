@@ -127,7 +127,7 @@ void TestRowBuilder_NormalizedConfidence(TestCounters &counters)
     ConfluenceWeights w;
     TelemetryRow row;
     bool ok = CTelemetryRowBuilder::Build(row, cr, newDec, true, legacyDec, 0.60,
-                                          w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+                                          w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig());
     TEST_TRUE(ok, "Build succeeds");
     TEST_INT_EQ((int)TELEMETRY_SCHEMA_VERSION, (int)row.schemaVersion, "Row stamped schema v3.1");
     TEST_DBL_NEAR(0.40, row.confidence, 1e-9, "confidence column normalized 0-1");
@@ -157,7 +157,7 @@ void TestRowBuilder_ComponentsAndValidators(TestCounters &counters)
     ConfluenceWeights w;
     TelemetryRow row;
     CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
-                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig());
     TEST_DBL_NEAR(80.0, row.structureRaw, 1e-9, "structure raw mapped");
     TEST_DBL_NEAR(25.0, row.structureWeight, 1e-9, "structure weight mapped");
     TEST_DBL_NEAR(20.0, row.structureContribution, 1e-9, "structure contribution mapped");
@@ -187,7 +187,7 @@ void TestRowBuilder_Mismatch(TestCounters &counters)
     ConfluenceWeights w;
     TelemetryRow row;
     CTelemetryRowBuilder::Build(row, cr, newDec, true, legacyDec, 0.60,
-                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig());
     TEST_FALSE(row.decisionMatch, "qualified legacy vs rejected new -> mismatch");
     TEST_TRUE(row.directionMatch, "same direction -> direction match");
     TEST_DBL_NEAR(0.80, row.legacyConfidence, 1e-9, "legacy confidence 0-1");
@@ -251,7 +251,7 @@ void TestRowBuilder_EvidenceCapture(TestCounters &counters)
     ConfluenceSignal sig = MakeTestSignal();
     TelemetryRow row;
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
-                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig(), sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds");
     TEST_INT_EQ(4, (int)row.schemaVersion, "Row stamped schema v4 (v3.1)");
     TEST_DBL_NEAR(0.60, row.confidence, 1e-9, "v2 columns still populated (confidence)");
@@ -328,7 +328,7 @@ void TestRowBuilder_LayerSplit(TestCounters &counters)
 
     TelemetryRow row;
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
-                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig(), sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds with split layers");
     TEST_INT_EQ(25, row.layerStructural, "structural raw still the sum");
     TEST_INT_EQ(15, row.layerOrderBlock, "OB slice recorded");
@@ -360,7 +360,7 @@ void TestRowBuilder_EngineUnsettledSplit(TestCounters &counters)
 
     TelemetryRow row;
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
-                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig(), sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds with unsettled engine signal");
     TEST_INT_EQ(0, row.layerTotal, "no layer result recorded");
     TEST_DBL_NEAR(0.0, row.structureRaw, 1e-9, "structureRaw zeroed without layer backing");
@@ -399,7 +399,7 @@ void TestRowBuilder_FVGClassifierSerialized(TestCounters &counters)
 
     TelemetryRow row;
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
-                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, sig);
+                                                      w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig(), sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds with classifier snapshot");
     TEST_STR_EQ("BREAKAWAY", row.fvgClass, "class mapped BREAKAWAY");
     TEST_STR_EQ("MEDIUM", row.fvgSize, "size mapped MEDIUM");
@@ -431,7 +431,7 @@ void TestRowBuilder_EvidenceFallback(TestCounters &counters)
     ConfluenceWeights w;
     TelemetryRow row;
     CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
-                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5);
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig());
     TEST_INT_EQ(4, (int)row.schemaVersion, "Build() stamps schema v4 (v3.1)");
     TEST_INT_EQ(0, row.componentData, "no evidence claim without a signal");
     TEST_INT_EQ(EV_UNKNOWN, row.hasBOS, "unevaluated flags stay UNKNOWN, not FALSE");
@@ -577,6 +577,39 @@ void TestFingerprint_CanonicalUnorderedDisabled(TestCounters &counters)
     TEST_DBL_EQ((double)ab, (double)ba, "Disabled-validator order does not change the fingerprint");
 }
 
+void TestFingerprint_SensitiveToFamilyFloors(TestCounters &counters)
+{
+    CalibrationConfig cfg;
+    ulong defaults = CConfigFingerprint::Compute(cfg, "EURUSD", PERIOD_H1, "FixedRR", "1");
+    cfg.familyFloorFVG = 0.50;
+    ulong changed = CConfigFingerprint::Compute(cfg, "EURUSD", PERIOD_H1, "FixedRR", "1");
+    TEST_FALSE(defaults == changed, "Family floors participate in the fingerprint");
+}
+
+void TestRowBuilder_FingerprintIncludesFloors(TestCounters &counters)
+{
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_QUALIFIED;
+    newDec.confidence = 0.40;
+    newDec.direction = CONFLUENCE_BULLISH;
+    ConfluenceWeights w;
+
+    ConfluenceConfig cfgDefault;
+    TelemetryRow rowA;
+    CTelemetryRowBuilder::Build(rowA, cr, newDec, false, EntryDecision(), 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, cfgDefault);
+
+    ConfluenceConfig cfgCustom;
+    cfgCustom.familyFloorLiquidity = 0.55;
+    TelemetryRow rowB;
+    CTelemetryRowBuilder::Build(rowB, cr, newDec, false, EntryDecision(), 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, cfgCustom);
+
+    TEST_FALSE(rowA.configFingerprint == rowB.configFingerprint,
+               "Row fingerprint reflects the family floors");
+}
+
 // ─── Entry Point ───────────────────────────────────────────────────
 
 TestCounters RunTelemetryTests()
@@ -610,6 +643,8 @@ TestCounters RunTelemetryTests()
     TestFingerprint_SensitiveToPolicyVersion(counters);
     TestFingerprint_SortDisabledValidators(counters);
     TestFingerprint_CanonicalUnorderedDisabled(counters);
+    TestFingerprint_SensitiveToFamilyFloors(counters);
+    TestRowBuilder_FingerprintIncludesFloors(counters);
 
     SUITE_END("Telemetry Schema & Fingerprint Tests");
     return counters;

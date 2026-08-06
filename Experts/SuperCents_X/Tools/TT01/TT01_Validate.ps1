@@ -6,7 +6,7 @@
 #        TELEMETRY-CONTRACT | EVIDENCE-REGRESSION | BEHAVIOR-REGRESSION (vs frozen baseline)
 #        PERFORMANCE (record + warn)  -> artifacts\TT01_<runId>\manifest.json
 #
-# Baseline history (canonical = B6):
+# Baseline history (canonical = B6 until the DD05 freeze; B7 after):
 #   B4 (2026-08-05, commit aea90c6, original code) - SUPERSEDED. The B4 replay
 #   environment proved non-deterministic: the terminal's tick cache drifted
 #   between runs (5062 vs 1533 replay updates; pivot re-promotions 20000 vs
@@ -36,6 +36,26 @@
 #   outcome sim uses the legacy CEntrySetupBuilder fixed-RR builder), so the
 #   DD04 run is byte-identical vs B6 on all 500 rows - expected, no localization
 #   or re-freeze. DD04 correctness is carried by unit tests 46-52 (suite gate).
+#   DD05 (2026-08-07) - C08 executed: per-family admission floors in
+#   ConfluenceValidator (Liquidity 0.60 / FVG 0.40 / OB-BOS-CHOCH 0.35, UNKNOWN
+#   -> global 0.60 fallback; GR01 calibrates). Observable via TT01 by design:
+#   configFingerprint differs on ALL 500 rows (the 5 floors are recorded in the
+#   canonical - expected policy recording; constancy verified by CONTRACT), and
+#   validatorResults/newDecision/decisionMatch differ on 208 decisions
+#   (qualified 240 -> 442). Two harness evolutions for row-rooted localization:
+#   (1) configFingerprint is exempted from the sequence-identity invariant when
+#   -AllowDecisionIds is used (identity proven by decisionId/signalTime/symbol/
+#   timeframe; the fingerprint change is the policy recording, not a sequence
+#   shift); (2) the attribution invariant gains the admission-gate class: all
+#   shared validator components must be identical except ConfluenceValidator
+#   (which flips), any NEW component appeared only because the pipeline ran past
+#   the gate (short-circuit collection on rejection) and a hard reject (2) among
+#   them must not contradict the recorded verdict, and changed columns are
+#   confined to validatorResults/newDecision/decisionMatch.
+#   B7 (2026-08-07, DD05 code, freezeId=B7) - second doctrinal baseline:
+#   the entry funnel opens per family for GR01. Freeze procedure as B6 (run TT01
+#   replay with the new code, copy the run CSV over baseline\telemetry_v4_20260130.csv,
+#   then run with -FreezeBaseline -FreezeId B7).
 #
 # Switches:
 #   -Skip compile,suite,replay : skip those phases (validators still run on captured CSV)
@@ -45,8 +65,12 @@
 #   -AllowDecisionIds 22,45,.. : row-rooted localization (DD03+). Only these
 #        decisions may differ; all others must be byte-identical on ALL columns.
 #        Enforces three invariants: decision identity (decisionId/signalTime/
-#        configFingerprint/symbol/timeframe), completeness (changed == allowed),
-#        and attribution (each allowed change traces to the liquidity cascade).
+#        symbol/timeframe - configFingerprint exempted during localization: it
+#        records the routing policy and its constancy is verified by CONTRACT),
+#        completeness (changed == allowed), and attribution (each allowed change
+#        traces to the liquidity cascade or to the per-family admission gate:
+#        ConfluenceValidator flip with identical shared components, new
+#        components = pipeline continuation past the gate, verdict-consistent).
 #        Pass a list or a file: -AllowDecisionIds (Get-Content allowlist.txt)
 #   -FreezeBaseline : regenerate baseline\baseline.manifest.json from the frozen baseline CSV
 #   -FreezeId B6 : baseline id stamped into the manifest at freeze time

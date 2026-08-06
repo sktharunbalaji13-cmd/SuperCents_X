@@ -506,6 +506,15 @@ struct CalibrationConfig
     string   spreadMode;                          // "quote" | "tick" | "fixed"
     int      brokerDigits;
 
+    //--- DD05: per-family admission floors (mirror ConfluenceConfig so
+    //    the fingerprint records the routing policy that affects
+    //    decision outcomes).
+    double   familyFloorLiquidity;
+    double   familyFloorFVG;
+    double   familyFloorOrderBlock;
+    double   familyFloorBOS;
+    double   familyFloorCHOCH;
+
     CalibrationConfig(void)
         : telemetryEnabled(true)
         , minConfidence(0.60)
@@ -517,6 +526,11 @@ struct CalibrationConfig
         , eaVersion(TELEMETRY_EA_VERSION)
         , spreadMode("quote")
         , brokerDigits(5)
+        , familyFloorLiquidity(0.60)
+        , familyFloorFVG(0.40)
+        , familyFloorOrderBlock(0.35)
+        , familyFloorBOS(0.35)
+        , familyFloorCHOCH(0.35)
     {
         weights[0] = 25.0;
         weights[1] = 20.0;

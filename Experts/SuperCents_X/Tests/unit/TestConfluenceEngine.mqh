@@ -1227,6 +1227,88 @@ TestCounters RunConfluenceEngineTests(void)
         TEST_DBL_EQ(ACTIVE_P, tp, "target = ACTIVE buy-side pool, swept pool skipped");
     }
 
+    // Test 53: DD05 — evaluator path stamps the winning rule as
+    //          RULE_NONE / UNKNOWN family: BridgeConfluenceToSignal can
+    //          never identify a rule, so the ConfluenceValidator falls
+    //          back to the global floor (legacy behavior preserved).
+    {
+        CConfluenceEngine engine;
+        engine.Init();
+
+        CLiquidityEvaluator liq;
+        engine.RegisterEvaluator(&liq);
+        engine.Update();
+
+        ConfluenceResult cr;
+        bool hasCR = engine.GetLatestConfluence(cr);
+        TEST_TRUE(hasCR, "evaluator path produces ConfluenceResult");
+        TEST_INT_EQ((int)RULE_NONE, (int)cr.winningRuleId, "evaluator path -> RULE_NONE");
+        TEST_INT_EQ((int)RULE_FAMILY_UNKNOWN, (int)cr.winningRuleFamily, "evaluator path -> UNKNOWN family");
+        TEST_STR_EQ("", cr.winningRuleName, "evaluator path -> empty rule name");
+    }
+
+    // Test 54: DD05 — rule path stamps the winning rule: the result
+    //          carries the winning rule id, its name and its family,
+    //          coherent with the signal's currentRule (the same rule the
+    //          telemetry row records as firedRuleId).
+    //          The DD02 chain provides the bullish BOS; the EQH liquidity
+    //          level is created and swept directly on the detector (swing
+    //          pairing needs levels within pips tolerance, unrelated to
+    //          this test's purpose).
+    {
+        double high[], low[], close[];
+        datetime time[];
+        int rates;
+        DD02BuildSeries(DD02_SERIES_FULL, 10.00, high, low, close, time, rates);
+
+        CSwingDetector swing;
+        CStructuralPivotEngine pivot;
+        CBOSDetector bos;
+        CTrendState trend;
+        CLiquidityDetector liquidity;
+
+        TEST_TRUE(swing.Init(), "swing init (rule-path stamping)");
+        TEST_TRUE(pivot.Init(), "pivot init (rule-path stamping)");
+        TEST_TRUE(bos.Init(), "bos init (rule-path stamping)");
+        TEST_TRUE(trend.Init(), "trend init (rule-path stamping)");
+        TEST_TRUE(liquidity.Init(), "liquidity init (rule-path stamping)");
+
+        swing.Update(high, low, time, rates);
+        pivot.Update(&swing);
+        bos.Update(&pivot, close, time, rates);
+        trend.Update(&bos);
+
+        int levelId = liquidity.CreateLevel(LIQUIDITY_EQH, 10.00, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(levelId >= 0, "EQH level created (rule-path stamping)");
+        datetime sweepTime = time[rates - 1 - 17];   // B17 bar time (bullish crossing)
+        TEST_TRUE(liquidity.SweepLevel(levelId, 17, sweepTime), "EQH level swept");
+
+        CConfluenceEngine engine;
+        engine.Init();
+        engine.SetTrendState(&trend);
+        engine.SetBOSDetector(&bos);
+        engine.SetLiquidityDetector(&liquidity);
+        engine.Update();
+
+        ConfluenceResult cr;
+        bool hasCR = engine.GetLatestConfluence(cr);
+        TEST_TRUE(hasCR, "rule path produces ConfluenceResult");
+        TEST_TRUE(cr.valid, "rule path fires a valid confluence");
+
+        ConfluenceSignal sig;
+        bool hasSignal = engine.GetLatestSignal(sig);
+        TEST_TRUE(hasSignal, "rule path produces signal");
+        TEST_INT_EQ((int)sig.currentRule.type, (int)cr.winningRuleId,
+                    "stamped id equals signal currentRule");
+
+        TEST_INT_EQ((int)RULE_LIQUIDITY_BOS_BULLISH, (int)cr.winningRuleId,
+                    "DD02 series fires LIQUIDITY_BOS_BULLISH");
+        TEST_STR_EQ("LIQUIDITY_BOS_BULLISH", cr.winningRuleName,
+                    "stamped name matches winning rule");
+        TEST_INT_EQ((int)RULE_FAMILY_LIQUIDITY, (int)cr.winningRuleFamily,
+                    "stamped family LIQUIDITY");
+    }
+
     SUITE_END("Confluence Engine Tests");
     return counters;
 }

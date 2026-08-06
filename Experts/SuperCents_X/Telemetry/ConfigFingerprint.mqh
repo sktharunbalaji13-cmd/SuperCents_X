@@ -8,7 +8,8 @@
 //
 //    confidence threshold | 6 weights | disabled validators (sorted) |
 //    symbol | timeframe | ea version | exit policy name@version |
-//    slR | tpR | maxHoldBars | spreadMode | brokerDigits
+//    slR | tpR | maxHoldBars | spreadMode | brokerDigits |
+//    family floors (liquidity | fvg | order block | bos | choch)
 //
 //  Datasets collected under different configurations can then be
 //  partitioned by fingerprint without relying on filenames.
@@ -96,6 +97,11 @@ public:
         canonical += "|" + IntegerToString(cfg.maxHoldBars);
         canonical += "|" + cfg.spreadMode;
         canonical += "|" + IntegerToString(cfg.brokerDigits);
+        canonical += "|" + DoubleToString(cfg.familyFloorLiquidity, 6);
+        canonical += "|" + DoubleToString(cfg.familyFloorFVG, 6);
+        canonical += "|" + DoubleToString(cfg.familyFloorOrderBlock, 6);
+        canonical += "|" + DoubleToString(cfg.familyFloorBOS, 6);
+        canonical += "|" + DoubleToString(cfg.familyFloorCHOCH, 6);
         return canonical;
     }
 

@@ -20,29 +20,46 @@ public:
         m_cfg = cfg;
     }
 
+    //--- DD05: resolve the admission floor for the winning rule family.
+    //    Unknown/unevaluated families fall back to the global
+    //    minConfidence (legacy behavior).
+    double ResolveFloor(const ENUM_RULE_FAMILY family) const
+    {
+        switch(family)
+        {
+            case RULE_FAMILY_LIQUIDITY:    return m_cfg.familyFloorLiquidity;
+            case RULE_FAMILY_FVG:          return m_cfg.familyFloorFVG;
+            case RULE_FAMILY_ORDER_BLOCK:  return m_cfg.familyFloorOrderBlock;
+            case RULE_FAMILY_BOS:          return m_cfg.familyFloorBOS;
+            case RULE_FAMILY_CHOCH:        return m_cfg.familyFloorCHOCH;
+        }
+        return m_cfg.minConfidence;
+    }
+
     virtual void Validate(const ConfluenceResult &confluence, const EntryContext &ctx, EntryFilterResult &out)
     {
         out.category = CATEGORY_SETUP;
 
         double normalized = confluence.totalConfidence / 100.0;
+        double floor = ResolveFloor(confluence.winningRuleFamily);
 
-        if(normalized < m_cfg.minConfidence)
+        if(normalized < floor)
         {
             out.result = FILTER_FAIL;
             out.reason = REASON_CONFIDENCE_LOW;
-            out.explanation = "Confidence " + DoubleToString(normalized, 2) + " < min " + DoubleToString(m_cfg.minConfidence, 2);
+            out.explanation = "Confidence " + DoubleToString(normalized, 2) + " < floor " + DoubleToString(floor, 2);
         }
-        else if(normalized > m_cfg.minConfidence && normalized < m_cfg.minConfidence * 1.1)
+        else if(normalized > floor && normalized < floor * 1.1)
         {
             out.result = FILTER_WARNING;
             out.reason = REASON_NONE;
-            out.explanation = "Confidence " + DoubleToString(normalized, 2) + " near threshold " + DoubleToString(m_cfg.minConfidence, 2);
+            out.explanation = "Confidence " + DoubleToString(normalized, 2) + " near threshold " + DoubleToString(floor, 2);
         }
         else
         {
             out.result = FILTER_PASS;
             out.reason = REASON_NONE;
-            out.explanation = "Confidence " + DoubleToString(normalized, 2) + " >= " + DoubleToString(m_cfg.minConfidence, 2);
+            out.explanation = "Confidence " + DoubleToString(normalized, 2) + " >= " + DoubleToString(floor, 2);
         }
     }
 

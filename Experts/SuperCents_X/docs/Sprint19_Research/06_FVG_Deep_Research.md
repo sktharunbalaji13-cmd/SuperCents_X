@@ -140,6 +140,7 @@ FVGDetector (new bars -> detect)
 - All family confidences ∈ {0.35, 0.40}; ruleConfidence **0.80 for both rules**; the only variation is the trend bonus.
 - **Admitted by conf ≥ 0.60 gate: 0 of 12,320.** Max achievable conf is 0.40 — the family is *structurally* un-enterable.
 - Family admission rates for comparison: Liquidity 89.4% (n=3,178 of 3,553), **OB_FVG 0.0%**. The live funnel runs *only* the family measured worst in doc 04.
+- **DD05 (Sprint 20, ledger C08) executed the per-family admission decision**: floors Liquidity 0.60 / FVG 0.40 / OrderBlock-BOS-CHOCH 0.35 (research-derived temporary defaults; GR01/M15 calibrates). TT01 B6→B7 delta: qualified 240→442 — OB_FVG_BEARISH 0→42, BOS_OB_BEARISH 0→160, Liquidity preserved, evaluator path 39 unchanged; the doc 06 family wr numbers (R13/R16) remain the M15/GR01 calibration inputs.
 - conf 0.35 vs 0.40 is a pure "trend-bonus" split, no other conf variance.
 
 ### P6.4 Trend-alignment bonus is value-negative (S3)

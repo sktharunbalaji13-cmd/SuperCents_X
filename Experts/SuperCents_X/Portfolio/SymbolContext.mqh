@@ -816,6 +816,7 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                                                                 m_weights, m_symbol, (int)Period(),
                                                                 disabled, "tick",
                                                                 (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
+                                                                ConfluenceConfig(),
                                                                 sig);
                     else
                         CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
@@ -823,7 +824,8 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                                                     m_confVal.GetMinConfidence(),
                                                     m_weights, m_symbol, (int)Period(),
                                                     disabled, "tick",
-                                                    (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS));
+                                                    (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
+                                                    ConfluenceConfig());
                     //--- Sprint 15.3: settle previously queued rows first so
                     //    the collector receives rows in decision order, then
                     //    queue the new row for forward-outcome settlement.
