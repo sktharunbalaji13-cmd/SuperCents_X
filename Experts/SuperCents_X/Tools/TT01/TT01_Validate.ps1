@@ -29,6 +29,13 @@
 #   Freeze procedure: run TT01 replay with the new code, copy the run CSV over
 #   baseline\telemetry_v4_20260130.csv, then run with -FreezeBaseline -FreezeId B6
 #   (freezeId default is B6 in this script).
+#   DD04 (2026-08-06) - second intentional algorithm correction (ledger C10):
+#   side-class written at CreateLevel + opposing-target resolver fixed. NOT
+#   observable via TT01 telemetry: the plan path (CExecutionPlanner ->
+#   plan.takeProfit -> live/shadow orders) is outside the replay chain (the
+#   outcome sim uses the legacy CEntrySetupBuilder fixed-RR builder), so the
+#   DD04 run is byte-identical vs B6 on all 500 rows - expected, no localization
+#   or re-freeze. DD04 correctness is carried by unit tests 46-52 (suite gate).
 #
 # Switches:
 #   -Skip compile,suite,replay : skip those phases (validators still run on captured CSV)

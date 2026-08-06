@@ -164,7 +164,7 @@ Path abbreviations: `LQD` = `Structure/LiquidityDetector.mqh`; `CONST` = `Utils/
 | V10 | Raw quality evidence exported | **FAIL** | `liquidityRaw` const 0.0 (S3) |
 | V11 | Unit tests exist | **FAIL** | none for detector (only evaluator tests in bench) |
 | V12 | Levels rendered on chart | **FAIL** | no renderer exists (S5) |
-| V13 | `classification` drives opposite-target selection | **FAIL** | never written (S4) |
+| V13 | `classification` drives opposite-target selection | **PASS (DD04)** | written at create; drives `TARGET_OPPOSING_LIQUIDITY` (S4) |
 
 ---
 
@@ -195,6 +195,8 @@ The liquidity detector has **no** `RatesTotalShrink` handler and advances four c
 `LiquidityLevel.classification` is set `LIQUIDITY_CLASS_UNKNOWN` at create (`LQD:753`) and **never reassigned anywhere** (only reads at `LQD:627–628` and `TargetResolver.mqh:40,46`). Default target policy `TARGET_OPPOSING_LIQUIDITY` (`ExecutionPlan\Types.mqh:49–51`) relies on `classification OR swept`; since class is always UNKNOWN the `|| ll.swept` fallback always fires — the "opposite" target resolves to **the same swept level's price**, defeating the opposing-liquidity design (falls back to Fixed-RR when far).
 
 **Classification:** Implementation Defect. **Confidence:** High. **Destination:** Sprint 20 (E3) — write classification on sweep (buy-side vs sell-side), telemetry the chosen target's side, verify it diverges from the swept level.
+
+**RESOLVED — DD04 (Sprint 20, commit `sprint20: DD04...`):** `classification` is now written at `CreateLevel` from the level type (EQH/INTERNAL_HH/EXTERNAL_HH → BUY_SIDE; EQL/INTERNAL_LL/EXTERNAL_LL → SELL_SIDE — the same side sets `DetectSweeps` uses), so ACTIVE levels are classifiable too (targets are typically un-swept pools). `ResolveTakeProfit` (TargetResolver.mqh) no longer matches the candidate's own level and drops the `|| ll.swept` escape: the target is the newest ACTIVE pool of the run-side class (`ll.id != candidate.liquidityId`, `ll.status == ACTIVE`, classification-only), falling through to Fixed-RR when no pool exists. Unit tests 46–52 (TDD RED 13 → GREEN 1183/1183). TT01 13 gates PASS with the CSV byte-identical vs B6 — the plan path (`CExecutionPlanner` → `plan.takeProfit` → live/shadow orders) is outside the replay telemetry chain (the outcome sim uses the legacy `CEntrySetupBuilder` fixed-RR builder), so no baseline re-freeze was required; E3's falsification ("target side == swept level side") is negated at unit level (tests 48/49: swept sell-side → buy-side pool ≠ source).
 
 ### L5 — No liquidity renderer — Medium
 
@@ -330,7 +332,7 @@ The 18.8 family figure 0.3027 matches the **gate-admitted subset** (conf ≥ 0.6
 |---|---|---|---|---|
 | E1 | Does close-back confirmation + closed-bar evaluation separate winning sweeps from noise? | S1: the touch-based population is diluted; P2/P1.2 say reclaim defines the event | Recompute sweep rows: keep only rows where a closed bar pierced AND the next bar closed back inside (on the frozen OHLC timeline, paper) — then compare wr | In-family wr with confirmation ≤ 0.2967 (no lift from confirmation) |
 | E2 | Can sweep quality be measured after instrumenting raw columns? | S3: `liquidityRaw` const 0; level attributes (delay, distance, member count) unavailable | Ship telemetry (schema v3.1/M41 family), re-run E1 on fresh data; report delay/distance distributions vs outcome | Distributions show no relationship with outcome in-sample |
-| E3 | Does writing `classification` fix the opposing-target degeneracy? | L4: target always resolves to the swept level | Unit test: swept sell-side level must map to a buy-side target different from the level | Target side == swept level side in ≥95% of cases after fix |
+| E3 | Does writing `classification` fix the opposing-target degeneracy? | L4: target always resolves to the swept level | Unit test: swept sell-side level must map to a buy-side target different from the level | Target side == swept level side in ≥95% of cases after fix — **ANSWERED NO (DD04): falsification negated — tests 48/49 show swept sell-side → buy-side pool ≠ source; source level and consumed pools are never targets; suite 1183/1183** |
 | E4 | Is 3-pip tolerance materially under-forming EQH/EQL? | L1: ATR-adaptive norm; 3 pips ~ nothing on JPY | ATR-scaled tolerance (0.5×ATR) paper experiment on frozen OHLC | Level count and family wr unchanged vs 3-pip baseline |
 | E5 | Does per-family gate threshold protect the live funnel? | P6.3: gate admits 89.4% of the worst family; 18.9 E1 | Simulate minConfidence ∈ {0.60, 0.70, 0.75, 0.80} for LIQUIDITY_BOS on frozen set; report admitted n/wr each | No config admits a LIQUIDITY subset with wr ≥ base 0.3321 |
 | E6 | Does a liquidity renderer change nothing but understanding? | S5: levels invisible | Implement renderer post-E1; verify chart parity with detector state | n/a (visual) — success = no logic change |

@@ -6,6 +6,7 @@
 #include "../../Confluence/Evaluators/PremiumDiscountEvaluator.mqh"
 #include "../../Confluence/ConfluenceScoreCalculator.mqh"
 #include "../../Confluence/ConfluenceEngine.mqh"
+#include "../../Entry/TargetResolver.mqh"
 #include "../TestAssert.mqh"
 
 //--- DD02 synthetic-series helpers
@@ -1054,6 +1055,176 @@ TestCounters RunConfluenceEngineTests(void)
         TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (cadence pass 2)");
         TEST_TRUE(ll.swept, "sweep confirmed on bar close");
         TEST_DATETIME_EQ(time[1], ll.sweptTime, "sweptTime = piercing bar close time");
+    }
+
+    // Test 46: DD04 — CreateLevel writes the side classification: EQH levels
+    //          are BUY_SIDE, EQL levels are SELL_SIDE (ledger C10: the field
+    //          was hardcoded UNKNOWN and never reassigned).
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (class buy)");
+        liq.CreateLevel(LIQUIDITY_EQH, 10.00, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (EQH)");
+        TEST_INT_EQ(LIQUIDITY_CLASS_BUY_SIDE, ll.classification, "EQH classified BUY_SIDE");
+    }
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (class sell)");
+        liq.CreateLevel(LIQUIDITY_EQL, 10.00, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (EQL)");
+        TEST_INT_EQ(LIQUIDITY_CLASS_SELL_SIDE, ll.classification, "EQL classified SELL_SIDE");
+    }
+
+    // Test 47: DD04 — remaining level types classify by the same side sets
+    //          used by DetectSweeps (HH family -> BUY_SIDE, LL family -> SELL_SIDE).
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (class all types)");
+        liq.CreateLevel(LIQUIDITY_INTERNAL_HH, 10.00, LIQUIDITY_ORIGIN_INTERNAL_HIGH, -1, -1);
+        liq.CreateLevel(LIQUIDITY_EXTERNAL_HH, 10.00, LIQUIDITY_ORIGIN_EXTERNAL_HIGH, -1, -1);
+        liq.CreateLevel(LIQUIDITY_INTERNAL_LL, 10.00, LIQUIDITY_ORIGIN_INTERNAL_LOW, -1, -1);
+        liq.CreateLevel(LIQUIDITY_EXTERNAL_LL, 10.00, LIQUIDITY_ORIGIN_EXTERNAL_LOW, -1, -1);
+        LiquidityLevel ll;
+        TEST_TRUE(liq.GetLevel(0, ll), "GetLevel(0) (INTERNAL_HH)");
+        TEST_INT_EQ(LIQUIDITY_CLASS_BUY_SIDE, ll.classification, "INTERNAL_HH -> BUY_SIDE");
+        TEST_TRUE(liq.GetLevel(1, ll), "GetLevel(1) (EXTERNAL_HH)");
+        TEST_INT_EQ(LIQUIDITY_CLASS_BUY_SIDE, ll.classification, "EXTERNAL_HH -> BUY_SIDE");
+        TEST_TRUE(liq.GetLevel(2, ll), "GetLevel(2) (INTERNAL_LL)");
+        TEST_INT_EQ(LIQUIDITY_CLASS_SELL_SIDE, ll.classification, "INTERNAL_LL -> SELL_SIDE");
+        TEST_TRUE(liq.GetLevel(3, ll), "GetLevel(3) (EXTERNAL_LL)");
+        TEST_INT_EQ(LIQUIDITY_CLASS_SELL_SIDE, ll.classification, "EXTERNAL_LL -> SELL_SIDE");
+    }
+
+    // Test 48: DD04 — E3 falsification (bullish): a long candidate born from a
+    //          SWEPT sell-side pool must target a DIFFERENT buy-side pool.
+    //          Pre-fix the resolver matched the candidate's OWN level via the
+    //          (classification || swept) escape, so target == source price.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (E3 bullish)");
+        const double P = 10.00;
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQL, P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQL) swept");
+        const double TARGET_P = 10.60;
+        int targetId = liq.CreateLevel(LIQUIDITY_EQH, TARGET_P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(sourceId >= 0 && targetId >= 0 && sourceId != targetId, "source and target ids distinct");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BULLISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0;
+        string policy = "";
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+        TEST_TRUE(ok, "target resolved (bullish E3)");
+        TEST_STR_EQ("Opposing Liquidity", policy, "policy = opposing liquidity");
+        TEST_DBL_EQ(TARGET_P, tp, "target = buy-side pool above, not the swept source");
+    }
+
+    // Test 49: DD04 — E3 falsification (bearish symmetric): a short candidate
+    //          born from a SWEPT buy-side pool targets a DIFFERENT sell-side
+    //          pool below.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (E3 bearish)");
+        const double P = 10.00;
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQH, P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQH) swept");
+        const double TARGET_P = 9.40;
+        int targetId = liq.CreateLevel(LIQUIDITY_EQL, TARGET_P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(sourceId >= 0 && targetId >= 0 && sourceId != targetId, "source and target ids distinct");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BEARISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0;
+        string policy = "";
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 9.95, 10.05, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+        TEST_TRUE(ok, "target resolved (bearish E3)");
+        TEST_STR_EQ("Opposing Liquidity", policy, "policy = opposing liquidity");
+        TEST_DBL_EQ(TARGET_P, tp, "target = sell-side pool below, not the swept source");
+    }
+
+    // Test 50: DD04 — no opposing pool available: falls through to the Fixed RR
+    //          fallback instead of targeting the swept source level.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (no opposing pool)");
+        const double P = 10.00;
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQL, P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQL) swept");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BULLISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0;
+        string policy = "";
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+        TEST_TRUE(ok, "fallback target resolved");
+        TEST_TRUE(StringFind(policy, "Fixed RR") >= 0, "policy falls back to Fixed RR");
+        TEST_DBL_NEAR(10.35, tp, 0.000001, "fixed RR target (entry + stopDist * 2)");
+    }
+
+    // Test 51: DD04 — same-level degeneracy guard: even when the candidate's
+    //          source level itself matches the run-side class, the resolver
+    //          must NEVER return the source level as the target.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (same-level guard)");
+        const double P = 10.00;
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQH, P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQH) swept");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BULLISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0;
+        string policy = "";
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 9.95, 9.90, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+        TEST_TRUE(ok, "fallback target resolved (same-level guard)");
+        TEST_TRUE(StringFind(policy, "Fixed RR") >= 0, "no opposing pool -> Fixed RR");
+        TEST_DBL_NEAR(10.05, tp, 0.000001, "target is NOT the swept source price");
+    }
+
+    // Test 52: DD04 — consumed pools are never targets: swept/mitigated/
+    //          invalidated non-source levels must be skipped; only ACTIVE
+    //          pools may serve as the opposing target.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (active-only target)");
+        const double P = 10.00;
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQL, P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQL) swept");
+        int sweptBuyId = liq.CreateLevel(LIQUIDITY_EQH, 10.80, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sweptBuyId, 2, D'2026.01.01 02:00'), "old EQH swept (consumed)");
+        const double ACTIVE_P = 11.00;
+        int activeBuyId = liq.CreateLevel(LIQUIDITY_EQH, ACTIVE_P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(sourceId >= 0 && sweptBuyId >= 0 && activeBuyId >= 0, "all levels created");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BULLISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0;
+        string policy = "";
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+        TEST_TRUE(ok, "target resolved (active-only)");
+        TEST_DBL_EQ(ACTIVE_P, tp, "target = ACTIVE buy-side pool, swept pool skipped");
     }
 
     SUITE_END("Confluence Engine Tests");

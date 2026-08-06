@@ -31,24 +31,30 @@ bool ResolveTakeProfit(const TradeCandidate &candidate,
 {
     if(policy == TARGET_OPPOSING_LIQUIDITY && candidate.hasLiquidity && candidate.liquidityId >= 0 && liqDetector != NULL)
     {
+        //--- DD04 (ledger C10): the opposing target is a DIFFERENT pool of the
+        //--- run-side class.  The candidate's own (source) level is never the
+        //--- target, consumed pools (swept/mitigated/invalidated) are never
+        //--- targets, and the classification is authoritative (no swept-flag
+        //--- fallback: classification is written at CreateLevel).
         int count = liqDetector.GetLevelCount();
-        for(int i = 0; i < count; i++)
+        for(int i = count - 1; i >= 0; i--)
         {
             LiquidityLevel ll;
-            if(liqDetector.GetLevel(i, ll) && ll.id == candidate.liquidityId)
+            if(!liqDetector.GetLevel(i, ll))
+                continue;
+            if(ll.id == candidate.liquidityId || ll.status != LIQUIDITY_STATUS_ACTIVE)
+                continue;
+            if(candidate.direction == CONFLUENCE_BULLISH && ll.classification == LIQUIDITY_CLASS_BUY_SIDE)
             {
-                if(candidate.direction == CONFLUENCE_BULLISH && (ll.classification == LIQUIDITY_CLASS_BUY_SIDE || ll.swept))
-                {
-                    takeProfit = ll.price;
-                    policyName = "Opposing Liquidity";
-                    return true;
-                }
-                else if(candidate.direction == CONFLUENCE_BEARISH && (ll.classification == LIQUIDITY_CLASS_SELL_SIDE || ll.swept))
-                {
-                    takeProfit = ll.price;
-                    policyName = "Opposing Liquidity";
-                    return true;
-                }
+                takeProfit = ll.price;
+                policyName = "Opposing Liquidity";
+                return true;
+            }
+            else if(candidate.direction == CONFLUENCE_BEARISH && ll.classification == LIQUIDITY_CLASS_SELL_SIDE)
+            {
+                takeProfit = ll.price;
+                policyName = "Opposing Liquidity";
+                return true;
             }
         }
     }

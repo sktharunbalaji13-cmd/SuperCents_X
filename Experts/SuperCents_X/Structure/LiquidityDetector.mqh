@@ -756,7 +756,14 @@ int CLiquidityDetector::CreateLevel(LiquidityType type, double price,
     level.averagePrice = price;
     level.memberCount = 1;
     level.type = type;
-    level.classification = LIQUIDITY_CLASS_UNKNOWN;
+    //--- DD04 (ledger C10): the side classification is intrinsic to the level
+    //--- type and is written here; it was previously hardcoded UNKNOWN and
+    //--- never reassigned, which forced TARGET_OPPOSING_LIQUIDITY to resolve
+    //--- the candidate's own swept level via the swept-flag fallback.
+    level.classification = (type == LIQUIDITY_EQH ||
+                            type == LIQUIDITY_EXTERNAL_HH ||
+                            type == LIQUIDITY_INTERNAL_HH) ?
+                           LIQUIDITY_CLASS_BUY_SIDE : LIQUIDITY_CLASS_SELL_SIDE;
     level.status = LIQUIDITY_STATUS_ACTIVE;
     level.origin = origin;
     level.leftSwingId = leftSwing;
