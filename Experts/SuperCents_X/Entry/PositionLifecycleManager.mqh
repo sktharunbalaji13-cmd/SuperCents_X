@@ -47,6 +47,7 @@ private:
     void    ProcessContext(int index);
     bool    RefreshPositionData(int index, PositionInfo &pos);
     bool    ParseEntryDecisionId(const string comment, int &outId);
+    bool    GetClosedProfit(ulong ticket, double &profit);
 
     void    DetectPartialClose(int index, PositionInfo &pos);
     void    PurgeClosedContexts(void);
@@ -343,6 +344,11 @@ void CPositionLifecycleManager::ProcessContext(int index)
                 evt.openedTime  = m_contexts[index].openedTime;
                 evt.closedTime  = m_contexts[index].closedTime;
                 evt.entryDecisionId = m_contexts[index].entryDecisionId;
+                //--- GR02A: net closed P/L (profit + swap + commission) from
+                //    the deal history; consumers classify actual outcomes.
+                double closeProfit = 0.0;
+                if(GetClosedProfit(m_contexts[index].ticket, closeProfit))
+                    evt.profit = closeProfit;
                 m_eventBus.Publish(evt);
             }
 
@@ -600,6 +606,35 @@ bool CPositionLifecycleManager::ParseEntryDecisionId(const string comment, int &
 
     outId = (int)StringToInteger(numStr);
     return true;
+}
+
+//------------------------------------------------------------------
+// GR02A: net closed P/L for a ticket (profit + swap + commission on
+// DEAL_ENTRY_OUT deals). Returns false when no out-deal exists for the
+// ticket, leaving consumers with the neutral default.
+//------------------------------------------------------------------
+
+bool CPositionLifecycleManager::GetClosedProfit(ulong ticket, double &profit)
+{
+    profit = 0.0;
+    bool found = false;
+    int deals = HistoryDealsTotal();
+    for(int i = deals - 1; i >= 0; i--)
+    {
+        ulong dealTicket = HistoryDealGetTicket(i);
+        if(dealTicket == 0)
+            continue;
+        if((ulong)HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID) != ticket)
+            continue;
+        if((int)HistoryDealGetInteger(dealTicket, DEAL_ENTRY) == DEAL_ENTRY_OUT)
+        {
+            profit += HistoryDealGetDouble(dealTicket, DEAL_PROFIT);
+            profit += HistoryDealGetDouble(dealTicket, DEAL_SWAP);
+            profit += HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
+            found = true;
+        }
+    }
+    return found;
 }
 
 //------------------------------------------------------------------

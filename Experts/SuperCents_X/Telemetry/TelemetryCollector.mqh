@@ -240,10 +240,14 @@ public:
 
     void SetEnabled(bool enabled) { m_enabled = enabled; }
 
-    bool Record(TelemetryRow &row)
+    //--- GR02A: records a decision row and returns the decisionId the
+    //    row was stored under (run-local assignment when caller passes
+    //    0).  The caller links the id to a candidate for later actual-
+    //    outcome settlement.  Returns 0 on failure.
+    int Record(TelemetryRow &row)
     {
         if(!m_isInitialized || !m_enabled)
-            return false;
+            return 0;
 
         if(row.decisionId == 0)
             row.decisionId = ++m_runId;
@@ -254,15 +258,54 @@ public:
         if(idx >= TELEMETRY_BUFFER_CAPACITY)
         {
             if(!FlushBuffer())
-                return false;
+                return 0;
             idx = 0;
         }
         m_rows[idx] = row;
         m_buffered++;
-        return true;
+        return row.decisionId;
     }
 
     bool Flush(void) { return FlushBuffer(); }
+
+    //--- GR02A: stamps the actual outcome (WIN/LOSS/BREAKEVEN +
+    //    OUTCOME_SOURCE_ACTUAL) onto the buffered row with the given
+    //    decisionId.  Simulated fields are never touched.  Returns false
+    //    when the id is unknown or the row has already been flushed
+    //    (position closed after run end - documented boundary).
+    bool ApplyActualOutcome(const int decisionId, const int actualOutcome)
+    {
+        if(!m_isInitialized)
+            return false;
+        if(decisionId <= 0)
+            return false;
+
+        for(int i = 0; i < m_buffered; i++)
+        {
+            if(m_rows[i].decisionId == decisionId)
+            {
+                m_rows[i].actualOutcome = actualOutcome;
+                m_rows[i].actualOutcomeSource = (int)OUTCOME_SOURCE_ACTUAL;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    int BufferedCount(void) const { return m_buffered; }
+
+    bool GetBufferedRow(const int decisionId, TelemetryRow &out) const
+    {
+        for(int i = 0; i < m_buffered; i++)
+        {
+            if(m_rows[i].decisionId == decisionId)
+            {
+                out = m_rows[i];
+                return true;
+            }
+        }
+        return false;
+    }
 
     void Shutdown(void)
     {

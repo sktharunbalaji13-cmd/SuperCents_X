@@ -1,7 +1,9 @@
-#include "../TestAssert.mqh"
+﻿#include "../TestAssert.mqh"
 #include "../../Telemetry/TelemetryTypes.mqh"
 #include "../../Telemetry/ConfigFingerprint.mqh"
 #include "../../Telemetry/TelemetryRowBuilder.mqh"
+#include "../../Telemetry/TelemetryCollector.mqh"
+#include "../../Telemetry/ActualOutcomeSettler.mqh"
 
 // ─── TelemetryTypes ────────────────────────────────────────────────
 
@@ -614,6 +616,140 @@ void TestRowBuilder_FingerprintIncludesFloors(TestCounters &counters)
                "Row fingerprint reflects the family floors");
 }
 
+// ─── GR02A: actual-outcome instrumentation (settlement) ────────────
+
+void TestCollector_RecordAssignsDecisionId(TestCounters &counters)
+{
+    CTelemetryCollector c;
+    c.Init();
+
+    TelemetryRow r1, r2, r3;
+    int id1 = c.Record(r1);
+    int id2 = c.Record(r2);
+    int id3 = c.Record(r3);
+
+    TEST_INT_EQ(1, id1, "first recorded row gets decisionId 1");
+    TEST_INT_EQ(2, id2, "second recorded row gets decisionId 2");
+    TEST_INT_EQ(3, id3, "third recorded row gets decisionId 3");
+    TEST_INT_EQ(1, r1.decisionId, "assigned id is written back into the row");
+    c.Shutdown();
+}
+
+void TestCollector_ApplyActualOutcome(TestCounters &counters)
+{
+    CTelemetryCollector c;
+    c.Init();
+
+    TelemetryRow r1, r2, r3;
+    c.Record(r1);
+    c.Record(r2);
+    c.Record(r3);
+
+    TEST_FALSE(c.ApplyActualOutcome(0, (int)TELEMETRY_OUTCOME_WIN), "decisionId 0 rejected");
+    TEST_FALSE(c.ApplyActualOutcome(99, (int)TELEMETRY_OUTCOME_WIN), "unknown decisionId rejected");
+
+    TEST_TRUE(c.ApplyActualOutcome(2, (int)TELEMETRY_OUTCOME_WIN), "known decisionId settles");
+
+    TelemetryRow out;
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_WIN, out.actualOutcome, "actualOutcome settled");
+    TEST_INT_EQ((int)OUTCOME_SOURCE_ACTUAL, out.actualOutcomeSource, "source marked ACTUAL");
+
+    TelemetryRow untouched;
+    TEST_TRUE(c.GetBufferedRow(1, untouched), "buffered row 1 readable");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_UNKNOWN, untouched.actualOutcome, "other rows untouched");
+
+    TEST_TRUE(c.ApplyActualOutcome(1, (int)TELEMETRY_OUTCOME_LOSS), "second settle works");
+    c.Shutdown();
+}
+
+void TestActualOutcomeSettler_Classify(TestCounters &counters)
+{
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_WIN, CActualOutcomeSettler::ClassifyActual(12.5),
+                "positive closed profit -> WIN");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_LOSS, CActualOutcomeSettler::ClassifyActual(-3.25),
+                "negative closed profit -> LOSS");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_BREAKEVEN, CActualOutcomeSettler::ClassifyActual(0.0),
+                "zero closed profit -> BREAKEVEN");
+}
+
+void TestActualOutcomeSettler_EventMapping(TestCounters &counters)
+{
+    CTelemetryCollector c;
+    c.Init();
+
+    TelemetryRow r1, r2;
+    c.Record(r1);
+    c.Record(r2);                              // decisionIds 1, 2
+
+    CActualOutcomeSettler s;
+    s.SetCollector(&c);
+    s.Register(7, 2);                          // candidate 7 -> decision 2
+    s.Register(0, 2);                          // ignored (candidateId 0)
+    s.Register(8, 0);                          // ignored (decisionId 0)
+
+    EventData lossEvt;
+    lossEvt.eventType = EVENT_POSITION_CLOSED;
+    lossEvt.entryDecisionId = 7;
+    lossEvt.profit = -2.0;
+    s.HandleEvent(lossEvt);
+    TelemetryRow out;
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after LOSS");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_LOSS, out.actualOutcome, "negative profit settles LOSS");
+    TEST_INT_EQ((int)OUTCOME_SOURCE_ACTUAL, out.actualOutcomeSource, "source ACTUAL after loss");
+
+    EventData winEvt;
+    winEvt.eventType = EVENT_POSITION_CLOSED;
+    winEvt.entryDecisionId = 7;
+    winEvt.profit = 4.5;
+    s.HandleEvent(winEvt);
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after WIN");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_WIN, out.actualOutcome, "positive profit settles WIN");
+
+    EventData beEvt;
+    beEvt.eventType = EVENT_POSITION_CLOSED;
+    beEvt.entryDecisionId = 7;
+    beEvt.profit = 0.0;
+    s.HandleEvent(beEvt);
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after BE");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_BREAKEVEN, out.actualOutcome, "zero profit settles BREAKEVEN");
+
+    EventData openEvt;
+    openEvt.eventType = EVENT_POSITION_OPENED;
+    openEvt.entryDecisionId = 7;
+    openEvt.profit = 1.0;
+    s.HandleEvent(openEvt);
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after OPENED");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_BREAKEVEN, out.actualOutcome, "OPENED event ignored");
+
+    EventData unknownEvt;
+    unknownEvt.eventType = EVENT_POSITION_CLOSED;
+    unknownEvt.entryDecisionId = 99;
+    unknownEvt.profit = -1.0;
+    s.HandleEvent(unknownEvt);
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after unknown candidate");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_BREAKEVEN, out.actualOutcome, "unknown candidate ignored");
+
+    EventData zeroEvt;
+    zeroEvt.eventType = EVENT_POSITION_CLOSED;
+    zeroEvt.entryDecisionId = 0;
+    zeroEvt.profit = 5.0;
+    s.HandleEvent(zeroEvt);
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after candidateId 0");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_BREAKEVEN, out.actualOutcome, "candidateId 0 ignored");
+
+    EventData missingEvt;
+    missingEvt.eventType = EVENT_POSITION_CLOSED;
+    missingEvt.entryDecisionId = 7;
+    missingEvt.profit = 9.0;
+    s.Reset();
+    s.HandleEvent(missingEvt);
+    TEST_TRUE(c.GetBufferedRow(2, out), "buffered row 2 readable after reset");
+    TEST_INT_EQ((int)TELEMETRY_OUTCOME_BREAKEVEN, out.actualOutcome, "reset clears the mapping");
+
+    c.Shutdown();
+}
+
 // ─── Entry Point ───────────────────────────────────────────────────
 
 TestCounters RunTelemetryTests()
@@ -649,6 +785,10 @@ TestCounters RunTelemetryTests()
     TestFingerprint_CanonicalUnorderedDisabled(counters);
     TestFingerprint_SensitiveToFamilyFloors(counters);
     TestRowBuilder_FingerprintIncludesFloors(counters);
+    TestCollector_RecordAssignsDecisionId(counters);
+    TestCollector_ApplyActualOutcome(counters);
+    TestActualOutcomeSettler_Classify(counters);
+    TestActualOutcomeSettler_EventMapping(counters);
 
     SUITE_END("Telemetry Schema & Fingerprint Tests");
     return counters;

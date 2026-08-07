@@ -61,6 +61,7 @@
 #include "../Telemetry/TelemetryCollector.mqh"
 #include "../Telemetry/TelemetryRowBuilder.mqh"
 #include "../Telemetry/ForwardOutcomeSimulator.mqh"
+#include "../Telemetry/ActualOutcomeSettler.mqh"
 
 #define TELEMETRY_SETTLE_MAX_HOLD_BARS 50
 
@@ -111,6 +112,13 @@ private:
     ENUM_ENTRY_MODE           m_entryMode;
     CTelemetryCollector      *m_telemetry;
 
+    //--- GR02A (Sprint 20): live-stage observability. The settler links
+    //    telemetry decisionIds to candidateIds (parsed back from order
+    //    comments by CPositionLifecycleManager) and stamps actual outcomes
+    //    from EVENT_POSITION_CLOSED. Instrumentation only; inert in modes
+    //    that do not both telemetry and execute.
+    CActualOutcomeSettler   *m_settler;
+
     //--- Sprint 15.3: deferred outcome settlement. Rows are queued here and
     //    settled (simulated forward outcome) once TELEMETRY_SETTLE_MAX_HOLD_BARS
     //    bars have elapsed, so the promotion gate sees real settled trades.
@@ -118,6 +126,7 @@ private:
     CFixedRRPolicy            m_outcomePolicy;
     TelemetryRow              m_pendingRows[];
     datetime                  m_pendingEntryTime[];
+    int                       m_pendingCandidateId[];
     int                       m_pendingCount;
     CShadowTradeStateProvider m_shadowProvider;
     CShadowRiskEvaluator      m_shadowRisk;
@@ -145,7 +154,7 @@ private:
     void OnHistoryReset(void) { m_lastCHOCHCount = 0; }
 
     //--- Sprint 15.3: deferred outcome settlement.
-    void QueueForSettlement(const TelemetryRow &row);
+    void QueueForSettlement(const TelemetryRow &row, const int candidateId);
     bool SettleRow(TelemetryRow &row, datetime entryBarTime);
     void SettleDue(void);
     void SettleRemaining(void);
@@ -233,6 +242,7 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_entryOrchestrator(NULL)
     , m_entryMode(entryMode)
     , m_telemetry(NULL)
+    , m_settler(NULL)
     , m_outcomePolicy()
     , m_pendingCount(0)
     , m_shadowProvider()
@@ -568,6 +578,21 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         }
     }
 
+    //--- GR02A: wire the actual-outcome settler into the same close-event
+    //    stream as the reporter. It only becomes observable when rows are
+    //    recorded (telemetry modes) AND orders are sent (execution modes) —
+    //    today the two are mutually exclusive, so this is provably inert.
+    if(m_telemetry != NULL)
+    {
+        m_settler = new CActualOutcomeSettler();
+        if(m_settler != NULL)
+        {
+            m_settler.SetCollector(m_telemetry);
+            if(m_eventBus != NULL)
+                m_eventBus.Subscribe(EVENT_POSITION_CLOSED, m_settler);
+        }
+    }
+
     if(m_positionLifecycleManager != NULL && m_eventBus != NULL)
         m_positionLifecycleManager.SetEventBus(m_eventBus);
 
@@ -861,8 +886,10 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                     //--- Sprint 15.3: settle previously queued rows first so
                     //    the collector receives rows in decision order, then
                     //    queue the new row for forward-outcome settlement.
+                    //    GR02A: the candidate id travels with the row so the
+                    //    settler can link a live close back to this decision.
                     SettleDue();
-                    QueueForSettlement(row);
+                    QueueForSettlement(row, newDecision.candidateId);
                 }
             }
         }
@@ -1116,6 +1143,14 @@ void CSymbolContext::Shutdown(void)
         m_statisticsReporter = NULL;
     }
 
+    if(m_settler != NULL)
+    {
+        if(m_eventBus != NULL)
+            m_eventBus.Unsubscribe(EVENT_POSITION_CLOSED, m_settler);
+        delete m_settler;
+        m_settler = NULL;
+    }
+
     if(m_healthMonitor != NULL)
     {
         m_healthMonitor.Shutdown();
@@ -1185,7 +1220,7 @@ PerSymbolMetrics CSymbolContext::GetSnapshot(void) const
 //|  Sprint 15.3: deferred outcome settlement                         |
 //+------------------------------------------------------------------+
 
-void CSymbolContext::QueueForSettlement(const TelemetryRow &row)
+void CSymbolContext::QueueForSettlement(const TelemetryRow &row, const int candidateId)
 {
     if(m_telemetry == NULL)
         return;
@@ -1195,9 +1230,11 @@ void CSymbolContext::QueueForSettlement(const TelemetryRow &row)
     {
         ArrayResize(m_pendingRows, idx + 256);
         ArrayResize(m_pendingEntryTime, idx + 256);
+        ArrayResize(m_pendingCandidateId, idx + 256);
     }
     m_pendingRows[idx] = row;
     m_pendingEntryTime[idx] = iTime(m_symbol, (ENUM_TIMEFRAMES)Period(), 0);
+    m_pendingCandidateId[idx] = candidateId;
     m_pendingCount++;
 }
 
@@ -1290,13 +1327,18 @@ void CSymbolContext::SettleDue(void)
         bool settled = false;
         if(due && SettleRow(row, entryBarTime))
         {
-            m_telemetry.Record(row);
+            //--- GR02A: capture the collector-assigned decisionId so the
+            //    settler can later stamp the actual outcome for this row.
+            int decisionId = m_telemetry.Record(row);
+            if(decisionId > 0 && m_settler != NULL)
+                m_settler.Register(m_pendingCandidateId[i], decisionId);
             settled = true;
         }
         if(!settled)
         {
             m_pendingRows[keep] = row;
             m_pendingEntryTime[keep] = entryBarTime;
+            m_pendingCandidateId[keep] = m_pendingCandidateId[i];
             keep++;
         }
     }
@@ -1316,7 +1358,10 @@ void CSymbolContext::SettleRemaining(void)
         datetime entryBarTime = m_pendingEntryTime[i];
         if(!SettleRow(row, entryBarTime))
             unsettled++;
-        m_telemetry.Record(row);
+        //--- GR02A: capture the collector-assigned decisionId (see SettleDue).
+        int decisionId = m_telemetry.Record(row);
+        if(decisionId > 0 && m_settler != NULL)
+            m_settler.Register(m_pendingCandidateId[i], decisionId);
     }
     m_pendingCount = 0;
     if(unsettled > 0)
