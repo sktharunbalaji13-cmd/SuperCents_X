@@ -19,6 +19,7 @@
 #include "unit/TestCalibrationStructural.mqh"
 #include "unit/TestProductionProviders.mqh"
 #include "unit/TestLifecycleContract.mqh"
+#include "unit/TestHistoryEpoch.mqh"
 #include "integration/TestValidationLab.mqh"
 
 TestCounters RunAllSuperCentsTests(void)
@@ -90,6 +91,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunLifecycleContractTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunHistoryEpochTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");
