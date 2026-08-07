@@ -49,7 +49,7 @@ private:
         cfg.brokerDigits = brokerDigits;
         cfg.telemetryEnabled = true;
         cfg.useProductionProviders = false;
-        //--- DD05: the per-family admission floors participate in the
+        //--- GR01: the per-family admission floors participate in the
         //    fingerprint (they change which rows qualify, hence
         //    outcomes).  Two floor sets must never share a fingerprint.
         cfg.familyFloorLiquidity = confluenceCfg.familyFloorLiquidity;
@@ -57,6 +57,7 @@ private:
         cfg.familyFloorOrderBlock = confluenceCfg.familyFloorOrderBlock;
         cfg.familyFloorBOS = confluenceCfg.familyFloorBOS;
         cfg.familyFloorCHOCH = confluenceCfg.familyFloorCHOCH;
+        cfg.familyFloorUnknown = confluenceCfg.familyFloorUnknown;
         return CConfigFingerprint::Compute(cfg, symbol, timeframe, "FixedRR", "1");
     }
 

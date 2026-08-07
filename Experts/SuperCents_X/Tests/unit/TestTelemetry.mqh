@@ -584,6 +584,9 @@ void TestFingerprint_SensitiveToFamilyFloors(TestCounters &counters)
     cfg.familyFloorFVG = 0.50;
     ulong changed = CConfigFingerprint::Compute(cfg, "EURUSD", PERIOD_H1, "FixedRR", "1");
     TEST_FALSE(defaults == changed, "Family floors participate in the fingerprint");
+    cfg.familyFloorUnknown = 0.45;
+    ulong changed2 = CConfigFingerprint::Compute(cfg, "EURUSD", PERIOD_H1, "FixedRR", "1");
+    TEST_FALSE(changed == changed2, "Unknown-family floor participates in the fingerprint");
 }
 
 void TestRowBuilder_FingerprintIncludesFloors(TestCounters &counters)
@@ -602,6 +605,7 @@ void TestRowBuilder_FingerprintIncludesFloors(TestCounters &counters)
 
     ConfluenceConfig cfgCustom;
     cfgCustom.familyFloorLiquidity = 0.55;
+    cfgCustom.familyFloorUnknown = 0.55;
     TelemetryRow rowB;
     CTelemetryRowBuilder::Build(rowB, cr, newDec, false, EntryDecision(), 0.60,
                                 w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, cfgCustom);

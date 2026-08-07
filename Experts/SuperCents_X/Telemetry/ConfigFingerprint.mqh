@@ -102,6 +102,7 @@ public:
         canonical += "|" + DoubleToString(cfg.familyFloorOrderBlock, 6);
         canonical += "|" + DoubleToString(cfg.familyFloorBOS, 6);
         canonical += "|" + DoubleToString(cfg.familyFloorCHOCH, 6);
+        canonical += "|" + DoubleToString(cfg.familyFloorUnknown, 6);
         return canonical;
     }
 

@@ -20,9 +20,12 @@ public:
         m_cfg = cfg;
     }
 
-    //--- DD05: resolve the admission floor for the winning rule family.
-    //    Unknown/unevaluated families fall back to the global
-    //    minConfidence (legacy behavior).
+    //--- GR01: resolve the admission floor for the winning rule family.
+    //    Per-family floors are evidence-calibrated (frozen Sprint 17 funnel,
+    //    docs/Sprint20_GR01_Decision.md).  The UNKNOWN family (evaluator
+    //    path / rules without a family) uses its own floor; the global
+    //    minConfidence is no longer the fallback — it stays the legacy
+    //    replay/telemetry gate only.
     double ResolveFloor(const ENUM_RULE_FAMILY family) const
     {
         switch(family)
@@ -32,8 +35,9 @@ public:
             case RULE_FAMILY_ORDER_BLOCK:  return m_cfg.familyFloorOrderBlock;
             case RULE_FAMILY_BOS:          return m_cfg.familyFloorBOS;
             case RULE_FAMILY_CHOCH:        return m_cfg.familyFloorCHOCH;
+            case RULE_FAMILY_UNKNOWN:      return m_cfg.familyFloorUnknown;
         }
-        return m_cfg.minConfidence;
+        return m_cfg.familyFloorUnknown;
     }
 
     virtual void Validate(const ConfluenceResult &confluence, const EntryContext &ctx, EntryFilterResult &out)

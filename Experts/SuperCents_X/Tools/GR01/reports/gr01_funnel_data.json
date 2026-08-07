@@ -1,0 +1,1369 @@
+{
+  "bootstrap": {
+    "BOS": {
+      "hi": 0.4056,
+      "lo": 0.3403
+    },
+    "CHOCH": {
+      "hi": 0.4064,
+      "lo": 0.307
+    },
+    "FVG": {
+      "hi": 0.3472,
+      "lo": 0.3306
+    },
+    "LIQUIDITY": {
+      "hi": 0.3116,
+      "lo": 0.2817
+    },
+    "ORDER_BLOCK": null,
+    "UNKNOWN": {
+      "hi": 0.3377,
+      "lo": 0.2905
+    }
+  },
+  "dataset": {
+    "decidedRows": 18536,
+    "files": 19
+  },
+  "families": {
+    "BOS": {
+      "admittedCurrent": {
+        "be": 1,
+        "confMax": 0.45,
+        "confMean": 0.4344,
+        "losses": 537,
+        "meanR": 0.1227,
+        "n": 858,
+        "wins": 320,
+        "wr": 0.3734
+      },
+      "be": 1,
+      "confMax": 0.45,
+      "confMean": 0.4344,
+      "floorCurrent": 0.35,
+      "losses": 537,
+      "meanR": 0.1227,
+      "n": 858,
+      "proposal": {
+        "floor": 0.45,
+        "meanR": 0.1252,
+        "minN": 100,
+        "n": 590,
+        "wr": 0.3746
+      },
+      "wins": 320,
+      "wr": 0.3734
+    },
+    "CHOCH": {
+      "admittedCurrent": {
+        "be": 0,
+        "confMax": 0.5,
+        "confMean": 0.4611,
+        "losses": 220,
+        "meanR": 0.0505,
+        "n": 342,
+        "wins": 122,
+        "wr": 0.3567
+      },
+      "be": 0,
+      "confMax": 0.5,
+      "confMean": 0.4611,
+      "floorCurrent": 0.35,
+      "losses": 220,
+      "meanR": 0.0505,
+      "n": 342,
+      "proposal": {
+        "floor": 0.3,
+        "meanR": 0.0505,
+        "minN": 100,
+        "n": 342,
+        "wr": 0.3567
+      },
+      "wins": 122,
+      "wr": 0.3567
+    },
+    "FVG": {
+      "admittedCurrent": {
+        "be": 1,
+        "confMax": 0.4,
+        "confMean": 0.4,
+        "losses": 5950,
+        "meanR": -0.0059,
+        "n": 8934,
+        "wins": 2983,
+        "wr": 0.3339
+      },
+      "be": 4,
+      "confMax": 0.4,
+      "confMean": 0.3863,
+      "floorCurrent": 0.4,
+      "losses": 8142,
+      "meanR": 0.0097,
+      "n": 12320,
+      "proposal": {
+        "floor": 0.3,
+        "meanR": 0.0097,
+        "minN": 500,
+        "n": 12320,
+        "wr": 0.3389
+      },
+      "wins": 4174,
+      "wr": 0.3389
+    },
+    "LIQUIDITY": {
+      "admittedCurrent": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.6,
+        "losses": 2216,
+        "meanR": -0.1002,
+        "n": 3178,
+        "wins": 962,
+        "wr": 0.3027
+      },
+      "be": 0,
+      "confMax": 0.6,
+      "confMean": 0.5947,
+      "floorCurrent": 0.6,
+      "losses": 2499,
+      "meanR": -0.1179,
+      "n": 3553,
+      "proposal": {
+        "floor": 0.6,
+        "meanR": -0.1002,
+        "minN": 355,
+        "n": 3178,
+        "wr": 0.3027
+      },
+      "wins": 1054,
+      "wr": 0.2967
+    },
+    "ORDER_BLOCK": {
+      "admittedCurrent": {
+        "be": 0,
+        "confMax": null,
+        "confMean": null,
+        "losses": 0,
+        "meanR": null,
+        "n": 0,
+        "wins": 0,
+        "wr": null
+      },
+      "be": 0,
+      "confMax": null,
+      "confMean": null,
+      "floorCurrent": 0.35,
+      "losses": 0,
+      "meanR": null,
+      "n": 0,
+      "proposal": {
+        "floor": null,
+        "meanR": null,
+        "minN": 100,
+        "n": null,
+        "wr": null
+      },
+      "wins": 0,
+      "wr": null
+    },
+    "UNKNOWN": {
+      "admittedCurrent": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.6,
+        "losses": 207,
+        "meanR": -0.1247,
+        "n": 293,
+        "wins": 86,
+        "wr": 0.2935
+      },
+      "be": 0,
+      "confMax": 0.6,
+      "confMean": 0.4294,
+      "floorCurrent": 0.6,
+      "losses": 1003,
+      "meanR": -0.0578,
+      "n": 1463,
+      "proposal": {
+        "floor": 0.3,
+        "meanR": -0.0578,
+        "minN": 146,
+        "n": 1463,
+        "wr": 0.3144
+      },
+      "wins": 460,
+      "wr": 0.3144
+    }
+  },
+  "sweeps": {
+    "BOS": [
+      {
+        "floor": 0.3,
+        "meanR": 0.1227,
+        "n": 858,
+        "wr": 0.3734
+      },
+      {
+        "floor": 0.35,
+        "meanR": 0.1227,
+        "n": 858,
+        "wr": 0.3734
+      },
+      {
+        "floor": 0.4,
+        "meanR": 0.1227,
+        "n": 858,
+        "wr": 0.3734
+      },
+      {
+        "floor": 0.45,
+        "meanR": 0.1252,
+        "n": 590,
+        "wr": 0.3746
+      },
+      {
+        "floor": 0.5,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.55,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.6,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.65,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.7,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.75,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.8,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      }
+    ],
+    "CHOCH": [
+      {
+        "floor": 0.3,
+        "meanR": 0.0505,
+        "n": 342,
+        "wr": 0.3567
+      },
+      {
+        "floor": 0.35,
+        "meanR": 0.0505,
+        "n": 342,
+        "wr": 0.3567
+      },
+      {
+        "floor": 0.4,
+        "meanR": 0.0505,
+        "n": 342,
+        "wr": 0.3567
+      },
+      {
+        "floor": 0.45,
+        "meanR": 0.0505,
+        "n": 342,
+        "wr": 0.3567
+      },
+      {
+        "floor": 0.5,
+        "meanR": 0.1095,
+        "n": 76,
+        "wr": 0.3816
+      },
+      {
+        "floor": 0.55,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.6,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.65,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.7,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.75,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.8,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      }
+    ],
+    "FVG": [
+      {
+        "floor": 0.3,
+        "meanR": 0.0097,
+        "n": 12320,
+        "wr": 0.3389
+      },
+      {
+        "floor": 0.35,
+        "meanR": 0.0097,
+        "n": 12320,
+        "wr": 0.3389
+      },
+      {
+        "floor": 0.4,
+        "meanR": -0.0059,
+        "n": 8934,
+        "wr": 0.3339
+      },
+      {
+        "floor": 0.45,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.5,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.55,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.6,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.65,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.7,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.75,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.8,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      }
+    ],
+    "LIQUIDITY": [
+      {
+        "floor": 0.3,
+        "meanR": -0.1179,
+        "n": 3553,
+        "wr": 0.2967
+      },
+      {
+        "floor": 0.35,
+        "meanR": -0.1179,
+        "n": 3553,
+        "wr": 0.2967
+      },
+      {
+        "floor": 0.4,
+        "meanR": -0.1179,
+        "n": 3553,
+        "wr": 0.2967
+      },
+      {
+        "floor": 0.45,
+        "meanR": -0.1179,
+        "n": 3553,
+        "wr": 0.2967
+      },
+      {
+        "floor": 0.5,
+        "meanR": -0.1179,
+        "n": 3553,
+        "wr": 0.2967
+      },
+      {
+        "floor": 0.55,
+        "meanR": -0.1179,
+        "n": 3553,
+        "wr": 0.2967
+      },
+      {
+        "floor": 0.6,
+        "meanR": -0.1002,
+        "n": 3178,
+        "wr": 0.3027
+      },
+      {
+        "floor": 0.65,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.7,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.75,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.8,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      }
+    ],
+    "ORDER_BLOCK": [
+      {
+        "floor": 0.3,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.35,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.4,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.45,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.5,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.55,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.6,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.65,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.7,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.75,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.8,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      }
+    ],
+    "UNKNOWN": [
+      {
+        "floor": 0.3,
+        "meanR": -0.0578,
+        "n": 1463,
+        "wr": 0.3144
+      },
+      {
+        "floor": 0.35,
+        "meanR": -0.0578,
+        "n": 1463,
+        "wr": 0.3144
+      },
+      {
+        "floor": 0.4,
+        "meanR": -0.1615,
+        "n": 703,
+        "wr": 0.2802
+      },
+      {
+        "floor": 0.45,
+        "meanR": -0.2094,
+        "n": 442,
+        "wr": 0.2647
+      },
+      {
+        "floor": 0.5,
+        "meanR": -0.2094,
+        "n": 442,
+        "wr": 0.2647
+      },
+      {
+        "floor": 0.55,
+        "meanR": -0.2094,
+        "n": 442,
+        "wr": 0.2647
+      },
+      {
+        "floor": 0.6,
+        "meanR": -0.1247,
+        "n": 293,
+        "wr": 0.2935
+      },
+      {
+        "floor": 0.65,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.7,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.75,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      },
+      {
+        "floor": 0.8,
+        "meanR": null,
+        "n": 0,
+        "wr": null
+      }
+    ]
+  },
+  "walkForward": {
+    "telemetry_v3_EURUSD_H1_20260309.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4307,
+        "losses": 16,
+        "meanR": 0.9091,
+        "n": 44,
+        "wins": 28,
+        "wr": 0.6364
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3869,
+        "losses": 412,
+        "meanR": 0.1154,
+        "n": 662,
+        "wins": 250,
+        "wr": 0.3776
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5897,
+        "losses": 180,
+        "meanR": -0.4215,
+        "n": 223,
+        "wins": 43,
+        "wr": 0.1928
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.439,
+        "losses": 44,
+        "meanR": 0.0588,
+        "n": 68,
+        "wins": 24,
+        "wr": 0.3529
+      }
+    },
+    "telemetry_v3_EURUSD_H1_20260507.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4302,
+        "losses": 24,
+        "meanR": 0.3256,
+        "n": 43,
+        "wins": 19,
+        "wr": 0.4419
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3853,
+        "losses": 394,
+        "meanR": -0.1413,
+        "n": 552,
+        "wins": 158,
+        "wr": 0.2862
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5946,
+        "losses": 168,
+        "meanR": 0.1211,
+        "n": 268,
+        "wins": 100,
+        "wr": 0.3731
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.3939,
+        "losses": 95,
+        "meanR": 0.0743,
+        "n": 148,
+        "wins": 53,
+        "wr": 0.3581
+      }
+    },
+    "telemetry_v3_EURUSD_H1_20260703.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4319,
+        "losses": 25,
+        "meanR": -0.0833,
+        "n": 36,
+        "wins": 11,
+        "wr": 0.3056
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3867,
+        "losses": 467,
+        "meanR": -0.0246,
+        "n": 692,
+        "wins": 225,
+        "wr": 0.3251
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5975,
+        "losses": 142,
+        "meanR": -0.1089,
+        "n": 202,
+        "wins": 60,
+        "wr": 0.297
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4231,
+        "losses": 49,
+        "meanR": -0.2615,
+        "n": 65,
+        "wins": 16,
+        "wr": 0.2462
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260120.csv": {
+      "BOS": {
+        "be": 1,
+        "confMax": 0.45,
+        "confMean": 0.4397,
+        "losses": 22,
+        "meanR": -0.0014,
+        "n": 34,
+        "wins": 11,
+        "wr": 0.3333
+      },
+      "FVG": {
+        "be": 1,
+        "confMax": 0.4,
+        "confMean": 0.3877,
+        "losses": 356,
+        "meanR": 0.1178,
+        "n": 574,
+        "wins": 217,
+        "wr": 0.3787
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5942,
+        "losses": 161,
+        "meanR": -0.1083,
+        "n": 231,
+        "wins": 70,
+        "wr": 0.303
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4385,
+        "losses": 115,
+        "meanR": 0.0618,
+        "n": 178,
+        "wins": 63,
+        "wr": 0.3539
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260203.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4311,
+        "losses": 34,
+        "meanR": -0.2667,
+        "n": 45,
+        "wins": 11,
+        "wr": 0.2444
+      },
+      "FVG": {
+        "be": 1,
+        "confMax": 0.4,
+        "confMean": 0.3877,
+        "losses": 430,
+        "meanR": 0.2257,
+        "n": 728,
+        "wins": 297,
+        "wr": 0.4085
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5982,
+        "losses": 140,
+        "meanR": -0.1212,
+        "n": 198,
+        "wins": 58,
+        "wr": 0.2929
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.55,
+        "confMean": 0.4469,
+        "losses": 27,
+        "meanR": -0.5312,
+        "n": 32,
+        "wins": 5,
+        "wr": 0.1562
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260218.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4391,
+        "losses": 44,
+        "meanR": -0.4,
+        "n": 55,
+        "wins": 11,
+        "wr": 0.2
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3867,
+        "losses": 474,
+        "meanR": -0.0943,
+        "n": 680,
+        "wins": 206,
+        "wr": 0.3029
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5932,
+        "losses": 118,
+        "meanR": -0.1614,
+        "n": 168,
+        "wins": 50,
+        "wr": 0.2976
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4574,
+        "losses": 56,
+        "meanR": 0.1963,
+        "n": 94,
+        "wins": 38,
+        "wr": 0.4043
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260305.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4278,
+        "losses": 32,
+        "meanR": -0.6667,
+        "n": 36,
+        "wins": 4,
+        "wr": 0.1111
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3862,
+        "losses": 405,
+        "meanR": 0.0468,
+        "n": 622,
+        "wins": 217,
+        "wr": 0.3489
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.595,
+        "losses": 164,
+        "meanR": -0.2291,
+        "n": 221,
+        "wins": 57,
+        "wr": 0.2579
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4742,
+        "losses": 83,
+        "meanR": -0.075,
+        "n": 120,
+        "wins": 37,
+        "wr": 0.3083
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260319.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4325,
+        "losses": 34,
+        "meanR": 0.2105,
+        "n": 57,
+        "wins": 23,
+        "wr": 0.4035
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3874,
+        "losses": 457,
+        "meanR": 0.0133,
+        "n": 694,
+        "wins": 237,
+        "wr": 0.3415
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.594,
+        "losses": 153,
+        "meanR": -0.2858,
+        "n": 201,
+        "wins": 48,
+        "wr": 0.2388
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.3927,
+        "losses": 32,
+        "meanR": 0.2545,
+        "n": 55,
+        "wins": 23,
+        "wr": 0.4182
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260403.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4343,
+        "losses": 43,
+        "meanR": 0.1571,
+        "n": 70,
+        "wins": 27,
+        "wr": 0.3857
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3832,
+        "losses": 449,
+        "meanR": 0.0092,
+        "n": 675,
+        "wins": 226,
+        "wr": 0.3348
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5973,
+        "losses": 143,
+        "meanR": 0.0697,
+        "n": 223,
+        "wins": 80,
+        "wr": 0.3587
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.3758,
+        "losses": 26,
+        "meanR": -0.3636,
+        "n": 33,
+        "wins": 7,
+        "wr": 0.2121
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260420.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.43,
+        "losses": 20,
+        "meanR": 0.0,
+        "n": 30,
+        "wins": 10,
+        "wr": 0.3333
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3868,
+        "losses": 459,
+        "meanR": 0.0654,
+        "n": 714,
+        "wins": 255,
+        "wr": 0.3571
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.594,
+        "losses": 132,
+        "meanR": -0.0615,
+        "n": 193,
+        "wins": 61,
+        "wr": 0.3161
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4164,
+        "losses": 61,
+        "meanR": -0.6143,
+        "n": 70,
+        "wins": 9,
+        "wr": 0.1286
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260504.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4314,
+        "losses": 25,
+        "meanR": -0.076,
+        "n": 35,
+        "wins": 10,
+        "wr": 0.2857
+      },
+      "FVG": {
+        "be": 1,
+        "confMax": 0.4,
+        "confMean": 0.3877,
+        "losses": 511,
+        "meanR": -0.0899,
+        "n": 736,
+        "wins": 224,
+        "wr": 0.3048
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5965,
+        "losses": 114,
+        "meanR": -0.1938,
+        "n": 157,
+        "wins": 43,
+        "wr": 0.2739
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4688,
+        "losses": 52,
+        "meanR": -0.2609,
+        "n": 69,
+        "wins": 17,
+        "wr": 0.2464
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260519.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4372,
+        "losses": 33,
+        "meanR": -0.1064,
+        "n": 47,
+        "wins": 14,
+        "wr": 0.2979
+      },
+      "FVG": {
+        "be": 1,
+        "confMax": 0.4,
+        "confMean": 0.385,
+        "losses": 441,
+        "meanR": 0.0908,
+        "n": 699,
+        "wins": 257,
+        "wr": 0.3682
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5955,
+        "losses": 135,
+        "meanR": -0.2626,
+        "n": 179,
+        "wins": 44,
+        "wr": 0.2458
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4107,
+        "losses": 58,
+        "meanR": -0.0714,
+        "n": 84,
+        "wins": 26,
+        "wr": 0.3095
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260603.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4404,
+        "losses": 31,
+        "meanR": 0.3684,
+        "n": 57,
+        "wins": 26,
+        "wr": 0.4561
+      },
+      "CHOCH": {
+        "be": 0,
+        "confMax": 0.5,
+        "confMean": 0.4667,
+        "losses": 23,
+        "meanR": 0.0833,
+        "n": 36,
+        "wins": 13,
+        "wr": 0.3611
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3856,
+        "losses": 474,
+        "meanR": -0.1633,
+        "n": 660,
+        "wins": 186,
+        "wr": 0.2818
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5937,
+        "losses": 112,
+        "meanR": -0.2497,
+        "n": 150,
+        "wins": 38,
+        "wr": 0.2533
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.3967,
+        "losses": 70,
+        "meanR": 0.2645,
+        "n": 121,
+        "wins": 51,
+        "wr": 0.4215
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260617.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4383,
+        "losses": 30,
+        "meanR": 0.0851,
+        "n": 47,
+        "wins": 17,
+        "wr": 0.3617
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3857,
+        "losses": 517,
+        "meanR": -0.0244,
+        "n": 768,
+        "wins": 251,
+        "wr": 0.3268
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.596,
+        "losses": 126,
+        "meanR": -0.214,
+        "n": 173,
+        "wins": 47,
+        "wr": 0.2717
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260702.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4352,
+        "losses": 28,
+        "meanR": 0.4444,
+        "n": 54,
+        "wins": 26,
+        "wr": 0.4815
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3857,
+        "losses": 550,
+        "meanR": -0.0658,
+        "n": 809,
+        "wins": 259,
+        "wr": 0.3201
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5961,
+        "losses": 80,
+        "meanR": 0.2891,
+        "n": 141,
+        "wins": 61,
+        "wr": 0.4326
+      }
+    },
+    "telemetry_v3_EURUSD_M15_20260703.csv": {
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3867,
+        "losses": 56,
+        "meanR": 0.4,
+        "n": 105,
+        "wins": 49,
+        "wr": 0.4667
+      }
+    },
+    "telemetry_v3_GBPJPY_H1_20260306.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4359,
+        "losses": 29,
+        "meanR": 0.1087,
+        "n": 46,
+        "wins": 17,
+        "wr": 0.3696
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3879,
+        "losses": 388,
+        "meanR": -0.0385,
+        "n": 571,
+        "wins": 183,
+        "wr": 0.3205
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.595,
+        "losses": 156,
+        "meanR": 0.1129,
+        "n": 248,
+        "wins": 92,
+        "wr": 0.371
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4418,
+        "losses": 114,
+        "meanR": -0.4255,
+        "n": 141,
+        "wins": 27,
+        "wr": 0.1915
+      }
+    },
+    "telemetry_v3_GBPJPY_H1_20260506.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.4281,
+        "losses": 36,
+        "meanR": 0.3125,
+        "n": 64,
+        "wins": 28,
+        "wr": 0.4375
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3841,
+        "losses": 420,
+        "meanR": 0.1845,
+        "n": 700,
+        "wins": 280,
+        "wr": 0.4
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.594,
+        "losses": 112,
+        "meanR": -0.5165,
+        "n": 134,
+        "wins": 22,
+        "wr": 0.1642
+      },
+      "UNKNOWN": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.4371,
+        "losses": 81,
+        "meanR": -0.025,
+        "n": 120,
+        "wins": 39,
+        "wr": 0.325
+      }
+    },
+    "telemetry_v3_GBPJPY_H1_20260703.csv": {
+      "BOS": {
+        "be": 0,
+        "confMax": 0.45,
+        "confMean": 0.44,
+        "losses": 31,
+        "meanR": 0.3091,
+        "n": 55,
+        "wins": 24,
+        "wr": 0.4364
+      },
+      "CHOCH": {
+        "be": 0,
+        "confMax": 0.5,
+        "confMean": 0.4679,
+        "losses": 18,
+        "meanR": 0.5508,
+        "n": 39,
+        "wins": 21,
+        "wr": 0.5385
+      },
+      "FVG": {
+        "be": 0,
+        "confMax": 0.4,
+        "confMean": 0.3866,
+        "losses": 482,
+        "meanR": -0.1296,
+        "n": 679,
+        "wins": 197,
+        "wr": 0.2901
+      },
+      "LIQUIDITY": {
+        "be": 0,
+        "confMax": 0.6,
+        "confMean": 0.5923,
+        "losses": 142,
+        "meanR": 0.0811,
+        "n": 222,
+        "wins": 80,
+        "wr": 0.3604
+      }
+    }
+  }
+}

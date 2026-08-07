@@ -14,26 +14,32 @@ struct SessionRange
     {}
 };
 
-//--- DD05: per-family admission floors.  Research-derived initialization
-//    values (Sprint 19 deep research: liquidity ceiling ~0.60, FVG ~0.40,
-//    OB/BOS/CHOCH ~0.35).  Temporary engineering defaults — GR01 replaces
-//    them with evidence-derived thresholds.
+//--- GR01: per-family admission floors.  Evidence-calibrated defaults
+//    (frozen Sprint 17 funnel analysis, docs/Sprint20_GR01_Decision.md):
+//    LIQUIDITY 0.60 (worst family; E5 falsification - no floor beats base,
+//    rejects the 0.2453 tail), BOS/CHOCH 0.35 (above-base families; higher
+//    floors discard samples for noise-level gains), FVG 0.35 (0.40 excluded
+//    the better tail at wr 0.3521), UNKNOWN 0.35 (0.60 rejected the better
+//    evaluator cluster).  ORDER_BLOCK reserved (no rule maps to it).
+//    Global minConfidence stays the legacy evaluator/replay gate.
 struct ConfluenceConfig
 {
-    double minConfidence;               // global fallback floor (UNKNOWN family / legacy)
+    double minConfidence;               // global legacy gate (ReplayDecision); NOT the UNKNOWN floor
     double familyFloorLiquidity;        // RULE_FAMILY_LIQUIDITY
     double familyFloorFVG;              // RULE_FAMILY_FVG
-    double familyFloorOrderBlock;       // RULE_FAMILY_ORDER_BLOCK (reserved for GR01)
+    double familyFloorOrderBlock;       // RULE_FAMILY_ORDER_BLOCK (reserved)
     double familyFloorBOS;              // RULE_FAMILY_BOS
     double familyFloorCHOCH;            // RULE_FAMILY_CHOCH
+    double familyFloorUnknown;          // RULE_FAMILY_UNKNOWN / evaluator path
 
     ConfluenceConfig(void)
-        : minConfidence(0.6)
+        : minConfidence(0.60)
         , familyFloorLiquidity(0.60)
-        , familyFloorFVG(0.40)
+        , familyFloorFVG(0.35)
         , familyFloorOrderBlock(0.35)
         , familyFloorBOS(0.35)
         , familyFloorCHOCH(0.35)
+        , familyFloorUnknown(0.35)
     {}
 };
 

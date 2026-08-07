@@ -98,13 +98,13 @@ void TestConfluenceValidator_Pass(TestCounters &counters)
 void TestConfluenceValidator_Warning(TestCounters &counters)
 {
     CConfluenceValidator v;
-    ConfluenceResult r = MakeResult(65.0, CONFLUENCE_BULLISH, 3);
+    ConfluenceResult r = MakeResult(37.0, CONFLUENCE_BULLISH, 3);
     EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
     EntryFilterResult out;
 
     v.Validate(r, ctx, out);
 
-    TEST_INT_EQ(FILTER_WARNING, out.result, "ConfluenceValidator WARNING (65.0)");
+    TEST_INT_EQ(FILTER_WARNING, out.result, "ConfluenceValidator WARNING (37.0 near 0.35 UNKNOWN floor)");
 }
 
 void TestConfluenceValidator_Fail(TestCounters &counters)
@@ -123,28 +123,28 @@ void TestConfluenceValidator_Fail(TestCounters &counters)
 void TestConfluenceValidator_BoundaryFail(TestCounters &counters)
 {
     CConfluenceValidator v;
-    ConfluenceResult r = MakeResult(59.0, CONFLUENCE_BULLISH, 3);
+    ConfluenceResult r = MakeResult(34.0, CONFLUENCE_BULLISH, 3);
     EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
     EntryFilterResult out;
 
     v.Validate(r, ctx, out);
 
-    TEST_INT_EQ(FILTER_FAIL, out.result, "ConfluenceValidator boundary just-below (59.0)");
+    TEST_INT_EQ(FILTER_FAIL, out.result, "ConfluenceValidator boundary just-below (34.0 < 0.35 UNKNOWN floor)");
 }
 
 void TestConfluenceValidator_BoundaryPass(TestCounters &counters)
 {
     CConfluenceValidator v;
-    ConfluenceResult r = MakeResult(60.0, CONFLUENCE_BULLISH, 3);
+    ConfluenceResult r = MakeResult(35.0, CONFLUENCE_BULLISH, 3);
     EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
     EntryFilterResult out;
 
     v.Validate(r, ctx, out);
 
-    TEST_INT_EQ(FILTER_PASS, out.result, "ConfluenceValidator boundary at-min (60.0)");
+    TEST_INT_EQ(FILTER_PASS, out.result, "ConfluenceValidator boundary at-min (35.0 = 0.35 UNKNOWN floor)");
 }
 
-// ─── DD05: per-family floors ───────────────────────────────────────
+// ─── GR01: evidence-calibrated per-family floors ───────────────────
 
 void TestConfluenceValidator_FamilyLiquidityFloor(TestCounters &counters)
 {
@@ -174,25 +174,30 @@ void TestConfluenceValidator_FamilyFVGFloor(TestCounters &counters)
     EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
     EntryFilterResult out;
 
+    ConfluenceResult r34 = MakeResult(34.0, CONFLUENCE_BULLISH, 3);
+    r34.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r34, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "FVG floor FAIL (34.0 < 0.35)");
+
+    ConfluenceResult r35 = MakeResult(35.0, CONFLUENCE_BULLISH, 3);
+    r35.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r35, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "FVG floor PASS at (35.0)");
+
+    ConfluenceResult r37 = MakeResult(37.0, CONFLUENCE_BULLISH, 3);
+    r37.winningRuleFamily = RULE_FAMILY_FVG;
+    v.Validate(r37, ctx, out);
+    TEST_INT_EQ(FILTER_WARNING, out.result, "FVG floor WARNING (37.0 near 0.35)");
+
     ConfluenceResult r39 = MakeResult(39.0, CONFLUENCE_BULLISH, 3);
     r39.winningRuleFamily = RULE_FAMILY_FVG;
     v.Validate(r39, ctx, out);
-    TEST_INT_EQ(FILTER_FAIL, out.result, "FVG floor FAIL (39.0 < 0.40)");
-
-    ConfluenceResult r40 = MakeResult(40.0, CONFLUENCE_BULLISH, 3);
-    r40.winningRuleFamily = RULE_FAMILY_FVG;
-    v.Validate(r40, ctx, out);
-    TEST_INT_EQ(FILTER_PASS, out.result, "FVG floor PASS at (40.0)");
-
-    ConfluenceResult r43 = MakeResult(43.0, CONFLUENCE_BULLISH, 3);
-    r43.winningRuleFamily = RULE_FAMILY_FVG;
-    v.Validate(r43, ctx, out);
-    TEST_INT_EQ(FILTER_WARNING, out.result, "FVG floor WARNING (43.0)");
+    TEST_INT_EQ(FILTER_PASS, out.result, "GR01: FVG PASS at 39.0 (was FAIL under 0.40 floor)");
 
     ConfluenceResult r55 = MakeResult(55.0, CONFLUENCE_BULLISH, 3);
     r55.winningRuleFamily = RULE_FAMILY_FVG;
     v.Validate(r55, ctx, out);
-    TEST_INT_EQ(FILTER_PASS, out.result, "FVG PASS above global floor (55.0 >= 0.40)");
+    TEST_INT_EQ(FILTER_PASS, out.result, "FVG PASS above global floor (55.0 >= 0.35)");
 }
 
 void TestConfluenceValidator_FamilyBOSFloor(TestCounters &counters)
@@ -251,21 +256,33 @@ void TestConfluenceValidator_FamilyOrderBlockFloor(TestCounters &counters)
     TEST_INT_EQ(FILTER_PASS, out.result, "ORDER_BLOCK floor PASS at (35.0)");
 }
 
-void TestConfluenceValidator_UnknownFallbackGlobal(TestCounters &counters)
+void TestConfluenceValidator_UnknownFloor(TestCounters &counters)
 {
     CConfluenceValidator v;
     EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
     EntryFilterResult out;
 
-    ConfluenceResult r59 = MakeResult(59.0, CONFLUENCE_BULLISH, 3);
-    r59.winningRuleFamily = RULE_FAMILY_UNKNOWN;
-    v.Validate(r59, ctx, out);
-    TEST_INT_EQ(FILTER_FAIL, out.result, "UNKNOWN family falls back to global floor (59.0 FAIL)");
+    ConfluenceResult r34 = MakeResult(34.0, CONFLUENCE_BULLISH, 3);
+    r34.winningRuleFamily = RULE_FAMILY_UNKNOWN;
+    v.Validate(r34, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "UNKNOWN family floor FAIL (34.0 < 0.35)");
+
+    ConfluenceResult r35 = MakeResult(35.0, CONFLUENCE_BULLISH, 3);
+    r35.winningRuleFamily = RULE_FAMILY_UNKNOWN;
+    v.Validate(r35, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "UNKNOWN family floor PASS at (35.0)");
+
+    ConfluenceResult r45 = MakeResult(45.0, CONFLUENCE_BULLISH, 3);
+    r45.winningRuleFamily = RULE_FAMILY_UNKNOWN;
+    v.Validate(r45, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "GR01: UNKNOWN PASS at 45.0 (was FAIL under 0.60 global floor)");
 
     ConfluenceResult r60 = MakeResult(60.0, CONFLUENCE_BULLISH, 3);
     r60.winningRuleFamily = RULE_FAMILY_UNKNOWN;
     v.Validate(r60, ctx, out);
-    TEST_INT_EQ(FILTER_PASS, out.result, "UNKNOWN family falls back to global floor (60.0 PASS)");
+    TEST_INT_EQ(FILTER_PASS, out.result, "UNKNOWN family floor PASS at (60.0)");
+
+    TEST_DBL_EQ(0.60, v.GetMinConfidence(), "GR01: global minConfidence untouched (legacy replay gate)");
 }
 
 void TestConfluenceValidator_CustomFloorOverride(TestCounters &counters)
@@ -749,7 +766,7 @@ TestCounters RunValidatorTests()
     TestConfluenceValidator_FamilyBOSFloor(counters);
     TestConfluenceValidator_FamilyCHOCHFloor(counters);
     TestConfluenceValidator_FamilyOrderBlockFloor(counters);
-    TestConfluenceValidator_UnknownFallbackGlobal(counters);
+    TestConfluenceValidator_UnknownFloor(counters);
     TestConfluenceValidator_CustomFloorOverride(counters);
     TestRuleTypeToFamily_AllRules(counters);
     TestRuleTypeToName_AllRules(counters);

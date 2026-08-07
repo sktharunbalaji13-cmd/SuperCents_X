@@ -1,15 +1,15 @@
 ﻿{
-    "freezeId":  "B7",
-    "frozenAt":  "2026-08-07T05:04:04",
-    "commit":  "4160f31",
+    "freezeId":  "B8",
+    "frozenAt":  "2026-08-07T21:50:44",
+    "commit":  "982a9cc",
     "profile":  "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)",
     "symbol":  "EURUSD",
     "period":  "H1",
     "fromDate":  "2026.01.01",
     "toDate":  "2026.02.01",
     "rows":  500,
-    "csvBytes":  683048,
-    "csvSha256":  "681868F29690AA75F7123D4551D13337A28F73E77FA7DB7D6D0222D00E05544A",
+    "csvBytes":  693386,
+    "csvSha256":  "B5AB5FEEAD758A814E903F00A0C62A8DF20AE87B7B63E630CF00408EFA0B2735",
     "headerColumns":  75,
     "firstSignalTime":  "2026.01.02 04:00",
     "lastSignalTime":  "2026.01.30 23:00",
@@ -33,12 +33,12 @@
                      "lastSignalTime":  "2026.01.30 23:00"
                  },
     "perf":  {
-                 "peakMemMB":  280.7,
-                 "suiteMs":  12163,
-                 "replayMs":  15732,
-                 "rowsPerSec":  31.8,
-                 "csvBytes":  683048
+                 "peakMemMB":  289.5,
+                 "suiteMs":  9123,
+                 "replayMs":  15949,
+                 "rowsPerSec":  31.3,
+                 "csvBytes":  693386
              },
     "perfFrozenFromFirstRun":  true,
-    "perfFrozenCommit":  "4160f31"
+    "perfFrozenCommit":  "982a9cc"
 }

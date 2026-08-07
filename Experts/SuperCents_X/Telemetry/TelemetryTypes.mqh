@@ -506,14 +506,16 @@ struct CalibrationConfig
     string   spreadMode;                          // "quote" | "tick" | "fixed"
     int      brokerDigits;
 
-    //--- DD05: per-family admission floors (mirror ConfluenceConfig so
+    //--- GR01: per-family admission floors (mirror ConfluenceConfig so
     //    the fingerprint records the routing policy that affects
-    //    decision outcomes).
+    //    decision outcomes).  Evidence-calibrated values from the frozen
+    //    Sprint 17 funnel (docs/Sprint20_GR01_Decision.md).
     double   familyFloorLiquidity;
     double   familyFloorFVG;
     double   familyFloorOrderBlock;
     double   familyFloorBOS;
     double   familyFloorCHOCH;
+    double   familyFloorUnknown;
 
     CalibrationConfig(void)
         : telemetryEnabled(true)
@@ -527,10 +529,11 @@ struct CalibrationConfig
         , spreadMode("quote")
         , brokerDigits(5)
         , familyFloorLiquidity(0.60)
-        , familyFloorFVG(0.40)
+        , familyFloorFVG(0.35)
         , familyFloorOrderBlock(0.35)
         , familyFloorBOS(0.35)
         , familyFloorCHOCH(0.35)
+        , familyFloorUnknown(0.35)
     {
         weights[0] = 25.0;
         weights[1] = 20.0;
