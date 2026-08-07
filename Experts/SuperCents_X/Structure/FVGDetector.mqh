@@ -10,12 +10,13 @@
 #include "../Utils/Types.mqh"
 #include "../Utils/Helpers.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "TrendState.mqh"
 
 class CBOSDetector;
 class CCHOCHDetector;
 
-class CFVGDetector
+class CFVGDetector : public IHistoryResetConsumer
 {
 private:
     bool m_initialized;
@@ -45,6 +46,13 @@ public:
                 const double &close[], const datetime &time[], int rates_total,
                 CTrendState *trendState = NULL);
     void Shutdown(void);
+    void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). Closes the
+    //--- LC4 gap: rates_total shrink WITHOUT time reversal now triggers a
+    //--- full rebuild (previously only time[0] < cursor did). Rebuild is
+    //--- deterministic: ids restart from 0 (fresh-run state, LC03).
+    void OnHistoryReset(void) { Clear(); }
 
     bool IsInitialized(void) const { return m_initialized; }
     int GetFVGCount(void) const { return m_fvgCount; }
@@ -112,6 +120,19 @@ void CFVGDetector::Shutdown(void)
     ArrayResize(m_fvgs, 0);
     m_fvgCount = 0;
     m_initialized = false;
+}
+
+void CFVGDetector::Clear(void)
+{
+    //--- Drop the pool + time cursor; the next Update() becomes a full
+    //--- initial scan. m_nextId resets to the fresh-run value (0) so an
+    //--- epoch rebuild reproduces the exact fresh-run state (LC03:
+    //--- deterministic reconstruction). The standalone time-reversal
+    //--- rescan path keeps ids monotonic (LC01.1, no-reuse contract).
+    m_fvgCount = 0;
+    m_nextId = 0;
+    m_lastProcessedTime = 0;
+    ArrayResize(m_fvgs, 0);
 }
 
 bool CFVGDetector::GetFVG(int index, FairValueGap &out) const

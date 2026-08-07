@@ -8,11 +8,12 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 
 class CSwingDetector;
 class CBOSDetector;
 
-class CLiquidityDetector
+class CLiquidityDetector : public IHistoryResetConsumer
 {
 private:
     bool m_initialized;
@@ -65,6 +66,12 @@ public:
     void Update(const double &high[], const double &low[], const double &close[],
                 const datetime &time[], int rates_total);
     void Shutdown(void);
+    void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). E11 fix:
+    //--- the monotonic swing/BOS count cursors are reset so levels are
+    //--- re-derived from the rebuilt swing/BOS state.
+    void OnHistoryReset(void) { Clear(); }
 
     bool IsInitialized(void) const { return m_initialized; }
     int GetLevelCount(void) const { return m_levelCount; }
@@ -99,6 +106,14 @@ CLiquidityDetector::~CLiquidityDetector(void)
 bool CLiquidityDetector::Init(void)
 {
     m_logger.LogInfo("Initializing Liquidity Detector...");
+    Clear();
+    m_initialized = true;
+    m_logger.LogInfo("Liquidity Detector initialized");
+    return true;
+}
+
+void CLiquidityDetector::Clear(void)
+{
     m_nextId = 0;
     m_levelCount = 0;
     m_lastSwingHighId = 0;
@@ -117,9 +132,6 @@ bool CLiquidityDetector::Init(void)
     m_extHhMitigated = 0;
     m_extLlMitigated = 0;
     ArrayResize(m_levels, 0);
-    m_initialized = true;
-    m_logger.LogInfo("Liquidity Detector initialized");
-    return true;
 }
 
 void CLiquidityDetector::Update(const double &high[], const double &low[], const double &close[],

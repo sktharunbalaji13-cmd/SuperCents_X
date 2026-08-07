@@ -7,6 +7,7 @@
 #define __PORTFOLIO_SYMBOL_CONTEXT_MQH__
 
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Config.mqh"
@@ -63,7 +64,7 @@
 
 #define TELEMETRY_SETTLE_MAX_HOLD_BARS 50
 
-class CSymbolContext
+class CSymbolContext : public IHistoryResetConsumer
 {
 private:
     CLogger      m_logger;
@@ -73,6 +74,8 @@ private:
     ConfluenceWeights m_weights;
 
     CEventBusAdapter     *m_eventBus;
+
+    CHistoryEpoch         m_epoch;
 
     CSwingDetector             *m_swingDetector;
     CStructuralPivotEngine     *m_structuralPivotEngine;
@@ -134,6 +137,12 @@ private:
     int m_lastCHOCHCount;
 
     long m_updateCount;
+
+    //--- LC02/LC03: canonical history reset (HistoryEpoch broadcast).
+    //    Context state is re-derived by the detectors themselves; this
+    //    consumer only clears the CHOCH-count watermark used by the
+    //    legacy trend-flip gate so the rebuilt stream is re-examined.
+    void OnHistoryReset(void) { m_lastCHOCHCount = 0; }
 
     //--- Sprint 15.3: deferred outcome settlement.
     void QueueForSettlement(const TelemetryRow &row);
@@ -271,6 +280,9 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
 
     m_eventBus = eventBus;
 
+    //--- LC02: re-init rebaselines the epoch (fresh context = fresh history).
+    m_epoch.Reset();
+
     //--- Sprint 15 (v3.0): provider selection (DI) happens at construction
     //    (see ctor); the validators capture their providers there. If the
     //    entry mode is changed later, provider binding must be re-done.
@@ -356,6 +368,20 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         m_liquidityDetector.SetSwingDetector(m_swingDetector);
         m_liquidityDetector.SetBOSDetector(m_bosDetector);
     }
+
+    //--- LC03: register every stateful detector with the canonical
+    //    reset mechanism (epoch broadcast -> OnHistoryReset -> Clear()).
+    //    Registration order = broadcast order (dependency order).
+    if(m_swingDetector != NULL)         m_epoch.AddConsumer(m_swingDetector);
+    if(m_structuralPivotEngine != NULL) m_epoch.AddConsumer(m_structuralPivotEngine);
+    if(m_bosDetector != NULL)           m_epoch.AddConsumer(m_bosDetector);
+    if(m_trendState != NULL)            m_epoch.AddConsumer(m_trendState);
+    if(m_protectedPointManager != NULL) m_epoch.AddConsumer(m_protectedPointManager);
+    if(m_chochDetector != NULL)         m_epoch.AddConsumer(m_chochDetector);
+    if(m_orderBlockDetector != NULL)    m_epoch.AddConsumer(m_orderBlockDetector);
+    if(m_fvgDetector != NULL)           m_epoch.AddConsumer(m_fvgDetector);
+    if(m_liquidityDetector != NULL)     m_epoch.AddConsumer(m_liquidityDetector);
+    m_epoch.AddConsumer(GetPointer(this));
 
     m_visualizationManager = new CVisualizationManager();
     if(!m_visualizationManager.Init())
@@ -619,6 +645,12 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
 {
     if(!m_isInitialized)
         return;
+
+    //--- LC02: detect history shrink / time reversal BEFORE driving any
+    //    consumer. time[] is series-order (index 0 = newest bar) here,
+    //    so timeNewest = time[0]. A detected reset broadcasts to all
+    //    registered consumers (incl. this context).
+    m_epoch.Update(rates_total, time[0]);
 
     ulong s, e;
     string perf = "";

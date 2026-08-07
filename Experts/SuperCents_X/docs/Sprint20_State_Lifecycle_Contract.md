@@ -75,6 +75,8 @@ Production drive order (`Portfolio/SymbolContext.mqh:618-718`): SwingDetector ->
 | 3 | CHOCH / Liquidity / OrderBlock stalls | **LC02/LC03** — cursor re-sync | Replace monotonic count/bar gates with epoch-aware cursors; on epoch bump, reset gates and re-scan. |
 | 4 | FVG LC4 gap (shrink without time reversal) | **LC02** — FVG shrink clause | FVG currently relies on `time[0] < cursor`; add shrink-aware clause so truncated history triggers rebuild, matching Swing. |
 | 5 | TF/symbol change | LC03 hardening | Guarantee per-symbol state namespaces / id namespaces, or full context re-init (already N/A-safe by design). |
+| 6 | Downstream re-sync on reset (rows 2-3) | **LC03 — DONE 2026-08-07** | Proven at the integration level: the canonical broadcast (`CHistoryEpoch`, LC02) drives a full 9-stage chain (swing → pivot → BOS → trend → PP → CHOCH → OB → FVG → liquidity) such that after a SHRINK (24→23) or TIME_RESET (−3h) broadcast the rebuild scan equals a fresh full scan of the same history at **all 9 layers** (exact struct-field equality). `Tests/integration/TestReconstruction.mqh`. |
+| 7 | Incremental vs full-scan divergence | **LC03 — DONE 2026-08-07 (accepted deviation)** | Twin incremental chains fed identical prefixes (12/16/20/24) are deterministic (identical twins at every layer); incremental state is NOT required to equal a full scan. 3 known order-dependence items: BOS full-scan emits crossings oldest-first vs incremental pivot-lock order; Swing center cursor re-evaluates `rates_total−3` each grow; FVG delta scan front-anchored on `time[0]` vs full-scan back-anchored. |
 
 ---
 
@@ -87,10 +89,11 @@ Production drive order (`Portfolio/SymbolContext.mqh:618-718`): SwingDetector ->
   - LC01.4 — Swing reload: fresh init + rescan reconstructs byte-identical swing set.
 - Suite: `GRAND TOTAL: 1290/1290 passed, 0 failed` (category `Lifecycle Contract Tests: 53/53`).
 - Code references per audit table above.
+- **LC03** — `Tests/integration/TestReconstruction.mqh` (21st suite category, `Reconstruction Tests`): 24-bar fixture (DD02 body + 3-bar crash tail) pinned at fresh full scan — 3 swing highs/2 lows, 5 pivots, 2 BOS (bearish @B13, bullish @B17), TREND_BULLISH, 1 PP (low 8.00), 1 bearish CHOCH (bar 1), 1 OB @B19, 3 FVGs (@B20/@B16/@B3), 2 external liquidity levels (10.00/8.00); SHRINK (24→23) and TIME_RESET (−3h) broadcasts each yield epoch bump (`GetEpoch()==1`) and a rebuild equal to a fresh scan at all 9 layers; twin-chain incremental determinism (12/16/20/24). First verification run GREEN: suite `1323 → 2020/2020` (Reconstruction Tests 697/697), TT01 13-gate PASS, production byte-identical vs B7 (test-only module).
 
 ---
 
 ## 7. Follow-up (LC02 / LC03)
 
-- LC02: implement the shared shrink/epoch handler per section 5 (rows 1, 3, 4); extend tests with `rates_total` shrink fixtures for CHOCH/Liquidity/OrderBlock/FVG.
-- LC03: StructuralPivotEngine re-sync on swing reset (row 2); test: swing reset -> pivot rebuild, no permanent rejection; OrderBlock watermark re-sync (row 3).
+- LC02: implement the shared shrink/epoch handler per section 5 (rows 1, 3, 4); extend tests with `rates_total` shrink fixtures for CHOCH/Liquidity/OrderBlock/FVG. — **DONE 2026-08-07** (`Core/HistoryEpoch.mqh`; spec `docs/Sprint20_History_Reset_Mechanism.md`).
+- LC03: StructuralPivotEngine re-sync on swing reset (row 2); test: swing reset -> pivot rebuild, no permanent rejection; OrderBlock watermark re-sync (row 3). — **DONE 2026-08-07** at the integration level: rebuild-after-broadcast == fresh full scan at all 9 layers (`Tests/integration/TestReconstruction.mqh`, 697/697); no detector patching (per frozen scope) — production wiring of the broadcast remains a follow-on concern if any detector is ever registered against `CHistoryEpoch` in `CSymbolContext`.

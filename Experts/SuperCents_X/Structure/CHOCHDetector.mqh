@@ -9,6 +9,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "TrendState.mqh"
 #include "ProtectedPointManager.mqh"
 #include "PPTelemetry.mqh"
@@ -41,7 +42,7 @@ struct CHOCHRejectStats
     }
 };
 
-class CCHOCHDetector
+class CCHOCHDetector : public IHistoryResetConsumer
 {
 private:
     CLogger m_logger;
@@ -68,6 +69,12 @@ public:
                 const double &close[], const datetime &time[], int rates_total,
                 double pointSize);
     void Shutdown(void);
+    void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). E11 fix:
+    //--- the monotonic rates_total gate (m_lastProcessedBar) is reset so
+    //--- the detector re-examines the rebuilt protected levels.
+    void OnHistoryReset(void) { Clear(); }
     
     bool IsInitialized(void) const { return m_isInitialized; }
     int GetCHOCHCount(void) const { return m_chochCount; }
@@ -113,6 +120,18 @@ bool CCHOCHDetector::Init(void)
     m_isInitialized = true;
     m_logger.LogInfo("CHOCHDetector initialized");
     return true;
+}
+
+void CCHOCHDetector::Clear(void)
+{
+    m_chochCount = 0;
+    m_nextId = 1;
+    m_lastProcessedBar = -1;
+    m_lastActiveHighId = -1;
+    m_lastActiveLowId = -1;
+    m_highActivationRatesTotal = 0;
+    m_lowActivationRatesTotal = 0;
+    m_stats.Reset();
 }
 
 void CCHOCHDetector::Update(CTrendState *trendState, CProtectedPointManager *protectedMgr, 

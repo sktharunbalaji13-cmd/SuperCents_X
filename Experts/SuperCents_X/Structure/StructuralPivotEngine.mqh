@@ -9,13 +9,14 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "SwingDetector.mqh"
 
 //--- Sprint 3.5: Institutional Replacement Structural Pivot Engine
 //--- Behaves like institutional market structure: the latest valid
 //--- liquidity level (higher high / lower low) always replaces the
 //--- previous same-type pivot until an opposite type locks it.
-class CStructuralPivotEngine
+class CStructuralPivotEngine : public IHistoryResetConsumer
 {
 private:
     CLogger             m_logger;
@@ -40,6 +41,11 @@ public:
     void Update(CSwingDetector *swingDetector);
     void Shutdown(void);
     void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). E11 fix:
+    //--- the swing-id gate (m_lastProcessedSwingId) is reset together with
+    //--- SwingDetector, so restarted swing ids are processed, not rejected.
+    void OnHistoryReset(void) { Clear(); }
 
     //--- Queries
     bool IsInitialized(void) const { return m_isInitialized; }

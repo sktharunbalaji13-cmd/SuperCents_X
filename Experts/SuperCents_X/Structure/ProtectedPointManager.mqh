@@ -9,6 +9,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "StructuralPivotEngine.mqh"
 #include "BOSDetector.mqh"
 #include "TrendState.mqh"
@@ -16,7 +17,7 @@
 //--- Sprint 6: Protected Point Manager
 //--- Tracks protected highs/lows for CHOCH detection
 
-class CProtectedPointManager
+class CProtectedPointManager : public IHistoryResetConsumer
 {
 private:
     CLogger m_logger;
@@ -46,6 +47,11 @@ public:
     bool Init(void);
     void Update(CStructuralPivotEngine *pivotEngine, CBOSDetector *bosDetector, CTrendState *trendState, const datetime &time[]);
     void Shutdown(void);
+    void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). Protected
+    //--- points are re-derived from the rebuilt pivot/trend state.
+    void OnHistoryReset(void) { Clear(); }
     
     bool IsInitialized(void) const { return m_isInitialized; }
     int GetProtectedPointCount(void) const { return m_pointCount; }
@@ -93,6 +99,18 @@ bool CProtectedPointManager::Init(void)
     m_isInitialized = true;
     m_logger.LogInfo("ProtectedPointManager initialized");
     return true;
+}
+
+void CProtectedPointManager::Clear(void)
+{
+    m_pointCount = 0;
+    m_nextPointId = 1;
+    m_activeHighId = -1;
+    m_activeLowId = -1;
+    m_lastTrend = TREND_UNKNOWN;
+    m_lastProcessedBOSId = 0;
+    m_lastLoggedLowCandidatePivotId = -1;
+    m_lastLoggedHighCandidatePivotId = -1;
 }
 
 void CProtectedPointManager::Update(CStructuralPivotEngine *pivotEngine, CBOSDetector *bosDetector, CTrendState *trendState, const datetime &time[])

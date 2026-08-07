@@ -9,6 +9,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "CHOCHDetector.mqh"
 #include "TrendState.mqh"
 #include "ProtectedPointManager.mqh"
@@ -28,7 +29,7 @@ struct OBStats
                        storeAttempted=0; storeSucceeded=0; rejectedDuplicate=0; rejectedCapacity=0; rejectedInvalid=0; }
 };
 
-class COrderBlockDetector
+class COrderBlockDetector : public IHistoryResetConsumer
 {
 private:
     CLogger m_logger;
@@ -50,6 +51,12 @@ public:
                 const double &open[], const double &high[], const double &low[],
                 const double &close[], const datetime &time[], int rates_total);
     void Shutdown(void);
+    void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). The latent
+    //--- CHOCH-count watermark (m_lastProcessedCHOCHIndex) is reset so the
+    //--- rebuilt CHOCH stream is re-examined.
+    void OnHistoryReset(void) { Clear(); }
 
     bool IsInitialized(void) const { return m_isInitialized; }
     int GetOrderBlockCount(void) const { return m_orderBlockCount; }
@@ -93,6 +100,14 @@ bool COrderBlockDetector::Init(void)
     m_isInitialized = true;
     m_logger.LogInfo("OrderBlockDetector initialized");
     return true;
+}
+
+void COrderBlockDetector::Clear(void)
+{
+    m_orderBlockCount = 0;
+    m_nextId = 1;
+    m_lastProcessedCHOCHIndex = 0;
+    m_stats.Reset();
 }
 
 void COrderBlockDetector::Update(CCHOCHDetector *chochDetector, CTrendState *trendState,

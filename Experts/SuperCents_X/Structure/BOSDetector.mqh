@@ -9,12 +9,13 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "StructuralPivotEngine.mqh"
 
 //--- Sprint 4: Break of Structure Detector
 //--- Consumes only StructuralPivotEngine API
 //--- Never repaints. Never emits duplicates. Only breaks locked pivots.
-class CBOSDetector
+class CBOSDetector : public IHistoryResetConsumer
 {
 private:
     //--- Logger
@@ -59,6 +60,10 @@ public:
     void Update(CStructuralPivotEngine *pivotEngine, const double &close[], const datetime &time[], int rates_total);
     void Shutdown(void);
     void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). Clears the
+    //--- broken-pivot dedup set so restarted pivot ids are re-evaluated.
+    void OnHistoryReset(void) { Clear(); }
 
     //--- Queries
     bool IsInitialized(void) const { return m_isInitialized; }

@@ -9,8 +9,9 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 
-class CSwingDetector
+class CSwingDetector : public IHistoryResetConsumer
 {
 private:
     CLogger     m_logger;
@@ -49,6 +50,10 @@ public:
     void Update(const double &high[], const double &low[], const datetime &time[], int rates_total);
     void Shutdown(void);
     void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). Drop
+    //--- incremental state and rebuild from the current history.
+    void OnHistoryReset(void) { Clear(); }
 
     //--- Queries
     bool IsInitialized(void) const { return m_isInitialized; }

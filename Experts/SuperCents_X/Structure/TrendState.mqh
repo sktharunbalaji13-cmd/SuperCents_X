@@ -9,6 +9,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "BOSDetector.mqh"
 
 //--- Trend State Machine
@@ -19,7 +20,7 @@ enum Trend
     TREND_BEARISH  = -1
 };
 
-class CTrendState
+class CTrendState : public IHistoryResetConsumer
 {
 private:
     CLogger m_logger;
@@ -39,6 +40,11 @@ public:
     bool Init(void);
     void Update(CBOSDetector *bosDetector);
     void Shutdown(void);
+    void Clear(void);
+
+    //--- LC02: canonical history reset (HistoryEpoch broadcast). Trend is
+    //--- re-derived from the rebuilt BOS stream.
+    void OnHistoryReset(void) { Clear(); }
     
     bool IsInitialized(void) const { return m_isInitialized; }
     Trend GetCurrentTrend(void) const { return m_currentTrend; }
@@ -69,17 +75,22 @@ bool CTrendState::Init(void)
     if(m_isInitialized)
     {
         m_logger.LogWarn("TrendState already initialized, clearing state");
-        m_currentTrend = TREND_UNKNOWN;
-        m_lastProcessedBOSId = 0;
-        m_bullishBOSCount = 0;
-        m_bearishBOSCount = 0;
-        m_trendFlipCount = 0;
+        Clear();
     }
 
     m_logger.LogInfo("Initializing TrendState...");
     m_isInitialized = true;
     m_logger.LogInfo("TrendState initialized");
     return true;
+}
+
+void CTrendState::Clear(void)
+{
+    m_currentTrend = TREND_UNKNOWN;
+    m_lastProcessedBOSId = 0;
+    m_bullishBOSCount = 0;
+    m_bearishBOSCount = 0;
+    m_trendFlipCount = 0;
 }
 
 void CTrendState::Update(CBOSDetector *bosDetector)
