@@ -1,0 +1,913 @@
+{
+  "dataset": {
+    "rows": 500,
+    "source": "telemetry_v4_20260130.csv"
+  },
+  "families": {
+    "ALL": {
+      "conversions": {
+        "closed_live_over_qualified": 0.0,
+        "closed_sim_over_qualified": 0.924,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": 0.974
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 45,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 1
+        },
+        {
+          "accepted": 49,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 2
+        },
+        {
+          "accepted": 153,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 4
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 240,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 6
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 2,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 11
+        },
+        "total": 13
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 450,
+          "mean_r": 0.1067,
+          "median_r": -1.0,
+          "wr": 0.3689
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 500
+        },
+        "qualified": {
+          "count": 487
+        }
+      }
+    },
+    "BOS": {
+      "conversions": {
+        "closed_live_over_qualified": 0.0,
+        "closed_sim_over_qualified": 0.8313,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": 0.9697
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 0
+        },
+        {
+          "accepted": 7,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 1
+        },
+        {
+          "accepted": 153,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 4
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 0,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 5
+        },
+        "total": 5
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 133,
+          "mean_r": 0.0827,
+          "median_r": -1.0,
+          "wr": 0.3609
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 165
+        },
+        "qualified": {
+          "count": 160
+        }
+      }
+    },
+    "CHOCH": {
+      "conversions": {
+        "closed_live_over_qualified": null,
+        "closed_sim_over_qualified": null,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": null
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 0,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 0
+        },
+        "total": 0
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 0
+        },
+        "qualified": {
+          "count": 0
+        }
+      }
+    },
+    "FVG": {
+      "conversions": {
+        "closed_live_over_qualified": 0.0,
+        "closed_sim_over_qualified": 0.931,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": 0.9775
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 45,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 1
+        },
+        {
+          "accepted": 42,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 1
+        },
+        {
+          "accepted": 0,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 0,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 2
+        },
+        "total": 2
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 81,
+          "mean_r": 0.3333,
+          "median_r": -1.0,
+          "wr": 0.4444
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 89
+        },
+        "qualified": {
+          "count": 87
+        }
+      }
+    },
+    "LIQUIDITY": {
+      "conversions": {
+        "closed_live_over_qualified": 0.0,
+        "closed_sim_over_qualified": 0.9801,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": 0.971
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 201,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 6
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 2,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 4
+        },
+        "total": 6
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 197,
+          "mean_r": 0.0812,
+          "median_r": -1.0,
+          "wr": 0.3604
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 207
+        },
+        "qualified": {
+          "count": 201
+        }
+      }
+    },
+    "ORDER_BLOCK": {
+      "conversions": {
+        "closed_live_over_qualified": null,
+        "closed_sim_over_qualified": null,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": null
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 0,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 0
+        },
+        "total": 0
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 0
+        },
+        "qualified": {
+          "count": 0
+        }
+      }
+    },
+    "UNKNOWN": {
+      "conversions": {
+        "closed_live_over_qualified": 0.0,
+        "closed_sim_over_qualified": 1.0,
+        "entered_over_qualified": null,
+        "filled_over_entered": null,
+        "qualified_over_fired": 1.0
+      },
+      "histograms": [
+        {
+          "accepted": 0,
+          "hi": 0.35,
+          "lo": 0.3,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.4,
+          "lo": 0.35,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.45,
+          "lo": 0.4,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.5,
+          "lo": 0.45,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.55,
+          "lo": 0.5,
+          "rejected": 0
+        },
+        {
+          "accepted": 39,
+          "hi": 0.6000000000000001,
+          "lo": 0.55,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.65,
+          "lo": 0.6000000000000001,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.7,
+          "lo": 0.65,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.75,
+          "lo": 0.7,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": 0.8,
+          "lo": 0.75,
+          "rejected": 0
+        },
+        {
+          "accepted": 0,
+          "hi": null,
+          "lo": 0.8,
+          "rejected": 0
+        }
+      ],
+      "rejects": {
+        "buckets": {
+          "Confidence": 0,
+          "Other": 0,
+          "Risk": 0,
+          "Session": 0,
+          "Spread": 0
+        },
+        "total": 0
+      },
+      "stages": {
+        "closed_live": {
+          "count": 0,
+          "mean_r": null,
+          "median_r": null,
+          "wr": null
+        },
+        "closed_sim": {
+          "count": 39,
+          "mean_r": -0.1538,
+          "median_r": -1.0,
+          "wr": 0.2821
+        },
+        "entered": {
+          "count": null
+        },
+        "filled": {
+          "count": null
+        },
+        "fired": {
+          "count": 39
+        },
+        "qualified": {
+          "count": 39
+        }
+      }
+    }
+  },
+  "overall": {
+    "conversions": {
+      "closed_live_over_qualified": 0.0,
+      "closed_sim_over_qualified": 0.924,
+      "entered_over_qualified": null,
+      "filled_over_entered": null,
+      "qualified_over_fired": 0.974
+    },
+    "histograms": [
+      {
+        "accepted": 0,
+        "hi": 0.35,
+        "lo": 0.3,
+        "rejected": 0
+      },
+      {
+        "accepted": 45,
+        "hi": 0.4,
+        "lo": 0.35,
+        "rejected": 1
+      },
+      {
+        "accepted": 49,
+        "hi": 0.45,
+        "lo": 0.4,
+        "rejected": 2
+      },
+      {
+        "accepted": 153,
+        "hi": 0.5,
+        "lo": 0.45,
+        "rejected": 4
+      },
+      {
+        "accepted": 0,
+        "hi": 0.55,
+        "lo": 0.5,
+        "rejected": 0
+      },
+      {
+        "accepted": 240,
+        "hi": 0.6000000000000001,
+        "lo": 0.55,
+        "rejected": 6
+      },
+      {
+        "accepted": 0,
+        "hi": 0.65,
+        "lo": 0.6000000000000001,
+        "rejected": 0
+      },
+      {
+        "accepted": 0,
+        "hi": 0.7,
+        "lo": 0.65,
+        "rejected": 0
+      },
+      {
+        "accepted": 0,
+        "hi": 0.75,
+        "lo": 0.7,
+        "rejected": 0
+      },
+      {
+        "accepted": 0,
+        "hi": 0.8,
+        "lo": 0.75,
+        "rejected": 0
+      },
+      {
+        "accepted": 0,
+        "hi": null,
+        "lo": 0.8,
+        "rejected": 0
+      }
+    ],
+    "rejects": {
+      "buckets": {
+        "Confidence": 2,
+        "Other": 0,
+        "Risk": 0,
+        "Session": 0,
+        "Spread": 11
+      },
+      "total": 13
+    },
+    "stages": {
+      "closed_live": {
+        "count": 0,
+        "mean_r": null,
+        "median_r": null,
+        "wr": null
+      },
+      "closed_sim": {
+        "count": 450,
+        "mean_r": 0.1067,
+        "median_r": -1.0,
+        "wr": 0.3689
+      },
+      "entered": {
+        "count": null
+      },
+      "filled": {
+        "count": null
+      },
+      "fired": {
+        "count": 500
+      },
+      "qualified": {
+        "count": 487
+      }
+    }
+  },
+  "schemaVersion": "gr02-funnel-v1"
+}
