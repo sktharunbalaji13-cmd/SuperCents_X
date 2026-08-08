@@ -1,8 +1,9 @@
-# SuperCents_X — Visual Specification v2.1
+# SuperCents_X — Visual Specification v2.2
 
-**Version:** 2.1  
+**Version:** 2.2  
 **Author:** SMC Architecture Team  
 **Status:** Single Source of Truth (Architecture Freeze)  
+**v2.2 delta:** VF01 (Sprint 20) — EQH/EQL liquidity levels promoted from §26 (reserved) to a fully specified structure (§14A) with renderer foundation `LiquidityRenderer`. Sweep/invalidation visuals remain reserved (§26, VF02+).
 
 ---
 
@@ -98,6 +99,8 @@ Every visual object on the chart passes through a strict lifecycle. Each type ma
 | **Protected Low** | **Extend** (continuous) | New PL activated | Superseded by next PL | Count > `MaxHistoricalPP` |
 | **Order Block** | **Extend** (continuous) | Mitigated (price enters OB zone) | N/A (skips Historical) | Engine marks invalidated, OR count > `MaxHistoricalOB` |
 | **FVG** | **Extend** (continuous) | Filled (candle body closes gap) | Oldest frozen FVG | Count > `MaxHistoricalFVG` |
+| **EQH** | — (static line, no extend) | N/A (freeze deferred to VF02+) | N/A | Count > `MaxHistoricalLiquidity`, OR outside render window |
+| **EQL** | — (static line, no extend) | N/A (freeze deferred to VF02+) | N/A | Count > `MaxHistoricalLiquidity`, OR outside render window |
 
 ### State Transition Rules
 
@@ -138,6 +141,8 @@ Every structure defines four values that determine where it sits on the chart. "
 | **Protected Low** | `p.time` | `p.price` | Pivot Time | Current Time (while Active) → currentTime (when Frozen) |
 | **Order Block** | `ob.time` | `[ob.high, ob.low]` | OB Candle Time | Current Time (while Active) → Mitigation Time (when Frozen) |
 | **FVG** | `fvg.time` | `[fvg.upper, fvg.lower]` | Displacement Candle Time | Current Time (while Active) → Fill Time (when Frozen) |
+| **EQH** | `swing(leftSwingId).time` | `level.averagePrice` | Left member swing time | Right member swing time (fixed at draw — static) |
+| **EQL** | `swing(leftSwingId).time` | `level.averagePrice` | Left member swing time | Right member swing time (fixed at draw — static) |
 
 ### Anchor Invariants
 
@@ -162,6 +167,7 @@ All ObjectCreate and ObjectMove calls derive directly from these four values. If
 | **ProtectedRenderer** | `OBJ_TREND` + `OBJ_TEXT` | **Extends** point 2 → currentTime each bar | New PH/PL activated | Count limit + `!ShowInactiveProtectedPoints` |
 | **OrderBlockRenderer** | `OBJ_RECTANGLE` + `OBJ_TEXT` | **Extends** right edge → currentTime each bar | Mitigated (price enters zone) | Invalidation + Count limit |
 | **FVGRenderer** | `OBJ_RECTANGLE` + `OBJ_TEXT` | **Extends** right edge → currentTime each bar | Filled (candle body closes gap) | Count limit |
+| **LiquidityRenderer** | `OBJ_TREND` + `OBJ_TEXT` (EQH/EQL only) | **Never** (static — no extend, no finalize) | Never (freeze deferred to VF02+) | Count limit (`MaxHistoricalLiquidity`) + outside render window |
 
 ### Renderer Lifecycle Invariants
 
@@ -203,6 +209,9 @@ OrderBlockDetector
 FVGDetector
     │  detects three-candle imbalances
     ▼
+LiquidityDetector
+    │  clusters equal swing highs (EQH) / lows (EQL); level = cluster
+    ▼
 VisualizationManager
     │  orchestrates renderers in layer order
     ├── FVGRenderer
@@ -210,6 +219,7 @@ VisualizationManager
     ├── ProtectedRenderer
     ├── BOSRenderer
     ├── CHOCHRenderer
+    ├── LiquidityRenderer
     ├── SwingRenderer
     └── PivotRenderer
     │  each renderer builds VisualCommand[] arrays
@@ -725,6 +735,89 @@ Fill is checked on each completed bar close, on every active (non-frozen) FVG.
 
 ---
 
+## 14A. LIQUIDITY LEVELS — EQUAL HIGHS / EQUAL LOWS (EQH / EQL)
+
+> **VF01 (Sprint 20):** promoted from §26 (reserved) to a fully specified structure. Scope of VF01 is the **renderer foundation only**. The detector semantics referenced below (clustering, sweep, mitigation, invalidation) are defined and owned by `LiquidityDetector` (Sprint 12 / DD03 / DD04) and are **not re-implemented** by the renderer — see §2 ownership.
+
+### Visual Semantics
+
+An EQH/EQL level represents: **"Resting liquidity sits at this price — a cluster of equal (or near-equal) swing points that price may be drawn toward before continuing."**
+
+```
+                EQH line (static)
+  ══════════════════════════════════  ← averagePrice (cluster mean)
+      ↑ left member swing    ↑ right member swing (formation)
+```
+
+- **EQH** = buy-side liquidity pool above price (cluster of ≥ 2 equal swing highs).
+- **EQL** = sell-side liquidity pool below price (cluster of ≥ 2 equal swing lows).
+- The line is **static**: both anchors are fixed at draw time. It never extends, never finalizes, never freezes (VF01). Sweep → freeze/invalidation visuals are deferred (see §26).
+
+### Formal Definitions
+
+| Property | Equal Highs (EQH) | Equal Lows (EQL) |
+|---|---|---|
+| **Source detector** | `CLiquidityDetector` (level type `LIQUIDITY_EQH`) | `CLiquidityDetector` (level type `LIQUIDITY_EQL`) |
+| **Source level / ID** | `LiquidityLevel.id` — the detector level id; unique per level. Visual object is keyed to it. | same (EQL levels share the id space with EQH) |
+| **Level price** | `LiquidityLevel.averagePrice` — running cluster mean of member swing prices. Never re-read from chart. | same |
+| **Cluster definition** | ≥ 2 swing highs whose prices are within `LIQUIDITY_EQH_TOLERANCE_PIPS` (3 pips) of each other | ≥ 2 swing lows within `LIQUIDITY_EQL_TOLERANCE_PIPS` (3 pips) |
+| **Member swings** | `LiquidityLevel.leftSwingId` (oldest member), `LiquidityLevel.rightSwingId` (newest member), `LiquidityLevel.memberIdStr` (full member list) | same |
+| **Formation time** | Time of the **right member swing** (`swing(rightSwingId).time`) — the moment the second member confirmed the level | same |
+| **Formation bar** | The detector records the left member's bar (`detectedBar`); the renderer never uses chart cursors for formation | same |
+| **Lifecycle** | Detected → Draw → Active (static) → Delete. **No** `CMD_EXTEND`, `CMD_FINALIZE`, `CMD_FREEZE` in VF01 | same |
+| **Invalidation / freeze behavior** | **Deferred.** A swept/mitigated/invalidated level is simply not drawn by VF01; freeze-on-sweep and invalidation styling are reserved (§26). VF01 deletes only by count limit and render window | same |
+| **Object type** | `OBJ_TREND` + `OBJ_TEXT` | same |
+| **Object names** | Line: `SCX_LIQ_LINE_<id>`, Text: `SCX_LIQ_TEXT_<id>` | same |
+| **Palette** | `COLOR_LIQUIDITY_EQH` = `#FFA726` (amber) | `COLOR_LIQUIDITY_EQL` = `#26C6DA` (cyan) |
+| **Label rules** | See "Label Rules" below; label side = above level | label side = below level |
+
+### Specification
+
+| Property | Value |
+|---|---|
+| Object type | `OBJ_TREND` + `OBJ_TEXT` |
+| Object names | Line: `SCX_LIQ_LINE_<id>`, Text: `SCX_LIQ_TEXT_<id>` |
+| Left (time) | `swing(leftSwingId).time` — time of the oldest cluster member |
+| Right (time) | `swing(rightSwingId).time` — time of the newest cluster member (formation time). **Fixed at draw; never moves.** |
+| Price (both anchors) | `level.averagePrice` |
+| Lifecycle | Detected → Draw → Active (static) → Delete |
+| Extend phase | **None.** The right anchor is never advanced. |
+| Freeze trigger | **None in VF01** (deferred to VF02+). |
+| Delete trigger | Count > `MaxHistoricalLiquidity` (default 30), FIFO of oldest drawn; OR outside `LiquidityRenderHistoryBars` render window |
+| Color | `#FFA726` (EQH) / `#26C6DA` (EQL) |
+| Style (active) | `STYLE_SOLID`, width 2, `OBJPROP_RAY_RIGHT = false` |
+| `OBJPROP_BACK` | `false` |
+| Label text | Per `LiquidityLabelMode` — see Label Rules |
+| Label time | Formation time (`swing(rightSwingId).time`) |
+| Label price | `averagePrice + 15 * _Point` (EQH) / `averagePrice - 15 * _Point` (EQL); then `ResolveLabelPrice` |
+| Label color | Same as line color |
+| Label font size | 8 |
+
+### Label Rules
+
+`LiquidityLabelMode` (input, default `DIRECTION`) — mirrors the BOS label-mode convention:
+
+| Mode | EQH label | EQL label |
+|---|---|---|
+| `LIQUIDITY_LABEL_NONE` | (no label object) | (no label object) |
+| `LIQUIDITY_LABEL_SIMPLE` | `EQH` | `EQL` |
+| `LIQUIDITY_LABEL_DIRECTION` | `BUY EQH` | `SELL EQL` |
+| `LIQUIDITY_LABEL_DEBUG` | `BUY EQH #<id>` | `SELL EQL #<id>` |
+
+The label side encodes the liquidity side (buy-side above / sell-side below); `CompactLabels` collision avoidance applies exactly as for BOS.
+
+### Renderer Contract
+
+`CLiquidityRenderer` (new, VF01):
+
+- Consumes **only** `CLiquidityDetector` levels of type `LIQUIDITY_EQH` / `LIQUIDITY_EQL` with status `ACTIVE` via `GetLevelCount()` / `GetLevel(i)`.
+- Resolves swing times through the injected `CSwingDetector` by level `leftSwingId` / `rightSwingId` (query-only; **no** detection logic).
+- Exposes `bool BuildLevelCommand(const LiquidityLevel &level, VisualCommand &cmd)` — a **pure** command builder with zero MT5 API calls (unit-testable headless).
+- `Update()` filters by render window, calls `BuildLevelCommand`, and executes via `VSE.ExecuteBatch()`. It never calls `ObjectMove` / `ObjectSetInteger` / `ObjectDelete` directly.
+- Draws **ACTIVE** levels only. Levels in any other status are ignored (no visual re-decision in VF01; see §26).
+
+---
+
 ## 15. LAYER ORDER (Z-ORDER)
 
 Creation order in `VisualizationManager::Update()` determines z-order on chart (first created = lowest = furthest back). This order ensures lines are never hidden behind rectangles.
@@ -737,9 +830,10 @@ Creation order in `VisualizationManager::Update()` determines z-order on chart (
 | **3** | **ProtectedRenderer** | `OBJ_TREND` | Mid-low |
 | **4** | **BOSRenderer** | `OBJ_TREND` | Mid |
 | **5** | **CHOCHRenderer** | `OBJ_TREND` | Mid-high |
-| **6** | **SwingRenderer** | `OBJ_ARROW_DOWN`, `OBJ_ARROW_UP` | High (arrows above lines) |
-| **7** | **PivotRenderer** | `OBJ_ARROW` (code 159) | High (circles above lines) |
-| **8** (implicit) | All renderers | `OBJ_TEXT` | Highest (labels always on top) |
+| **6** | **LiquidityRenderer** | `OBJ_TREND` (EQH/EQL lines) | Mid-high (above CHOCH, below arrows) |
+| **7** | **SwingRenderer** | `OBJ_ARROW_DOWN`, `OBJ_ARROW_UP` | High (arrows above lines) |
+| **8** | **PivotRenderer** | `OBJ_ARROW` (code 159) | High (circles above lines) |
+| **9** (implicit) | All renderers | `OBJ_TEXT` | Highest (labels always on top) |
 
 **Key invariant:** `OBJPROP_BACK = false` for all objects.
 
@@ -767,6 +861,8 @@ Creation order in `VisualizationManager::Update()` determines z-order on chart (
 | Fair Value Gap | `COLOR_FVG` | Gold (light) | `#FFD54F` | (255, 213, 79) |
 | Protected High | `COLOR_PROTECTED_HIGH` | Blue (premium) | `#42A5F5` | (66, 165, 245) |
 | Protected Low | `COLOR_PROTECTED_LOW` | Orange (premium) | `#FB8C00` | (251, 140, 0) |
+| Equal Highs (liquidity) | `COLOR_LIQUIDITY_EQH` | Amber (vivid) | `#FFA726` | (255, 167, 38) |
+| Equal Lows (liquidity) | `COLOR_LIQUIDITY_EQL` | Cyan (vivid) | `#26C6DA` | (38, 198, 218) |
 
 ### Dimmed Color Calculation
 
@@ -801,6 +897,7 @@ All objects on chart follow the pattern `SCX_<STRUCTURE>_<TYPE>_<ID>`:
 | Protected Point | `SCX_PP_LINE_<id>` | `SCX_PP_TEXT_<id>` |
 | Order Block | `SCX_OB_RECT_<id>` | `SCX_OB_TEXT_<id>` |
 | Fair Value Gap | `SCX_FVG_RECT_<id>` | `SCX_FVG_TEXT_<id>` |
+| Equal Highs / Equal Lows | `SCX_LIQ_LINE_<id>` | `SCX_LIQ_TEXT_<id>` |
 
 `DeleteObjectsByPrefix("SCX_<STRUCTURE>_")` deletes all objects of a given type during `Clear()`.
 
@@ -888,6 +985,7 @@ No renderer calls `ObjectMove()`, `ObjectSetInteger()`, `ObjectSetDouble()`, `Ob
 | `ShowProtectedPoints` | bool | `true` | Toggle PP lines + labels |
 | `ShowOrderBlocks` | bool | `true` | Toggle OB rectangles + labels |
 | `ShowFVG` | bool | `true` | Toggle FVG rectangles + labels |
+| `ShowLiquidity` | bool | `true` | Toggle EQH/EQL lines + labels |
 | `MaxHistoricalSwings` | int | `50` | Max swing arrows kept |
 | `MaxHistoricalPivots` | int | `50` | Max pivot markers kept |
 | `MaxHistoricalBOS` | int | `30` | Max BOS lines kept |
@@ -895,6 +993,9 @@ No renderer calls `ObjectMove()`, `ObjectSetInteger()`, `ObjectSetDouble()`, `Ob
 | `MaxHistoricalPP` | int | `20` | Max PP lines kept |
 | `MaxHistoricalOB` | int | `20` | Max OB rectangles kept |
 | `MaxHistoricalFVG` | int | `30` | Max FVG rectangles kept |
+| `MaxHistoricalLiquidity` | int | `30` | Max EQH/EQL lines kept (FIFO) |
+| `LiquidityLabelMode` | ENUM_LIQUIDITY_LABEL_MODE | `DIRECTION` | EQH/EQL label text mode (`NONE` / `SIMPLE` / `DIRECTION` / `DEBUG`) |
+| `LiquidityRenderHistoryBars` | int | `300` | Only render EQH/EQL levels formed within this many bars of the current bar |
 | `ShowInactiveProtectedPoints` | bool | `false` | Show/hide frozen PP lines |
 | `CompactLabels` | bool | `true` | Enable label collision avoidance |
 | `ColorTheme` | ENUM_THEME | `DARK` | Chart background for dimming calculations |
@@ -1110,6 +1211,7 @@ Each renderer's `Update()` builds a local `VisualCommand[]` array and calls `VSE
 | **FVG Fill criteria** | "Price trades through gap" (ambiguous) | Exact: `close[i] <= fvg.lower` (bullish) / `close[i] >= fvg.upper` (bearish), body-only, no wick | Unambiguous, matches ICT standard |
 | **State machine diagram** | Linear flow | Branching: Active → New Structure? → No=Extend / Yes=Freeze | Accurate representation of the decision point |
 | **Future Structures** | Not present | §26 reserves Liquidity Sweep, Equal High/Low, Premium/Discount, Breaker Block, Mitigation Block, IFVG, Liquidity Void | Architecture is extensible without core changes |
+| **Equal Highs / Equal Lows** (v2.2, VF01) | Reserved only (§26) | Fully specified §14A: formal definitions (source level/ID, cluster price, formation time, lifecycle, naming, palette, label rules) + `LiquidityRenderer` foundation | Promotes EQH/EQL from reserved to implemented; static lines only; sweep/freeze visuals deferred (VF02+) |
 
 ---
 
@@ -1124,9 +1226,9 @@ The following SMC/ICT structures are reserved for future implementation. When ad
 
 | Structure | Likely Object Type | Lifecycle | Notes |
 |---|---|---|---|
-| **Liquidity Sweep** | `OBJ_TREND` + `OBJ_TEXT` | Extend → Freeze → Historical → Delete | Marks where price swept above/below a level before reversing |
-| **Equal Highs** | `OBJ_TREND` | Static (no extend) | Horizontal line at the high price level |
-| **Equal Lows** | `OBJ_TREND` | Static (no extend) | Horizontal line at the low price level |
+| **Liquidity Sweep** | `OBJ_TREND` + `OBJ_TEXT` | Extend → Freeze → Historical → Delete | Marks where price swept above/below a level before reversing. **VF02+**: includes freeze-on-sweep / invalidation styling for EQH/EQL levels (VF01 draws ACTIVE levels only) |
+| **Equal Highs** | `OBJ_TREND` | Static (no extend) | **IMPLEMENTED — VF01 (§14A, `LiquidityRenderer`)** |
+| **Equal Lows** | `OBJ_TREND` | Static (no extend) | **IMPLEMENTED — VF01 (§14A, `LiquidityRenderer`)** |
 | **Premium / Discount Array** | `OBJ_TREND` + `OBJ_TEXT` | Extend → Freeze → Delete | Midline, premium, and discount levels for the current range |
 | **Breaker Block** | `OBJ_RECTANGLE` + `OBJ_TEXT` | Extend → Freeze → Delete | Similar to OB but forms after a failed breakout |
 | **Mitigation Block** | `OBJ_RECTANGLE` + `OBJ_TEXT` | Extend → Freeze → Delete | Second OB that forms after the first is mitigated |

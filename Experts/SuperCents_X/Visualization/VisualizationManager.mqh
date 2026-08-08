@@ -17,6 +17,7 @@
 #include "../Structure/ProtectedPointManager.mqh"
 #include "../Structure/OrderBlockDetector.mqh"
 #include "../Structure/FVGDetector.mqh"
+#include "../Structure/LiquidityDetector.mqh"
 #include "SwingRenderer.mqh"
 #include "PivotRenderer.mqh"
 #include "BOSRenderer.mqh"
@@ -24,6 +25,7 @@
 #include "ProtectedRenderer.mqh"
 #include "OrderBlockRenderer.mqh"
 #include "FVGRenderer.mqh"
+#include "LiquidityRenderer.mqh"
 #include "VisualDiagnostic.mqh"
 
 class CVisualizationManager
@@ -39,6 +41,7 @@ private:
     CProtectedPointManager      *m_protectedPointManager;
     COrderBlockDetector         *m_orderBlockDetector;
     CFVGDetector                *m_fvgDetector;
+    CLiquidityDetector          *m_liquidityDetector;
 
     CVisualStateEngine  m_vse;
 
@@ -49,6 +52,7 @@ private:
     CProtectedRenderer  m_protected;
     COrderBlockRenderer m_ob;
     CFVGRenderer        m_fvg;
+    CLiquidityRenderer  m_liquidity;
     CVisualDiagnostic   m_diag;
 
 public:
@@ -68,13 +72,14 @@ public:
     void SetProtectedPointManager(CProtectedPointManager *manager);
     void SetOrderBlockDetector(COrderBlockDetector *detector);
     void SetFVGDetector(CFVGDetector *detector);
+    void SetLiquidityDetector(CLiquidityDetector *detector);
 };
 
 CVisualizationManager::CVisualizationManager(void)
     : m_logger(MODULE_VISUALIZATION_MANAGER, "VizManager"), m_isInitialized(false)
     , m_swingDetector(NULL), m_pivotEngine(NULL), m_bosDetector(NULL)
     , m_chochDetector(NULL), m_protectedPointManager(NULL)
-    , m_orderBlockDetector(NULL), m_fvgDetector(NULL) {}
+    , m_orderBlockDetector(NULL), m_fvgDetector(NULL), m_liquidityDetector(NULL) {}
 
 CVisualizationManager::~CVisualizationManager(void)
 {
@@ -96,6 +101,7 @@ bool CVisualizationManager::Init(void)
     m_protected.SetVSE(&m_vse);
     m_ob.SetVSE(&m_vse);
     m_fvg.SetVSE(&m_vse);
+    m_liquidity.SetVSE(&m_vse);
 
     if(!m_swing.Init())    { m_logger.LogError("SwingRenderer init failed");    return false; }
     if(!m_pivot.Init())    { m_logger.LogError("PivotRenderer init failed");    return false; }
@@ -104,6 +110,7 @@ bool CVisualizationManager::Init(void)
     if(!m_protected.Init()){ m_logger.LogError("ProtectedRenderer init failed"); return false; }
     if(!m_ob.Init())       { m_logger.LogError("OrderBlockRenderer init failed");return false; }
     if(!m_fvg.Init())      { m_logger.LogError("FVGRenderer init failed");      return false; }
+    if(!m_liquidity.Init()){ m_logger.LogError("LiquidityRenderer init failed"); return false; }
 
     m_isInitialized = true;
     m_logger.LogInfo("VisualizationManager initialized");
@@ -115,7 +122,7 @@ void CVisualizationManager::Update(void)
     ulong s, e;
     string perf = "VIZ";
 
-    // Layer order per spec §11: FVG → OB → PP → BOS → CHOCH → Swings → Pivots
+    // Layer order per spec §11: FVG → OB → PP → BOS → CHOCH → Liquidity → Swings → Pivots
     // This ensures rectangles (FVG/OB) are behind lines, arrows on top, labels topmost
 
     s = GetMicrosecondCount();
@@ -142,6 +149,11 @@ void CVisualizationManager::Update(void)
     if(ShowCHOCH)           m_choch.Update();         else m_choch.Clear();
     e = GetMicrosecondCount();
     perf += StringFormat(" CHOCH:%llu", e - s);
+
+    s = GetMicrosecondCount();
+    if(ShowLiquidity)       m_liquidity.Update();     else m_liquidity.Clear();
+    e = GetMicrosecondCount();
+    perf += StringFormat(" LIQ:%llu", e - s);
 
     s = GetMicrosecondCount();
     if(ShowSwings)          m_swing.Update();         else m_swing.Clear();
@@ -172,6 +184,7 @@ void CVisualizationManager::Shutdown(void)
     m_ob.Shutdown();
     m_protected.Shutdown();
     m_choch.Shutdown();
+    m_liquidity.Shutdown();
     m_bos.Shutdown();
     m_pivot.Shutdown();
     m_swing.Shutdown();
@@ -190,6 +203,7 @@ void CVisualizationManager::Clear(void)
     m_protected.Clear();
     m_ob.Clear();
     m_fvg.Clear();
+    m_liquidity.Clear();
 }
 
 void CVisualizationManager::SetSwingDetector(CSwingDetector *detector)
@@ -234,6 +248,12 @@ void CVisualizationManager::SetFVGDetector(CFVGDetector *detector)
 {
     m_fvgDetector = detector;
     m_fvg.SetDetector(detector);
+}
+
+void CVisualizationManager::SetLiquidityDetector(CLiquidityDetector *detector)
+{
+    m_liquidityDetector = detector;
+    m_liquidity.SetDetector(detector);
 }
 
 #endif

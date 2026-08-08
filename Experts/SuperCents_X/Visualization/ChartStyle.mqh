@@ -19,6 +19,8 @@ const color COLOR_FVG                   = 0xFFD54F;
 const color COLOR_PROTECTED_HIGH        = 0x42A5F5;
 const color COLOR_PROTECTED_LOW         = 0xFB8C00;
 const color COLOR_PP_INACTIVE           = 0xA9A9A9;
+const color COLOR_LIQUIDITY_EQH         = 0xFFA726;
+const color COLOR_LIQUIDITY_EQL         = 0x26C6DA;
 
 // Dimmed colors for Frozen tier (60%)
 const color COLOR_BOS_BULLISH_FROZEN    = 0x007832;

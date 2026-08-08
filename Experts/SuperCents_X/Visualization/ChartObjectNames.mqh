@@ -74,4 +74,14 @@ string FVGTextName(int fvgID)
     return StringFormat("SCX_FVG_TEXT_%d", fvgID);
 }
 
+string LiquidityLineName(int liquidityID)
+{
+    return StringFormat("SCX_LIQ_LINE_%d", liquidityID);
+}
+
+string LiquidityTextName(int liquidityID)
+{
+    return StringFormat("SCX_LIQ_TEXT_%d", liquidityID);
+}
+
 #endif // __CHART_OBJECT_NAMES_MQH__

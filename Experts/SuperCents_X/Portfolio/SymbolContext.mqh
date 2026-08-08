@@ -409,6 +409,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         m_visualizationManager.SetProtectedPointManager(m_protectedPointManager);
         m_visualizationManager.SetOrderBlockDetector(m_orderBlockDetector);
         m_visualizationManager.SetFVGDetector(m_fvgDetector);
+        m_visualizationManager.SetLiquidityDetector(m_liquidityDetector);
     }
 
     m_confluenceEngine = new CConfluenceEngine();

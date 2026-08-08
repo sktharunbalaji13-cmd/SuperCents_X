@@ -13,6 +13,7 @@ input bool ShowCHOCH           = true;
 input bool ShowProtectedPoints = true;
 input bool ShowOrderBlocks     = true;
 input bool ShowFVG             = true;
+input bool ShowLiquidity       = true;
 
 // Historical limits (delete oldest beyond this count)
 input int  MaxHistoricalSwings = 50;
@@ -22,6 +23,7 @@ input int  MaxHistoricalCHOCH  = 30;
 input int  MaxHistoricalPP     = 20;
 input int  MaxHistoricalOB     = 20;
 input int  MaxHistoricalFVG    = 30;
+input int  MaxHistoricalLiquidity = 30;
 
 // Protected Point behavior
 input bool ShowInactiveProtectedPoints = false;
@@ -67,7 +69,20 @@ enum ENUM_BOS_LABEL_POSITION
 };
 input ENUM_BOS_LABEL_POSITION BOSLabelPosition = BOS_LABEL_AT_START;
 
+// EQH/EQL label mode (NONE = no label, SIMPLE = "EQH"/"EQL", DIRECTION = "BUY EQH"/"SELL EQL", DEBUG = side + "#ID")
+enum ENUM_LIQUIDITY_LABEL_MODE
+{
+    LIQUIDITY_LABEL_NONE      = 0,
+    LIQUIDITY_LABEL_SIMPLE    = 1,
+    LIQUIDITY_LABEL_DIRECTION = 2,
+    LIQUIDITY_LABEL_DEBUG     = 3
+};
+input ENUM_LIQUIDITY_LABEL_MODE LiquidityLabelMode = LIQUIDITY_LABEL_DIRECTION;
+
 // Render Window (bars) — only render swings within this many bars from current
 input int SwingRenderHistoryBars = 300;
+
+// Render Window (bars) — only render EQH/EQL levels formed within this many bars from current
+input int LiquidityRenderHistoryBars = 300;
 
 #endif // __RENDER_CONFIG_MQH__
