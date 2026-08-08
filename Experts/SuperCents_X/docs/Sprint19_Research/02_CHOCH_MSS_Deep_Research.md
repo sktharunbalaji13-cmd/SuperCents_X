@@ -476,10 +476,10 @@ trade-off (deviation from some TV tools that re-emit, [TV-3]).
   coordinate verification logs (:342-366).
 - Colors: active amber `#FFB300`, frozen grey `#808080`, historical
   `#606060` (`ChartStyle.mqh:16,26,35`).
-- **Spec-vs-code discrepancy**: `VisualSpecification_v2.1` and the QA
+- **Spec-vs-code discrepancy**: `VisualSpecification_v2.2` and the QA
   checklist specify frozen `#996B00` / historical `#593E00`; the
   implementation uses grey `#808080` / `#606060`. Rendering semantics
-  are correct; the palette drifted from spec (Sprint 20 fix).
+  are correct; the palette drifted from spec. **RESOLVED 2026-08-08 (VF02)**: `COLOR_CHOCH_FROZEN` → `#996B00`, `COLOR_CHOCH_HIST` → `#593E00` per spec §16, pinned by `Tests/VF02/TestPaletteParity.mqh`.
 
 **Verdict: 88/100 — faithful rendering of the logical event.** Start
 at the PP (not the break bar) is a defensible "break of the last

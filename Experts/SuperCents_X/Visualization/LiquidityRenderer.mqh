@@ -2,7 +2,7 @@
 //|                                      LiquidityRenderer.mqh        |
 //|                    Sprint 20 - VF01: EQH/EQL renderer foundation  |
 //|                                                                  |
-//| Spec: docs/VisualSpecification_v2.1.md section 14A.              |
+//| Spec: docs/VisualSpecification_v2.2.md section 14A.              |
 //| Ownership (§2): the detector decides WHAT exists (EQH/EQL        |
 //| clusters); this renderer decides HOW it is visualized (static    |
 //| OBJ_TREND lines + labels); the VSE performs every chart          |

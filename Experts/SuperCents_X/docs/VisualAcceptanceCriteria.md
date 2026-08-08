@@ -523,7 +523,7 @@ The Visualization Engine is **automatically rejected** if any of the following c
 
 > **I, the undersigned Lead QA Architect, confirm that the SuperCents_X Visualization Engine has passed all five sections of acceptance criteria. I confirm that every renderer matches VisualSpecification_v2.0 as observed on the runtime chart, that no blocker or major failures remain, and that the engine is suitable for production use.**
 >
-> **Effective immediately, the Visualization Engine is FROZEN. No modifications to renderers, the VisualStateEngine, ChartStyle, ChartUtils, or the VisualizationManager are permitted without creating VisualSpecification_v2.1 and a new acceptance cycle.**
+> **Effective immediately, the Visualization Engine is FROZEN. No modifications to renderers, the VisualStateEngine, ChartStyle, ChartUtils, or the VisualizationManager are permitted without creating VisualSpecification_v2.2 and a new acceptance cycle.**
 
 | Role | Name | Signature | Date |
 |---|---|---|---|

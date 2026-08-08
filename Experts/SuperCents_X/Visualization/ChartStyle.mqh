@@ -25,7 +25,7 @@ const color COLOR_LIQUIDITY_EQL         = 0x26C6DA;
 // Dimmed colors for Frozen tier (60%)
 const color COLOR_BOS_BULLISH_FROZEN    = 0x007832;
 const color COLOR_BOS_BEARISH_FROZEN    = 0x7E1C1C;
-const color COLOR_CHOCH_FROZEN          = 0x808080;
+const color COLOR_CHOCH_FROZEN          = 0x996B00;
 const color COLOR_PROTECTED_HIGH_FROZEN = 0x276393;
 const color COLOR_PROTECTED_LOW_FROZEN  = 0x965400;
 const color COLOR_OB_FROZEN             = 0x0F467E;
@@ -34,9 +34,10 @@ const color COLOR_FVG_FROZEN            = 0x99802F;
 // Dimmed colors for Historical tier (35%)
 const color COLOR_BOS_BULLISH_HIST      = 0x00461D;
 const color COLOR_BOS_BEARISH_HIST      = 0x4A1010;
-const color COLOR_CHOCH_HIST            = 0x606060;
+const color COLOR_CHOCH_HIST            = 0x593E00;
 const color COLOR_PROTECTED_HIGH_HIST   = 0x173A56;
 const color COLOR_PROTECTED_LOW_HIST    = 0x573100;
+const color COLOR_OB_HIST               = 0x09294A;
 const color COLOR_FVG_HIST              = 0x594A1C;
 const color COLOR_SWING_HIGH_HIST       = 0x501413;
 const color COLOR_SWING_LOW_HIST        = 0x173818;
