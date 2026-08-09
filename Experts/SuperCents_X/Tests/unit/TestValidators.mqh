@@ -304,6 +304,63 @@ void TestConfluenceValidator_CustomFloorOverride(TestCounters &counters)
     TEST_INT_EQ(FILTER_PASS, out.result, "custom FVG floor PASS at (50.0)");
 }
 
+// ─── ED01: floor inputs (Sprint 20 experiment surface) ────────────
+
+void TestED01_InputsDefaultToFrozenB8(TestCounters &counters)
+{
+    //--- The six ED01_* inputs must default to the exact B8 frozen values
+    //    (GR01 evidence-calibrated floors), so the default configuration
+    //    path stays bit-for-bit identical to B8.
+    TEST_DBL_EQ(0.60, ED01_FloorLiquidity,  "ED01_FloorLiquidity default = B8 (0.60)");
+    TEST_DBL_EQ(0.35, ED01_FloorFVG,        "ED01_FloorFVG default = B8 (0.35)");
+    TEST_DBL_EQ(0.35, ED01_FloorOrderBlock, "ED01_FloorOrderBlock default = B8 (0.35)");
+    TEST_DBL_EQ(0.35, ED01_FloorBOS,        "ED01_FloorBOS default = B8 (0.35)");
+    TEST_DBL_EQ(0.35, ED01_FloorCHOCH,      "ED01_FloorCHOCH default = B8 (0.35)");
+    TEST_DBL_EQ(0.35, ED01_FloorUnknown,    "ED01_FloorUnknown default = B8 (0.35)");
+}
+
+void TestED01_BuildFromInputsEqualsDefaultConfig(TestCounters &counters)
+{
+    //--- BuildED01ConfigFromInputs() with default inputs must produce the
+    //    identical ConfluenceConfig as the default constructor.
+    ConfluenceConfig fromInputs = BuildED01ConfigFromInputs();
+    ConfluenceConfig defaults;
+
+    TEST_DBL_EQ(defaults.familyFloorLiquidity,  fromInputs.familyFloorLiquidity,  "ED01: liquidity floor parity");
+    TEST_DBL_EQ(defaults.familyFloorFVG,        fromInputs.familyFloorFVG,        "ED01: FVG floor parity");
+    TEST_DBL_EQ(defaults.familyFloorOrderBlock, fromInputs.familyFloorOrderBlock, "ED01: order-block floor parity");
+    TEST_DBL_EQ(defaults.familyFloorBOS,        fromInputs.familyFloorBOS,        "ED01: BOS floor parity");
+    TEST_DBL_EQ(defaults.familyFloorCHOCH,      fromInputs.familyFloorCHOCH,      "ED01: CHOCH floor parity");
+    TEST_DBL_EQ(defaults.familyFloorUnknown,    fromInputs.familyFloorUnknown,    "ED01: UNKNOWN floor parity");
+    TEST_DBL_EQ(defaults.minConfidence,         fromInputs.minConfidence,         "ED01: global minConfidence untouched");
+}
+
+void TestED01_SetConfigGatesOnAppliedFloors(TestCounters &counters)
+{
+    //--- A validator configured via SetConfig (the ED01 production wiring
+    //    path) must gate on the applied floors, not the compile-time
+    //    defaults.
+    ConfluenceConfig cfg = BuildED01ConfigFromInputs();
+    cfg.familyFloorLiquidity = 0.65;
+    CConfluenceValidator v;
+    v.SetConfig(cfg);
+    EntryContext ctx = MakeContext(10.0, 0, 1.1000, 1.1002, 0, 1.1001);
+    EntryFilterResult out;
+
+    ConfluenceResult r62 = MakeResult(62.0, CONFLUENCE_BULLISH, 3);
+    r62.winningRuleFamily = RULE_FAMILY_LIQUIDITY;
+    v.Validate(r62, ctx, out);
+    TEST_INT_EQ(FILTER_FAIL, out.result, "ED01: 62.0 fails the applied 0.65 liquidity floor");
+
+    ConfluenceResult r65 = MakeResult(65.0, CONFLUENCE_BULLISH, 3);
+    r65.winningRuleFamily = RULE_FAMILY_LIQUIDITY;
+    v.Validate(r65, ctx, out);
+    TEST_INT_EQ(FILTER_PASS, out.result, "ED01: 65.0 passes the applied 0.65 liquidity floor");
+
+    //--- The applied config is what telemetry fingerprints (policy record).
+    TEST_DBL_EQ(0.65, v.GetConfig().familyFloorLiquidity, "ED01: GetConfig exposes the applied floor");
+}
+
 // ─── DD05: rule identity helpers ───────────────────────────────────
 
 void TestRuleTypeToFamily_AllRules(TestCounters &counters)
@@ -768,6 +825,9 @@ TestCounters RunValidatorTests()
     TestConfluenceValidator_FamilyOrderBlockFloor(counters);
     TestConfluenceValidator_UnknownFloor(counters);
     TestConfluenceValidator_CustomFloorOverride(counters);
+    TestED01_InputsDefaultToFrozenB8(counters);
+    TestED01_BuildFromInputsEqualsDefaultConfig(counters);
+    TestED01_SetConfigGatesOnAppliedFloors(counters);
     TestRuleTypeToFamily_AllRules(counters);
     TestRuleTypeToName_AllRules(counters);
 

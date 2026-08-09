@@ -437,6 +437,10 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         }
         m_confluenceEngine.SetWeights(m_weights);
         m_logger.LogInfo("Confluence weights: " + m_weights.ToString());
+
+        //--- ED01: apply the per-family floors from the ED01_* inputs
+        //    (defaults equal the frozen B8 values, bit-for-bit identical).
+        m_confVal.SetConfig(BuildED01ConfigFromInputs());
     }
 
     m_entrySetupBuilder = new CEntrySetupBuilder();
@@ -874,7 +878,7 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                                                                 m_weights, m_symbol, (int)Period(),
                                                                 disabled, "tick",
                                                                 (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
-                                                                ConfluenceConfig(),
+                                                                m_confVal.GetConfig(),
                                                                 sig);
                     else
                         CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
@@ -883,7 +887,7 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                                                     m_weights, m_symbol, (int)Period(),
                                                     disabled, "tick",
                                                     (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
-                                                    ConfluenceConfig());
+                                                    m_confVal.GetConfig());
                     //--- Sprint 15.3: settle previously queued rows first so
                     //    the collector receives rows in decision order, then
                     //    queue the new row for forward-outcome settlement.

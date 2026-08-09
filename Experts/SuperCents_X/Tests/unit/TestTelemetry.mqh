@@ -616,6 +616,34 @@ void TestRowBuilder_FingerprintIncludesFloors(TestCounters &counters)
                "Row fingerprint reflects the family floors");
 }
 
+// ─── ED01: default-input parity (Sprint 20 experiment surface) ─────
+
+void TestRowFingerprint_ED01DefaultParity(TestCounters &counters)
+{
+    //--- ED01: rows built with the default ED01 inputs must fingerprint
+    //    identically to rows built with the B8 ConfluenceConfig defaults,
+    //    so a default run is byte-identical to B8 in the telemetry file.
+    ConfluenceResult cr = MakeTestConfluence();
+    EntryDecision newDec;
+    newDec.status = DECISION_QUALIFIED;
+    newDec.confidence = 0.40;
+    newDec.direction = CONFLUENCE_BULLISH;
+    ConfluenceWeights w;
+
+    ConfluenceConfig cfgB8;
+    TelemetryRow rowA;
+    CTelemetryRowBuilder::Build(rowA, cr, newDec, false, EntryDecision(), 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, cfgB8);
+
+    TelemetryRow rowB;
+    CTelemetryRowBuilder::Build(rowB, cr, newDec, false, EntryDecision(), 0.60,
+                                w, "EURUSD", (int)PERIOD_H1, "", "tick", 5,
+                                BuildED01ConfigFromInputs());
+
+    TEST_STR_EQ(rowA.configFingerprint, rowB.configFingerprint,
+                "ED01: default inputs produce the B8 fingerprint (byte-identical)");
+}
+
 // ─── GR02A: actual-outcome instrumentation (settlement) ────────────
 
 void TestCollector_RecordAssignsDecisionId(TestCounters &counters)
@@ -785,6 +813,7 @@ TestCounters RunTelemetryTests()
     TestFingerprint_CanonicalUnorderedDisabled(counters);
     TestFingerprint_SensitiveToFamilyFloors(counters);
     TestRowBuilder_FingerprintIncludesFloors(counters);
+    TestRowFingerprint_ED01DefaultParity(counters);
     TestCollector_RecordAssignsDecisionId(counters);
     TestCollector_ApplyActualOutcome(counters);
     TestActualOutcomeSettler_Classify(counters);

@@ -43,6 +43,34 @@ struct ConfluenceConfig
     {}
 };
 
+//+------------------------------------------------------------------+
+//| ED01 (Sprint 20): expose the per-family floors as inputs so the  |
+//| experiment grid can vary one floor at a time.  Defaults are the  |
+//| exact frozen B8 values (see ConfluenceConfig above), so the      |
+//| default configuration path stays bit-for-bit identical to B8.    |
+//+------------------------------------------------------------------+
+input double ED01_FloorLiquidity  = 0.60;
+input double ED01_FloorFVG        = 0.35;
+input double ED01_FloorOrderBlock = 0.35;
+input double ED01_FloorBOS        = 0.35;
+input double ED01_FloorCHOCH      = 0.35;
+input double ED01_FloorUnknown    = 0.35;
+
+//--- ED01: build the applied ConfluenceConfig from the ED01 inputs.
+//    With default inputs this equals the ConfluenceConfig() defaults
+//    (verified by TestValidators/TestTelemetry ED01 parity tests).
+ConfluenceConfig BuildED01ConfigFromInputs(void)
+{
+    ConfluenceConfig cfg;
+    cfg.familyFloorLiquidity  = ED01_FloorLiquidity;
+    cfg.familyFloorFVG        = ED01_FloorFVG;
+    cfg.familyFloorOrderBlock = ED01_FloorOrderBlock;
+    cfg.familyFloorBOS        = ED01_FloorBOS;
+    cfg.familyFloorCHOCH      = ED01_FloorCHOCH;
+    cfg.familyFloorUnknown    = ED01_FloorUnknown;
+    return cfg;
+}
+
 struct FreshnessConfig
 {
     int maxAgeBars;

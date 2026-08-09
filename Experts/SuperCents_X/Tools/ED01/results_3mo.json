@@ -1,0 +1,2861 @@
+{
+ "stats": {
+  "EURUSD_H1/BOS_0.25": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/BOS_0.30": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/BOS_0.40": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/BOS_0.45": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 372,
+    "nClosed": 364,
+    "wins": 122,
+    "wr": 0.3352,
+    "meanR": 0.0055,
+    "medianR": -1.0,
+    "maxDD": 65.0,
+    "meanBars": 6.48
+   }
+  },
+  "EURUSD_H1/CHOCH_0.25": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/CHOCH_0.30": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/CHOCH_0.40": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/CHOCH_0.45": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/CONTROL": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/FVG_0.25": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/FVG_0.30": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/FVG_0.40": {
+   "FVG": {
+    "nPop": 146,
+    "nClosed": 143,
+    "wins": 56,
+    "wr": 0.3916,
+    "meanR": 0.1748,
+    "medianR": -1.0,
+    "maxDD": 26.0,
+    "meanBars": 6.22
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/FVG_0.45": {
+   "FVG": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/LIQUIDITY_0.50": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/LIQUIDITY_0.55": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/LIQUIDITY_0.65": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "LIQUIDITY": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/LIQUIDITY_0.70": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "LIQUIDITY": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/OB_0.25": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/OB_0.30": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/OB_0.40": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_H1/OB_0.45": {
+   "FVG": {
+    "nPop": 351,
+    "nClosed": 318,
+    "wins": 123,
+    "wr": 0.3868,
+    "meanR": 0.1604,
+    "medianR": -1.0,
+    "maxDD": 44.0,
+    "meanBars": 6.0
+   },
+   "UNKNOWN": {
+    "nPop": 117,
+    "nClosed": 117,
+    "wins": 28,
+    "wr": 0.2393,
+    "meanR": -0.2821,
+    "medianR": -1.0,
+    "maxDD": 53.0,
+    "meanBars": 6.51
+   },
+   "LIQUIDITY": {
+    "nPop": 614,
+    "nClosed": 607,
+    "wins": 184,
+    "wr": 0.3031,
+    "meanR": -0.0906,
+    "medianR": -1.0,
+    "maxDD": 92.0,
+    "meanBars": 6.68
+   },
+   "BOS": {
+    "nPop": 386,
+    "nClosed": 378,
+    "wins": 127,
+    "wr": 0.336,
+    "meanR": 0.0079,
+    "medianR": -1.0,
+    "maxDD": 67.0,
+    "meanBars": 6.67
+   }
+  },
+  "EURUSD_M15/BOS_0.25": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/BOS_0.30": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/BOS_0.40": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/BOS_0.45": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2080,
+    "nClosed": 2056,
+    "wins": 702,
+    "wr": 0.3414,
+    "meanR": 0.0182,
+    "medianR": -1.0,
+    "maxDD": 148.873,
+    "meanBars": 8.31
+   }
+  },
+  "EURUSD_M15/CHOCH_0.25": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/CHOCH_0.30": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/CHOCH_0.40": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/CHOCH_0.45": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/CONTROL": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/FVG_0.25": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/FVG_0.30": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/FVG_0.40": {
+   "FVG": {
+    "nPop": 1180,
+    "nClosed": 1159,
+    "wins": 449,
+    "wr": 0.3874,
+    "meanR": 0.1596,
+    "medianR": -1.0,
+    "maxDD": 86.0,
+    "meanBars": 8.39
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/FVG_0.45": {
+   "FVG": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "UNKNOWN": {
+    "nPop": 44,
+    "nClosed": 44,
+    "wins": 16,
+    "wr": 0.3636,
+    "meanR": 0.078,
+    "medianR": -1.0,
+    "maxDD": 8.0,
+    "meanBars": 10.66
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/LIQUIDITY_0.50": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 64,
+    "nClosed": 64,
+    "wins": 25,
+    "wr": 0.3906,
+    "meanR": 0.163,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 10.8
+   },
+   "LIQUIDITY": {
+    "nPop": 1705,
+    "nClosed": 1702,
+    "wins": 489,
+    "wr": 0.2873,
+    "meanR": -0.1474,
+    "medianR": -1.0,
+    "maxDD": 334.9188,
+    "meanBars": 7.13
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/LIQUIDITY_0.55": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 64,
+    "nClosed": 64,
+    "wins": 25,
+    "wr": 0.3906,
+    "meanR": 0.163,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 10.8
+   },
+   "LIQUIDITY": {
+    "nPop": 1705,
+    "nClosed": 1702,
+    "wins": 489,
+    "wr": 0.2873,
+    "meanR": -0.1474,
+    "medianR": -1.0,
+    "maxDD": 334.9188,
+    "meanBars": 7.13
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/LIQUIDITY_0.65": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 5,
+    "nClosed": 5,
+    "wins": 0,
+    "wr": 0.0,
+    "meanR": -1.0,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 4.0
+   },
+   "LIQUIDITY": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/LIQUIDITY_0.70": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 5,
+    "nClosed": 5,
+    "wins": 0,
+    "wr": 0.0,
+    "meanR": -1.0,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 4.0
+   },
+   "LIQUIDITY": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/OB_0.25": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/OB_0.30": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/OB_0.40": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "EURUSD_M15/OB_0.45": {
+   "FVG": {
+    "nPop": 2115,
+    "nClosed": 2092,
+    "wins": 749,
+    "wr": 0.358,
+    "meanR": 0.0675,
+    "medianR": -1.0,
+    "maxDD": 122.9474,
+    "meanBars": 8.02
+   },
+   "UNKNOWN": {
+    "nPop": 49,
+    "nClosed": 49,
+    "wins": 16,
+    "wr": 0.3265,
+    "meanR": -0.032,
+    "medianR": -1.0,
+    "maxDD": 13.0,
+    "meanBars": 9.98
+   },
+   "LIQUIDITY": {
+    "nPop": 1697,
+    "nClosed": 1694,
+    "wins": 487,
+    "wr": 0.2875,
+    "meanR": -0.1464,
+    "medianR": -1.0,
+    "maxDD": 332.0427,
+    "meanBars": 7.12
+   },
+   "CHOCH": {
+    "nPop": 1,
+    "nClosed": 1,
+    "wins": 1,
+    "wr": 1.0,
+    "meanR": 2.0,
+    "medianR": 2.0,
+    "maxDD": 0.0,
+    "meanBars": 11.0
+   },
+   "BOS": {
+    "nPop": 2119,
+    "nClosed": 2095,
+    "wins": 713,
+    "wr": 0.3403,
+    "meanR": 0.015,
+    "medianR": -1.0,
+    "maxDD": 157.7491,
+    "meanBars": 8.22
+   }
+  },
+  "GBPJPY_H1/BOS_0.25": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/BOS_0.30": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/BOS_0.40": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/BOS_0.45": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 68,
+    "nClosed": 58,
+    "wins": 21,
+    "wr": 0.3621,
+    "meanR": 0.0862,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.72
+   }
+  },
+  "GBPJPY_H1/CHOCH_0.25": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/CHOCH_0.30": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/CHOCH_0.40": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/CHOCH_0.45": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/CONTROL": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/FVG_0.25": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/FVG_0.30": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/FVG_0.40": {
+   "FVG": {
+    "nPop": 27,
+    "nClosed": 25,
+    "wins": 1,
+    "wr": 0.04,
+    "meanR": -0.88,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.72
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/FVG_0.45": {
+   "FVG": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/LIQUIDITY_0.50": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 104,
+    "nClosed": 100,
+    "wins": 30,
+    "wr": 0.3,
+    "meanR": -0.1,
+    "medianR": -1.0,
+    "maxDD": 23.0,
+    "meanBars": 5.4
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/LIQUIDITY_0.55": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 104,
+    "nClosed": 100,
+    "wins": 30,
+    "wr": 0.3,
+    "meanR": -0.1,
+    "medianR": -1.0,
+    "maxDD": 23.0,
+    "meanBars": 5.4
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/LIQUIDITY_0.65": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "LIQUIDITY": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/LIQUIDITY_0.70": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "LIQUIDITY": {
+    "nPop": 0,
+    "nClosed": 0,
+    "wr": null,
+    "meanR": null,
+    "medianR": null,
+    "maxDD": null,
+    "meanBars": null
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/OB_0.25": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/OB_0.30": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/OB_0.40": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  },
+  "GBPJPY_H1/OB_0.45": {
+   "FVG": {
+    "nPop": 44,
+    "nClosed": 39,
+    "wins": 8,
+    "wr": 0.2051,
+    "meanR": -0.3846,
+    "medianR": -1.0,
+    "maxDD": 15.0,
+    "meanBars": 5.28
+   },
+   "UNKNOWN": {
+    "nPop": 23,
+    "nClosed": 23,
+    "wins": 9,
+    "wr": 0.3913,
+    "meanR": 0.1739,
+    "medianR": -1.0,
+    "maxDD": 5.0,
+    "meanBars": 5.39
+   },
+   "LIQUIDITY": {
+    "nPop": 100,
+    "nClosed": 96,
+    "wins": 29,
+    "wr": 0.3021,
+    "meanR": -0.0938,
+    "medianR": -1.0,
+    "maxDD": 22.0,
+    "meanBars": 5.34
+   },
+   "BOS": {
+    "nPop": 69,
+    "nClosed": 59,
+    "wins": 22,
+    "wr": 0.3729,
+    "meanR": 0.1186,
+    "medianR": -1.0,
+    "maxDD": 12.0,
+    "meanBars": 8.86
+   }
+  }
+ },
+ "verdicts": {
+  "BOS/BOS_0.25": "KEEP",
+  "BOS/BOS_0.30": "KEEP",
+  "BOS/BOS_0.40": "KEEP",
+  "BOS/BOS_0.45": "KEEP",
+  "FVG/FVG_0.25": "KEEP",
+  "FVG/FVG_0.30": "KEEP",
+  "FVG/FVG_0.40": "KEEP",
+  "FVG/FVG_0.45": "KEEP",
+  "LIQUIDITY/LIQUIDITY_0.50": "KEEP",
+  "LIQUIDITY/LIQUIDITY_0.55": "KEEP",
+  "LIQUIDITY/LIQUIDITY_0.65": "KEEP",
+  "LIQUIDITY/LIQUIDITY_0.70": "KEEP"
+ }
+}

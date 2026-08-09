@@ -20,6 +20,13 @@ public:
         m_cfg = cfg;
     }
 
+    //--- ED01: apply the floor config built from the ED01_* inputs.
+    void SetConfig(const ConfluenceConfig &cfg) { m_cfg = cfg; }
+
+    //--- ED01: expose the applied config so telemetry fingerprints the
+    //    same config the validator gates on (policy recording).
+    ConfluenceConfig GetConfig(void) const { return m_cfg; }
+
     //--- GR01: resolve the admission floor for the winning rule family.
     //    Per-family floors are evidence-calibrated (frozen Sprint 17 funnel,
     //    docs/Sprint20_GR01_Decision.md).  The UNKNOWN family (evaluator
