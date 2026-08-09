@@ -8,6 +8,7 @@
 
 #include "../Utils/Constants.mqh"
 #include "../Entry/EntryConfig.mqh"
+#include "../Telemetry/IOutcomePolicy.mqh"
 
 class CConfig
 {
@@ -18,6 +19,7 @@ private:
     int             m_magicNumber;
     int             m_slippage;
     ENUM_ENTRY_MODE m_entryMode;
+    ENUM_OUTCOME_TP_MODE m_outcomeTpMode;
 
 public:
     CConfig(void);
@@ -30,14 +32,16 @@ public:
     int GetMagicNumber(void) const { return m_magicNumber; }
     int GetSlippage(void) const { return m_slippage; }
     ENUM_ENTRY_MODE GetEntryMode(void) const { return m_entryMode; }
+    ENUM_OUTCOME_TP_MODE GetOutcomeTpMode(void) const { return m_outcomeTpMode; }
 
     //--- Setters
     void SetLoggingEnabled(bool enabled) { m_loggingEnabled = enabled; }
     void SetEntryMode(ENUM_ENTRY_MODE mode) { m_entryMode = mode; }
+    void SetOutcomeTpMode(ENUM_OUTCOME_TP_MODE mode) { m_outcomeTpMode = mode; }
 };
 
 //--- Inline implementation
-CConfig::CConfig(void) : m_isInitialized(false), m_loggingEnabled(true), m_eaName("SuperCents_X"), m_magicNumber(0), m_slippage(3), m_entryMode(ENTRY_MODE_LEGACY) {}
+CConfig::CConfig(void) : m_isInitialized(false), m_loggingEnabled(true), m_eaName("SuperCents_X"), m_magicNumber(0), m_slippage(3), m_entryMode(ENTRY_MODE_LEGACY), m_outcomeTpMode(OUTCOME_TP_FIXED_RR) {}
 
 bool CConfig::Init(void)
 {

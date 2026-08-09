@@ -16,6 +16,7 @@
 
 #include "IOutcomePolicy.mqh"
 #include "../Entry/EntrySetupBuilder.mqh"
+#include "../Entry/TargetResolver.mqh"
 #include "../Confluence/ConfluenceEngine.mqh"
 
 #define OUTCOME_ATR_PERIOD 14
@@ -160,6 +161,95 @@ public:
         levels.useTrailing = true;
         levels.trailActivationPrice = entryPrice + dir * riskDistance * m_trailActivationR;
         levels.trailDistance = riskDistance * m_trailDistanceR;
+        return true;
+    }
+};
+
+//--- Opposing-liquidity TP (ED01-D prerequisite, frozen 2026-08-09):
+//    legacy FixedRR SL/TP with the DD04 TARGET_OPPOSING_LIQUIDITY arm.
+//    When the source level is known and an ACTIVE opposite-class pool
+//    exists, ResolveTakeProfit replaces the TP with the pool price;
+//    otherwise the levels are BYTE-IDENTICAL to CFixedRRPolicy (the
+//    frozen fallback — the replay outcome simulator can distinguish the
+//    two arms, and never disturbs the legacy path when a pool is absent).
+class COpposingLiquidityTPPolicy : public IOutcomePolicy
+{
+private:
+    CLiquidityDetector *m_liqDetector;
+    bool     m_hasLiquidity;
+    int      m_liquidityId;
+    double   m_slR;
+    double   m_tpR;
+    double   m_atrMult;
+    int      m_atrPeriod;
+
+public:
+    COpposingLiquidityTPPolicy(CLiquidityDetector *liqDetector = NULL,
+                               double slR = 1.0, double tpR = 2.0,
+                               double atrMult = 1.0, int atrPeriod = OUTCOME_ATR_PERIOD)
+        : m_liqDetector(liqDetector)
+        , m_hasLiquidity(false)
+        , m_liquidityId(-1)
+        , m_slR(slR)
+        , m_tpR(tpR)
+        , m_atrMult(atrMult)
+        , m_atrPeriod(atrPeriod)
+    {}
+
+    virtual string GetName() const { return "OpposingLiquidityTP"; }
+    virtual string GetVersion() const { return "1"; }
+
+    void SetLiquidityDetector(CLiquidityDetector *liqDetector) { m_liqDetector = liqDetector; }
+    void SetSourceLiquidity(bool hasLiquidity, int liquidityId)
+    {
+        m_hasLiquidity = hasLiquidity;
+        m_liquidityId = liquidityId;
+    }
+
+    virtual bool ResolveExitLevels(const string symbol,
+                                   ENUM_TIMEFRAMES timeframe,
+                                   double entryPrice,
+                                   ConfluenceDirection direction,
+                                   int entryBarIndex,
+                                   const double &open[],
+                                   const double &high[],
+                                   const double &low[],
+                                   const double &close[],
+                                   PolicyExitLevels &levels)
+    {
+        int size = ArraySize(high);
+        double atr = OutcomePolicyATR(high, low, close, entryBarIndex, m_atrPeriod, size);
+        double riskDistance = m_atrMult * atr;
+        if(riskDistance <= 0.0 || entryPrice <= 0.0)
+            return false;
+
+        int dir = (direction == CONFLUENCE_BULLISH) ? 1 : -1;
+        levels.valid = true;
+        levels.riskDistance = riskDistance;
+        levels.slPrice = entryPrice - dir * riskDistance * m_slR;
+        levels.tpPrice = entryPrice + dir * riskDistance * m_tpR;
+        levels.useTrailing = false;
+
+        //--- DD04 opposing-liquidity arm: replace the TP when an ACTIVE
+        //    opposite-class pool resolves; otherwise the levels above are
+        //    exactly the FixedRR values (byte-identical fallback).
+        if(m_liqDetector != NULL && m_hasLiquidity && m_liquidityId >= 0)
+        {
+            TradeCandidate cand;
+            cand.direction = direction;
+            cand.hasLiquidity = true;
+            cand.liquidityId = m_liquidityId;
+
+            double tp = 0.0;
+            string policyName = "";
+            if(ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, entryPrice,
+                                 levels.slPrice, m_tpR, NULL, NULL, m_liqDetector,
+                                 NULL, tp, policyName))
+            {
+                if(StringCompare(policyName, "Opposing Liquidity") == 0)
+                    levels.tpPrice = tp;
+            }
+        }
         return true;
     }
 };

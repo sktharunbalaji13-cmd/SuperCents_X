@@ -124,9 +124,16 @@ private:
     //    bars have elapsed, so the promotion gate sees real settled trades.
     CForwardOutcomeSimulator  m_outcomeSim;
     CFixedRRPolicy            m_outcomePolicy;
+    //--- ED01-D prerequisite (frozen 2026-08-09): the opposing-liquidity TP
+    //    arm, selectable per run via SetOutcomeTpMode. Default = FixedRR so
+    //    the replay outcome sim stays byte-identical to the B8 baseline.
+    COpposingLiquidityTPPolicy m_opposingOutcomePolicy;
+    ENUM_OUTCOME_TP_MODE       m_outcomeTpMode;
     TelemetryRow              m_pendingRows[];
     datetime                  m_pendingEntryTime[];
     int                       m_pendingCandidateId[];
+    bool                      m_pendingLiqHas[];
+    int                       m_pendingLiqId[];
     int                       m_pendingCount;
     CShadowTradeStateProvider m_shadowProvider;
     CShadowRiskEvaluator      m_shadowRisk;
@@ -154,8 +161,10 @@ private:
     void OnHistoryReset(void) { m_lastCHOCHCount = 0; }
 
     //--- Sprint 15.3: deferred outcome settlement.
-    void QueueForSettlement(const TelemetryRow &row, const int candidateId);
-    bool SettleRow(TelemetryRow &row, datetime entryBarTime);
+    void QueueForSettlement(const TelemetryRow &row, const int candidateId,
+                            const bool hasLiquidity, const int liquidityId);
+    bool SettleRow(TelemetryRow &row, datetime entryBarTime,
+                   const bool hasLiquidity, const int liquidityId);
     void SettleDue(void);
     void SettleRemaining(void);
 
@@ -180,6 +189,15 @@ public:
         if(mode != m_entryMode)
             m_logger.LogWarn("SetEntryMode called after construction - provider binding unchanged; mode desync");
         m_entryMode = mode;
+    }
+    //--- ED01-D prerequisite: outcome TP arm for the forward outcome
+    //    simulator. Applied at settle time (rows settle 50+ bars later), so
+    //    it is safe to set any time before settlement; default = FixedRR.
+    void SetOutcomeTpMode(ENUM_OUTCOME_TP_MODE mode)
+    {
+        m_outcomeTpMode = mode;
+        m_logger.LogInfo(StringFormat("Outcome TP mode set: %s",
+            (mode == OUTCOME_TP_FIXED_RR ? "FixedRR" : "OpposingLiquidity")));
     }
     void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
@@ -244,6 +262,8 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_telemetry(NULL)
     , m_settler(NULL)
     , m_outcomePolicy()
+    , m_opposingOutcomePolicy()
+    , m_outcomeTpMode(OUTCOME_TP_FIXED_RR)
     , m_pendingCount(0)
     , m_shadowProvider()
     , m_shadowRisk()
@@ -377,6 +397,9 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     {
         m_liquidityDetector.SetSwingDetector(m_swingDetector);
         m_liquidityDetector.SetBOSDetector(m_bosDetector);
+        //--- ED01-D prerequisite: the opposing-liquidity TP arm resolves
+        //    DD04 pools through the same detector instance the engine uses.
+        m_opposingOutcomePolicy.SetLiquidityDetector(m_liquidityDetector);
     }
 
     //--- LC03: register every stateful detector with the canonical
@@ -893,8 +916,13 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                     //    queue the new row for forward-outcome settlement.
                     //    GR02A: the candidate id travels with the row so the
                     //    settler can link a live close back to this decision.
+                    //    ED01-D: the row's source-liquidity context travels
+                    //    with it so the opposing-liquidity TP arm can resolve
+                    //    its pool at settle time.
                     SettleDue();
-                    QueueForSettlement(row, newDecision.candidateId);
+                    QueueForSettlement(row, newDecision.candidateId,
+                                       hasSig && sig.hasLiquiditySweep,
+                                       hasSig ? sig.liquidityLevelId : -1);
                 }
             }
         }
@@ -1225,7 +1253,8 @@ PerSymbolMetrics CSymbolContext::GetSnapshot(void) const
 //|  Sprint 15.3: deferred outcome settlement                         |
 //+------------------------------------------------------------------+
 
-void CSymbolContext::QueueForSettlement(const TelemetryRow &row, const int candidateId)
+void CSymbolContext::QueueForSettlement(const TelemetryRow &row, const int candidateId,
+                                        const bool hasLiquidity, const int liquidityId)
 {
     if(m_telemetry == NULL)
         return;
@@ -1236,15 +1265,34 @@ void CSymbolContext::QueueForSettlement(const TelemetryRow &row, const int candi
         ArrayResize(m_pendingRows, idx + 256);
         ArrayResize(m_pendingEntryTime, idx + 256);
         ArrayResize(m_pendingCandidateId, idx + 256);
+        ArrayResize(m_pendingLiqHas, idx + 256);
+        ArrayResize(m_pendingLiqId, idx + 256);
     }
     m_pendingRows[idx] = row;
     m_pendingEntryTime[idx] = iTime(m_symbol, (ENUM_TIMEFRAMES)Period(), 0);
     m_pendingCandidateId[idx] = candidateId;
+    m_pendingLiqHas[idx] = hasLiquidity;
+    m_pendingLiqId[idx] = liquidityId;
     m_pendingCount++;
 }
 
-bool CSymbolContext::SettleRow(TelemetryRow &row, datetime entryBarTime)
+bool CSymbolContext::SettleRow(TelemetryRow &row, datetime entryBarTime,
+                               const bool hasLiquidity, const int liquidityId)
 {
+    //--- ED01-D prerequisite: select the outcome TP arm. Default = FixedRR
+    //    (the frozen B8 behavior, byte-identical). The opposing-liquidity
+    //    arm feeds the decision's source-level context (captured at queue
+    //    time from the row's signal) into TargetResolver::ResolveTakeProfit.
+    if(m_outcomeTpMode == OUTCOME_TP_OPPOSING_LIQUIDITY)
+    {
+        m_opposingOutcomePolicy.SetSourceLiquidity(hasLiquidity, liquidityId);
+        m_outcomeSim.SetPolicy(&m_opposingOutcomePolicy);
+    }
+    else
+    {
+        m_outcomeSim.SetPolicy(&m_outcomePolicy);
+    }
+
     //--- Window: [warmStart, stopTime] in as-series (index 0 = newest).
     //    - warmStart = entry - (3 days + warmup) so the FixedRR policy has
     //      ATR(14) history even for Monday entries, whose back-window would
@@ -1330,7 +1378,7 @@ void CSymbolContext::SettleDue(void)
         int shift = iBarShift(m_symbol, (ENUM_TIMEFRAMES)Period(), entryBarTime, false);
         bool due = (shift >= TELEMETRY_SETTLE_MAX_HOLD_BARS);
         bool settled = false;
-        if(due && SettleRow(row, entryBarTime))
+        if(due && SettleRow(row, entryBarTime, m_pendingLiqHas[i], m_pendingLiqId[i]))
         {
             //--- GR02A: capture the collector-assigned decisionId so the
             //    settler can later stamp the actual outcome for this row.
@@ -1344,6 +1392,8 @@ void CSymbolContext::SettleDue(void)
             m_pendingRows[keep] = row;
             m_pendingEntryTime[keep] = entryBarTime;
             m_pendingCandidateId[keep] = m_pendingCandidateId[i];
+            m_pendingLiqHas[keep] = m_pendingLiqHas[i];
+            m_pendingLiqId[keep] = m_pendingLiqId[i];
             keep++;
         }
     }
@@ -1361,7 +1411,7 @@ void CSymbolContext::SettleRemaining(void)
     {
         TelemetryRow row = m_pendingRows[i];
         datetime entryBarTime = m_pendingEntryTime[i];
-        if(!SettleRow(row, entryBarTime))
+        if(!SettleRow(row, entryBarTime, m_pendingLiqHas[i], m_pendingLiqId[i]))
             unsettled++;
         //--- GR02A: capture the collector-assigned decisionId (see SettleDue).
         int decisionId = m_telemetry.Record(row);

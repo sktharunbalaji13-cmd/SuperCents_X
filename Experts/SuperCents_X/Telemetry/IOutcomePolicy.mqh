@@ -17,6 +17,17 @@
 
 #include "TelemetryTypes.mqh"
 
+//--- Selectable outcome TP mode for the forward outcome simulator
+//    (ED01-D prerequisite, frozen docs/Sprint20_ED01D_PreRequisite.md,
+//    2026-08-09). Default = FixedRR so default behavior stays byte-identical
+//    to the frozen B8 baseline; the opposing-liquidity arm is selectable
+//    per run and recorded in the simulator manifest.
+enum ENUM_OUTCOME_TP_MODE
+{
+    OUTCOME_TP_FIXED_RR = 0,        // legacy FixedRR (default; byte-identical vs B8)
+    OUTCOME_TP_OPPOSING_LIQUIDITY   // DD04 TARGET_OPPOSING_LIQUIDITY via TargetResolver
+};
+
 //--- Exit levels produced by a policy for one simulated trade.
 struct PolicyExitLevels
 {

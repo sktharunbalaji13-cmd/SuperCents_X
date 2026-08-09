@@ -44,6 +44,9 @@ public:
     bool IsInitialized(void) const { return m_isInitialized; }
 
     void SetEntryMode(ENUM_ENTRY_MODE mode) { m_config.SetEntryMode(mode); }
+    //--- ED01-D prerequisite: outcome TP arm for the replay outcome
+    //    simulator (applied to the primary context during Init).
+    void SetOutcomeTpMode(ENUM_OUTCOME_TP_MODE mode) { m_config.SetOutcomeTpMode(mode); }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
     ConfluenceWeights GetWeights(void) const { return m_weights; }
 
@@ -149,6 +152,13 @@ bool CEngine::Init(void)
         }
         return false;
     }
+
+    //--- ED01-D prerequisite: apply the outcome TP mode to the primary
+    //    context so the replay outcome simulator can run the opposing-
+    //    liquidity arm for the experiment (default = FixedRR, B8 behavior).
+    CSymbolContext *primary = m_portfolioManager.GetPrimaryContext();
+    if(primary != NULL)
+        primary.SetOutcomeTpMode(m_config.GetOutcomeTpMode());
 
     m_logger.LogInfo("Engine initialization complete");
     m_telemetry.Init();
