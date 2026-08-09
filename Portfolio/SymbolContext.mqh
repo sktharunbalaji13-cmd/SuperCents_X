@@ -199,6 +199,14 @@ public:
         m_logger.LogInfo(StringFormat("Outcome TP mode set: %s",
             (mode == OUTCOME_TP_FIXED_RR ? "FixedRR" : "OpposingLiquidity")));
     }
+    //--- ED01-E prerequisite: fixed-RR TP tier (R-multiple) applied to the
+    //    primary outcome policy. Rows settle 50+ bars after entry, so it is
+    //    safe to set any time before settlement; default 2.0R = B8.
+    void SetFixedRrTier(double tier)
+    {
+        m_outcomePolicy.SetTpR(tier);
+        m_logger.LogInfo(StringFormat("FixedRR TP tier set: %.2fR", tier));
+    }
     void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 

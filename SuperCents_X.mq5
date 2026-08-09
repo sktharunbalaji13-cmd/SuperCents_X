@@ -45,6 +45,9 @@ input ENUM_ENTRY_MODE EntryMode = ENTRY_MODE_LEGACY;
 //--- ED01-D prerequisite: replay outcome simulator TP arm (fixed-RR default,
 //    opposing-liquidity selectable for the experiment). Inert in LEGACY.
 input ENUM_OUTCOME_TP_MODE OutcomeTpMode = OUTCOME_TP_FIXED_RR;
+//--- ED01-E prerequisite: fixed-RR TP tier in R-multiples (default 2.0R =
+//    B8 legacy; the tier sweep overrides per run). Inert in LEGACY.
+input double FixedRRTier = 2.0;
 
 //--- v2.9: calibrated confluence weights (Sprint 14 Calibration).
 input double WeightStructure       = 25.0;   // Weight: Structure
@@ -90,6 +93,10 @@ int OnInit()
     //--- ED01-D prerequisite: outcome TP mode (applied to the primary
     //    context during engine Init; FixedRR keeps the B8 baseline).
     g_engine.SetOutcomeTpMode(OutcomeTpMode);
+
+    //--- ED01-E prerequisite: fixed-RR TP tier (default 2.0R keeps the
+    //    B8 settle-time behavior; the tier sweep overrides per run).
+    g_engine.SetFixedRrTier(FixedRRTier);
 
     // Initialize the engine
     if(!g_engine.Init())

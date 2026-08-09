@@ -22,6 +22,7 @@
 #include "unit/TestHistoryEpoch.mqh"
 #include "unit/TestLiquidityRenderer.mqh"
 #include "unit/TestOutcomeTpPolicy.mqh"
+#include "unit/TestFixedRRTier.mqh"
 #include "VF02/TestPaletteParity.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
@@ -110,6 +111,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunOutcomeTpPolicyTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunFixedRrTierTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");

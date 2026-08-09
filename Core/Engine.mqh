@@ -47,6 +47,9 @@ public:
     //--- ED01-D prerequisite: outcome TP arm for the replay outcome
     //    simulator (applied to the primary context during Init).
     void SetOutcomeTpMode(ENUM_OUTCOME_TP_MODE mode) { m_config.SetOutcomeTpMode(mode); }
+    //--- ED01-E prerequisite: fixed-RR TP tier (R-multiple) for the tier
+    //    sweep; applied to the primary context during Init. Default 2.0R.
+    void SetFixedRrTier(double tier) { m_config.SetFixedRrTier(tier); }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
     ConfluenceWeights GetWeights(void) const { return m_weights; }
 
@@ -159,6 +162,11 @@ bool CEngine::Init(void)
     CSymbolContext *primary = m_portfolioManager.GetPrimaryContext();
     if(primary != NULL)
         primary.SetOutcomeTpMode(m_config.GetOutcomeTpMode());
+
+    //--- ED01-E prerequisite: apply the fixed-RR TP tier to the primary
+    //    context (default 2.0R = B8; the tier sweep overrides it per run).
+    if(primary != NULL)
+        primary.SetFixedRrTier(m_config.GetFixedRrTier());
 
     m_logger.LogInfo("Engine initialization complete");
     m_telemetry.Init();

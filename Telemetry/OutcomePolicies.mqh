@@ -38,6 +38,19 @@ public:
         , m_atrPeriod(atrPeriod)
     {}
 
+    //--- ED01-E prerequisite: settle-time TP tier sweep. The replay
+    //    simulator holds a pointer to this policy, so the tier is applied
+    //    via a setter instead of reconstruction. Non-positive tiers are
+    //    rejected (policy keeps the previous value; default 2.0R = B8).
+    //    The tier does not enter the fingerprint (GetFingerprintToken
+    //    stays "FixedRR@1") — arm identity is recorded in the manifest.
+    void SetTpR(double tpR)
+    {
+        if(tpR > 0.0)
+            m_tpR = tpR;
+    }
+    double GetTpR(void) const { return m_tpR; }
+
     virtual string GetName() const { return "FixedRR"; }
     virtual string GetVersion() const { return "1"; }
 
