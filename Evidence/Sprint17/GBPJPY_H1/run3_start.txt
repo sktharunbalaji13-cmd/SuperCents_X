@@ -1,3 +1,0 @@
-wallClockStart=2026-08-02 18:10:25
-ini=Sprint17_Collection_GBPJPY_H1.ini
-

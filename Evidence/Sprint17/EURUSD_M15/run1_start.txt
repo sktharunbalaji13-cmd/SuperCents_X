@@ -1,4 +1,0 @@
-wallClockStart=2026-08-02 17:08:34
-ini=Sprint17_Collection_EURUSD_M15.ini
-terminal=C:\Program Files\MetaTrader 5\terminal64.exe
-

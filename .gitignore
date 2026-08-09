@@ -44,3 +44,24 @@ $RECYCLE.BIN/
 
 # MQL5 specific
 experts.dat
+
+# RH01 - MQL5 workspace extras (kept on disk, excluded from canonical repo)
+Evidence/
+Files/
+Scripts/
+Experts/
+Tests/CI/
+Temp/
+
+# RH01 - generated artifacts at repository root
+/compile_*.txt
+/swing_raw.txt
+/CalibrationRunner.log
+/SuperCents_X.log
+/Sprint*.log
+/temp_compile_test.mq5
+
+# RH01 - generated run artifacts (deliberately tracked historical files unaffected)
+*.log
+*.done
+artifacts/
