@@ -65,3 +65,6 @@ Temp/
 *.log
 *.done
 artifacts/
+Tools/ED01/artifacts_*/
+Tools/ED01/ini/
+Tests/compile_*.txt
