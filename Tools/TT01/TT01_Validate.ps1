@@ -94,7 +94,8 @@ $script:TT01_HEADER_V31 = @()  # filled by validators
 $ScriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root       = (git -C $ScriptDir rev-parse --show-toplevel) -replace "`n", ""
 $DataFolder = Split-Path -Leaf (Split-Path -Parent $Root)
-$SC         = Join-Path $Root "Experts\SuperCents_X"
+# RH01: repo root is now the EA root itself; support both layouts
+$SC         = if (Test-Path (Join-Path $Root "Experts\SuperCents_X")) { Join-Path $Root "Experts\SuperCents_X" } else { $Root }
 $BaseDir    = Join-Path $ScriptDir "baseline"
 $RunDir     = Join-Path $ScriptDir "run"
 $ArtDir     = Join-Path $ScriptDir "artifacts"
