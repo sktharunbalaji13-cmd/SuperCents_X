@@ -421,6 +421,90 @@ Frozen with the following user-approved decisions and wording safeguards:
    decision doc → plan register → dedicated commit(s) + push to
    origin/main.
 
+### 16.2 Amendment record — population correction (2026-08-09, user approval)
+
+**Supersedes** the population interpretation in section 3 and the wording
+of §16.1 item 1 (both preserved verbatim above as historical record).
+Approved after an analysis-only review
+(`docs/Sprint20_ED01D_Amendment_Review.md`) that preserved the original
+failed gate as immutable evidence. No other section is amended; the
+effect-size threshold (0.10), estimator, decision rules, hierarchy,
+composition discipline and boundaries are unchanged.
+
+**Why the original interpretation was incorrect.** The frozen eligibility
+read `hasLiquiditySweep == "1"` as "carries the liquidity sweep". The
+engine stores the flag in EV-tri-state — `EV_UNKNOWN = 0`, `EV_FALSE = 1`,
+`EV_TRUE = 2` (`Telemetry/TelemetryTypes.mqh:71-73`) — and
+`TelemetryEvidenceState(true)` returns `EV_TRUE` (`:490`), so the sweep
+flag is recorded as `"2"` (`TelemetryRowBuilder.mqh:198`).
+`hasLiquiditySweep` is true exactly for `RULE_LIQUIDITY_BOS_BULLISH/BEARISH`
+(`Confluence/ConfluenceEngine.mqh:352`, unchanged since Sprint 13.2
+commit 83c078a). The opposing-TP arm can fire only on sweep-bearing rows
+(`Portfolio/SymbolContext.mqh:922-925` arms the policy,
+`:1286-1290` applies it; `Telemetry/OutcomePolicies.mqh:236-251` requires
+`m_liquidityId >= 0`, which only LIQUIDITY rules provide,
+`Confluence/ConfluenceEngine.mqh:367`; `Entry/TargetResolver.mqh:32`).
+Therefore the frozen `== "1"` definition selected exactly the rows the arm
+CANNOT treat (EV_FALSE — non-LIQUIDITY families), and excluded exactly
+the rows it treats (EV_TRUE — LIQUIDITY family): the eligibility predicate
+was inverted.
+
+**Corrected operative definition (amendments to section 3).**
+
+- Eligibility: `hasLiquiditySweep == EV_TRUE ("2")` — the row's recorded
+  signal carries the sweep flag that arms opposing-TP resolution.
+  Measured in the frozen CONTROL artifacts, this set is exactly the closed
+  rows of the LIQUIDITY family.
+- The non-LIQUIDITY closed rows (FVG, BOS, UNKNOWN, CHOCH; flag `"1"`)
+  are the byte-identical at-scale fallback proof set (section 11 gate 3b),
+  never part of the treatment population.
+- Corrected measured constants (same provenance as Appendix A):
+
+| File | Closed | Sweep-bearing closed (eligible) | Days | FVG | BOS | UNKNOWN | CHOCH |
+|---|---|---|---|---|---|---|---|
+| EURUSD_H1 | 1,420 | **607** | 55 | 318 | 378 | 117 | 0 |
+| GBPJPY_H1 | 217 | **96** | 23 | 39 | 59 | 23 | 0 |
+| EURUSD_M15 | 5,931 | **1,694** | 65 | 2,092 | 2,095 | 49 | 1 |
+
+Exact complement holds in the corrected direction (eligible = closed −
+non-LIQUIDITY closed): 607 = 1,420 − 813; 96 = 217 − 121;
+1,694 = 5,931 − 4,237.
+
+**Dependent operative readings (amended population only; all other
+wording stands):**
+
+- Section 4 hypothesis stratum: sweep-bearing (eligible) closed rows.
+- Section 5: paired-day requirement ≥ 10 satisfied (55 / 23 / 65).
+- Section 6: LIQUIDITY is the treatment family; FVG/BOS/UNKNOWN/CHOCH are
+  reported as the fallback proof set (byte-identical), never treatment
+  strata.
+- Section 7 SE inputs: 0.058 (EURUSD_H1), 0.145 (GBPJPY_H1),
+  0.035 (EURUSD_M15) — σ(rMultiple) ≈ 1.42, SE(Δ) = σ/√n. Minimum n ≥ 50
+  satisfied (607 / 96 / 1,694).
+- Section 9: treatment population is a single family (LIQUIDITY);
+  UNKNOWN-exclusion and single-subfamily concentration gates are
+  structurally satisfied — recorded, not skipped.
+- Section 10: power/feasibility uses the corrected n (607 / 96 / 1,694).
+- Section 11 gate 3b: non-sweep-bearing rows (flag `"1"`) byte-identical;
+  gate 3c: at least one eligible (sweep-bearing) row differs with strictly
+  non-identical rMultiple.
+- Section 12: eligible sizes 607 (H1 primary) / 1,694 (M15 stability) /
+  96 (GBPJPY evidence-only).
+- Section 14: pairing key unchanged — `decisionId` certified by gate 3a.
+- §16.1 item 1 wording ("non-LIQUIDITY eligible", "LIQUIDITY never carry
+  the flag") is superseded by this record.
+
+**Evidence preserved (immutable):** the original pre-analysis gate
+(gates 3a PASS, 3b FAIL, 3c FAIL, RUN-SET REJECTED under the frozen
+definition — no verdict, no statistics emitted), the six-run artifacts,
+`Tools/ED01/ED01_D_manifest.json`, and the frozen section 3 text above.
+
+**Next steps (per approval, §16.2 only):** update analyzer constants to
+the corrected population, regenerate the deterministic self-check, re-run
+the pre-analysis gates against the existing six artifacts, and report.
+No statistics, no verdict, no re-run of the six experiments, no commit/push
+until separate approval.
+
 ## Appendix A — Population measurement provenance
 
 Measured 2026-08-09 from the frozen CONTROL artifacts with a read-only

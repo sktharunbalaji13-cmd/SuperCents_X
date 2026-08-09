@@ -1,0 +1,161 @@
+{
+ "mode": "selfcheck",
+ "seed": 20260811,
+ "audit": {
+  "pass": true,
+  "messages": []
+ },
+ "pairingAudit": {
+  "pass": true,
+  "messages": []
+ },
+ "machineryProbe": {
+  "EURUSD_H1": {
+   "nEligible": 607,
+   "nPaired": 607,
+   "pairedDays": 55,
+   "ci": {
+    "lo": 0.0,
+    "hi": 0.0
+   },
+   "dailyCi": {
+    "lo": 0.0,
+    "hi": 0.0
+   },
+   "observedDailyDelta": 0.0,
+   "ciIncludesZero": true
+  },
+  "EURUSD_M15": {
+   "nEligible": 1694,
+   "nPaired": 1694,
+   "pairedDays": 65,
+   "ci": {
+    "lo": 0.0,
+    "hi": 0.0
+   },
+   "dailyCi": {
+    "lo": 0.0,
+    "hi": 0.0
+   },
+   "observedDailyDelta": 0.0,
+   "ciIncludesZero": true
+  },
+  "GBPJPY_H1": {
+   "nEligible": 96,
+   "nPaired": 96,
+   "pairedDays": 23,
+   "ci": {
+    "lo": 0.0,
+    "hi": 0.0
+   },
+   "dailyCi": {
+    "lo": 0.0,
+    "hi": 0.0
+   },
+   "observedDailyDelta": 0.0,
+   "ciIncludesZero": true
+  }
+ },
+ "expectedManifest": {
+  "runs": [
+   {
+    "file": "EURUSD_H1",
+    "kind": "INTEGRITY",
+    "mode": "FIXED_RR",
+    "artifactDir": "Tools/ED01/artifacts\\EURUSD_H1\\CONTROL_ED01D_INTEGRITY",
+    "profile": "Tools/ED01/ini\\EURUSD_H1_CONTROL.ini",
+    "fingerprint": "3005138848403243456",
+    "expected": {
+     "total": 1558,
+     "qualified": 1468,
+     "closed": 1420
+    },
+    "done": ".done marker required",
+    "status": "PENDING"
+   },
+   {
+    "file": "GBPJPY_H1",
+    "kind": "INTEGRITY",
+    "mode": "FIXED_RR",
+    "artifactDir": "Tools/ED01/artifacts\\GBPJPY_H1\\CONTROL_ED01D_INTEGRITY",
+    "profile": "Tools/ED01/ini\\GBPJPY_H1_CONTROL.ini",
+    "fingerprint": "14617585492269479818",
+    "expected": {
+     "total": 1560,
+     "qualified": 236,
+     "closed": 217
+    },
+    "done": ".done marker required",
+    "status": "PENDING"
+   },
+   {
+    "file": "EURUSD_M15",
+    "kind": "INTEGRITY",
+    "mode": "FIXED_RR",
+    "artifactDir": "Tools/ED01/artifacts\\EURUSD_M15\\CONTROL_ED01D_INTEGRITY",
+    "profile": "Tools/ED01/ini\\EURUSD_M15_CONTROL.ini",
+    "fingerprint": "13548296177162108249",
+    "expected": {
+     "total": 6239,
+     "qualified": 5981,
+     "closed": 5931
+    },
+    "done": ".done marker required",
+    "status": "PENDING"
+   },
+   {
+    "file": "EURUSD_H1",
+    "kind": "OPPOSING",
+    "mode": "OPPOSING_LIQUIDITY",
+    "artifactDir": "Tools/ED01/artifacts\\EURUSD_H1\\CONTROL_ED01D_OPPOSING",
+    "profile": "Tools/ED01/ini\\EURUSD_H1_CONTROL.ini",
+    "fingerprint": "3005138848403243456",
+    "expected": {
+     "total": 1558,
+     "qualified": 1468,
+     "closed": 1420
+    },
+    "done": ".done marker required",
+    "status": "PENDING"
+   },
+   {
+    "file": "GBPJPY_H1",
+    "kind": "OPPOSING",
+    "mode": "OPPOSING_LIQUIDITY",
+    "artifactDir": "Tools/ED01/artifacts\\GBPJPY_H1\\CONTROL_ED01D_OPPOSING",
+    "profile": "Tools/ED01/ini\\GBPJPY_H1_CONTROL.ini",
+    "fingerprint": "14617585492269479818",
+    "expected": {
+     "total": 1560,
+     "qualified": 236,
+     "closed": 217
+    },
+    "done": ".done marker required",
+    "status": "PENDING"
+   },
+   {
+    "file": "EURUSD_M15",
+    "kind": "OPPOSING",
+    "mode": "OPPOSING_LIQUIDITY",
+    "artifactDir": "Tools/ED01/artifacts\\EURUSD_M15\\CONTROL_ED01D_OPPOSING",
+    "profile": "Tools/ED01/ini\\EURUSD_M15_CONTROL.ini",
+    "fingerprint": "13548296177162108249",
+    "expected": {
+     "total": 6239,
+     "qualified": 5981,
+     "closed": 5931
+    },
+    "done": ".done marker required",
+    "status": "PENDING"
+   }
+  ],
+  "manifestFile": "Tools/ED01/ED01_D_manifest.json",
+  "profile": "Control profile + OutcomeTpMode=1 for OPPOSING (EA input ENUM_OUTCOME_TP_MODE, commit 8954332)",
+  "window": [
+   "2026.04.05",
+   "2026.07.05"
+  ],
+  "pairingKey": "decisionId if integrity gate 3a proves it invariant, else canonical {signalTime, configFingerprint, symbol, timeframe} (uniqueness verified by audit)"
+ },
+ "gateReadiness": "six-run artifacts + manifest required before --gate; currently PENDING (expected: no new runs until authorized)"
+}

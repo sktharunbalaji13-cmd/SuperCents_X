@@ -1,0 +1,111 @@
+{
+ "gate": {
+  "pass": true,
+  "messages": [],
+  "pairingKey": "decisionId",
+  "pairingProof": [
+   "EURUSD_H1: decisionId invariant (integrity reproduces CONTROL row-for-row)",
+   "EURUSD_M15: decisionId invariant (integrity reproduces CONTROL row-for-row)",
+   "GBPJPY_H1: decisionId invariant (integrity reproduces CONTROL row-for-row)"
+  ]
+ },
+ "perFile": {
+  "EURUSD_H1": {
+   "nEligible": {
+    "fixed": 607,
+    "opposing": 607
+   },
+   "nPaired": 607,
+   "unmatched": {
+    "fixed": 0,
+    "opposing": 0
+   },
+   "meanR": {
+    "fixed": -0.0906,
+    "opposing": -0.8116
+   },
+   "delta": -0.721,
+   "ci": {
+    "lo": -1.1915346793887946,
+    "hi": -0.26208030082269507
+   },
+   "dailyCi": {
+    "lo": -1.4466271038459129,
+    "hi": -0.33001026029922914
+   },
+   "observedDailyDelta": -0.8470851645834043,
+   "pairedDays": 55,
+   "nOpen": {
+    "fixed": 48,
+    "opposing": 48
+   }
+  },
+  "EURUSD_M15": {
+   "nEligible": {
+    "fixed": 1694,
+    "opposing": 1694
+   },
+   "nPaired": 1694,
+   "unmatched": {
+    "fixed": 0,
+    "opposing": 0
+   },
+   "meanR": {
+    "fixed": -0.1464,
+    "opposing": -0.3487
+   },
+   "delta": -0.2023,
+   "ci": {
+    "lo": -0.6066282347600225,
+    "hi": 0.24220505327977848
+   },
+   "dailyCi": {
+    "lo": -0.7381170004775217,
+    "hi": 0.12290709666871166
+   },
+   "observedDailyDelta": -0.3275164526774761,
+   "pairedDays": 65,
+   "nOpen": {
+    "fixed": 50,
+    "opposing": 50
+   }
+  },
+  "GBPJPY_H1": {
+   "nEligible": {
+    "fixed": 96,
+    "opposing": 96
+   },
+   "nPaired": 96,
+   "unmatched": {
+    "fixed": 0,
+    "opposing": 0
+   },
+   "meanR": {
+    "fixed": -0.0938,
+    "opposing": 0.0169
+   },
+   "delta": 0.1106,
+   "ci": {
+    "lo": -1.7659961503896098,
+    "hi": 2.9527128523300967
+   },
+   "dailyCi": {
+    "lo": -0.5404579571794872,
+    "hi": 2.3701910070958747
+   },
+   "observedDailyDelta": 0.7605321731020068,
+   "pairedDays": 23,
+   "nOpen": {
+    "fixed": 19,
+    "opposing": 19
+   }
+  }
+ },
+ "thresholds": {
+  "minEffect": 0.1,
+  "minN": 50,
+  "iters": 10000,
+  "seed": 20260811
+ },
+ "note": "delta = MeanR(OPPOSING) - MeanR(FIXED); verdict and decision ladder are computed in the decision report"
+}

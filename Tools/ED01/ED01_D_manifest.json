@@ -1,0 +1,98 @@
+{
+    "protocol":  "docs/Sprint20_ED01D_Protocol.md section 14",
+    "authorized":  "2026-08-09 user authorization (six-run batch)",
+    "runs":  [
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "INTEGRITY",
+                     "mode":  "FIXED_RR",
+                     "status":  "DONE",
+                     "start":  "2026-08-09T15:52:04",
+                     "end":  "2026-08-09T15:52:33",
+                     "rows":  "1558/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "INTEGRITY",
+                     "mode":  "FIXED_RR",
+                     "status":  "DONE",
+                     "start":  "2026-08-09T15:52:33",
+                     "end":  "2026-08-09T15:53:07",
+                     "rows":  "1560/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "INTEGRITY",
+                     "mode":  "FIXED_RR",
+                     "status":  "DONE",
+                     "start":  "2026-08-09T15:53:07",
+                     "end":  "2026-08-09T15:58:32",
+                     "rows":  "6239/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "OPPOSING",
+                     "mode":  "OPPOSING_LIQUIDITY",
+                     "status":  "DONE",
+                     "start":  "2026-08-09T15:58:32",
+                     "end":  "2026-08-09T15:59:01",
+                     "rows":  "1558/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "OPPOSING",
+                     "mode":  "OPPOSING_LIQUIDITY",
+                     "status":  "DONE",
+                     "start":  "2026-08-09T15:59:01",
+                     "end":  "2026-08-09T15:59:40",
+                     "rows":  "1560/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "OPPOSING",
+                     "mode":  "OPPOSING_LIQUIDITY",
+                     "status":  "DONE",
+                     "start":  "2026-08-09T15:59:40",
+                     "end":  "2026-08-09T16:06:25",
+                     "rows":  "6239/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 }
+             ]
+}
