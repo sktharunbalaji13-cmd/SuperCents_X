@@ -132,16 +132,23 @@ being tested.
 ## 6. Status and next actions
 
 - [x] **Review + freeze this document** (freeze record: section 7)
-- [ ] Prerequisite engineering (separate plan row, TDD + TT01, no ED01-D
+- [x] **Prerequisite engineering** (commit 8954332 — TDD + TT01, no ED01-D
       scope)
-- [ ] Prerequisite gate run (distinguishability manifest)
+- [x] **Prerequisite gate run** — two-part verification, PASS 2026-08-09:
+      simulator distinguishes the arms on an opposing-pool fixture, and is
+      byte-identical (75/75 telemetry columns, BEHAVIOR-REGRESSION) to the
+      B8 baseline under the default fixed-RR mode. Unit proof: Outcome TP
+      Policy Tests 56/56 (fixed arm +2R vs opposing arm −1R on the same
+      series). Recorded in the commit 8954332 message; TT01 artifacts
+      `Tools/TT01/artifacts/TT01_20260809_131658/`.
 - [ ] ED01-D protocol freeze (measurement definition, thresholds, ladder)
 - [ ] ED01-D analysis (only after the gate above)
 - [ ] ED01-D decision document
 
-ED01-D remains **BLOCKED** in the plan register until the gate passes.
-No production code, analyzer, or experiment work is authorized from this
-document.
+ED01-D is now **UNBLOCKED** in the plan register. The next authorized step
+is the ED01-D protocol freeze against the capable simulator — **not** the
+experiment itself. No ED01-D analyzer, runs, or results are authorized
+until the protocol is frozen.
 
 ## 7. Freeze record (2026-08-09, user approval)
 
@@ -165,3 +172,9 @@ Frozen as written, with the following confirmations recorded:
    engineering only. It does not authorize the ED01-D analyzer, any ED01-D
    runs, or any production behavior change outside the replay outcome-sim
    path.
+6. **Gate PASSED 2026-08-09** (commit 8954332): both fixtures verified —
+   opposing-pool fixture yields different outcomes per arm (unit suite,
+   56/56), fallback fixture byte-identical vs B8 baseline (TT01
+   BEHAVIOR-REGRESSION, all 75 columns, 500/500 rows). ED01-D analysis
+   transitions from BLOCKED to UNBLOCKED per section 6, subject to the
+   frozen execution order.
