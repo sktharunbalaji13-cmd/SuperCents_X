@@ -102,9 +102,10 @@ $ArtDir     = Join-Path $ScriptDir "artifacts"
 $BaseCsv    = Join-Path $BaseDir "telemetry_v4_20260130.csv"
 $BaseMan    = Join-Path $BaseDir "baseline.manifest.json"
 $OutCsv     = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry\telemetry_v4_20260130.csv"
-$AgentBase  = Join-Path $env:APPDATA "MetaQuotes\Tester\$DataFolder"
-# RH01: locate the agent dir wherever MT5 nests it (Tester\<id>\Agent-... vs Tester\<id>\Experts\Agent-...)
-$AgentDir   = if (Get-ChildItem -LiteralPath $AgentBase -Recurse -Directory -Filter "Agent-127.0.0.1-3000" -ErrorAction SilentlyContinue) { Join-Path (Get-ChildItem -LiteralPath $AgentBase -Recurse -Directory -Filter "Agent-127.0.0.1-3000" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName "logs" } else { Join-Path $AgentBase "Experts\Agent-127.0.0.1-3000\logs" }
+$TesterRoot = Join-Path $env:APPDATA "MetaQuotes\Tester"
+# RH01: locate the agent dir directly under the Tester root, independent of
+# repo depth / MT5 layout (Tester\<id>\Agent-... vs Tester\<id>\Experts\Agent-...)
+$AgentDir   = Join-Path ((Get-ChildItem -LiteralPath $TesterRoot -Recurse -Directory -Filter "Agent-127.0.0.1-3000" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName) "logs"
 $AgentLog   = Join-Path $AgentDir ((Get-Date -Format "yyyyMMdd") + ".log")
 $MetaEditor = "C:\Program Files\MetaTrader 5\metaeditor64.exe"
 $Terminal   = "C:\Program Files\MetaTrader 5\terminal64.exe"
