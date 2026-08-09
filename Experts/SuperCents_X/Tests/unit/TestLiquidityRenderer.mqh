@@ -37,6 +37,7 @@
 #include "../../Structure/SwingDetector.mqh"
 #include "../../Structure/LiquidityDetector.mqh"
 #include "../../Visualization/LiquidityRenderer.mqh"
+#include "../../Visualization/VisualizationManager.mqh"
 #include "../TestAssert.mqh"
 
 #define LQR_BASE D'2026.02.01 00:00'
@@ -378,6 +379,29 @@ void TestLQR_RendererLifecycleSmoke(TestCounters &counters)
     vse.Shutdown();
 }
 
+//--- VF01.6: production wiring contract. CVisualizationManager::SetSwingDetector
+//--- must forward the swing detector to the liquidity renderer. Regression
+//--- guard (VF01 root cause): previously only m_swing was wired — the
+//--- renderer's ResolveMemberTime() then returned false for every level and
+//--- the chart received zero SCX_LIQ_* objects while renderer-direct tests
+//--- (which call SetSwingDetector explicitly) kept passing.
+void TestLQR_ManagerForwardsSwingDetector(TestCounters &counters)
+{
+    CSwingDetector swing;
+    TEST_TRUE(swing.Init(), "VF01.6: swing init");
+
+    CVisualizationManager mgr;
+    TEST_TRUE(mgr.Init(), "VF01.6: manager init");
+    TEST_FALSE(mgr.IsLiquiditySwingDetectorWired(),
+               "VF01.6: RED pre-wire: not forwarded before SetSwingDetector");
+
+    mgr.SetSwingDetector(GetPointer(swing));
+    TEST_TRUE(mgr.IsLiquiditySwingDetectorWired(),
+              "VF01.6: manager forwards swing detector to liquidity renderer");
+
+    mgr.Shutdown();
+}
+
 //+------------------------------------------------------------------+
 //| Suite entry                                                      |
 //+------------------------------------------------------------------+
@@ -389,6 +413,7 @@ TestCounters RunLiquidityRendererTests(void)
     TestLQR_LabelModes(counters);
     TestLQR_CommandGates(counters);
     TestLQR_RendererLifecycleSmoke(counters);
+    TestLQR_ManagerForwardsSwingDetector(counters);
     return counters;
 }
 

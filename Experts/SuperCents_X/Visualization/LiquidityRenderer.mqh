@@ -62,6 +62,10 @@ public:
     void SetSwingDetector(CSwingDetector *detector);
     void SetVSE(CVisualStateEngine *vse);
 
+    //--- VF01 test surface: production wiring contract (see
+    //--- VisualizationManager::SetSwingDetector forwarding).
+    bool IsSwingDetectorWired(void) const { return m_swingDetector != NULL; }
+
     //--- Pure command builder (testable headless; no MT5 calls).
     //--- `mode` is the label mode; production passes the LiquidityLabelMode
     //--- input, tests pass each enum value directly (inputs are const in

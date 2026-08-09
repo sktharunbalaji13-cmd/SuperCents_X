@@ -65,6 +65,10 @@ public:
     void Clear(void);
     bool IsInitialized(void) const { return m_isInitialized; }
 
+    //--- VF01 test surface: production wiring contract — the swing detector
+    //--- must reach the liquidity renderer (used by ResolveMemberTime).
+    bool IsLiquiditySwingDetectorWired(void) const { return m_liquidity.IsSwingDetectorWired(); }
+
     void SetSwingDetector(CSwingDetector *detector);
     void SetPivotEngine(CStructuralPivotEngine *engine);
     void SetBOSDetector(CBOSDetector *detector);
@@ -210,6 +214,7 @@ void CVisualizationManager::SetSwingDetector(CSwingDetector *detector)
 {
     m_swingDetector = detector;
     m_swing.SetDetector(detector);
+    m_liquidity.SetSwingDetector(detector);
 }
 
 void CVisualizationManager::SetPivotEngine(CStructuralPivotEngine *engine)
