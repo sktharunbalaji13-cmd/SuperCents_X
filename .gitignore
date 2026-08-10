@@ -3,6 +3,10 @@
 *.ex5
 *.dll
 
+# RL01 - raw literature PDFs stay untracked (protocol; only READMEs are tracked)
+research paper/*.pdf
+research paper/*/*.pdf
+
 # MetaTrader 5 - Logs & Cache
 logs/
 Tester/
