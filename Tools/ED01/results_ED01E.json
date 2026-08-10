@@ -1,0 +1,575 @@
+{
+ "gate": {
+  "pass": true,
+  "messages": [
+   "OK   gate3c EURUSD_H1/TP1R: 733 closed rows treated",
+   "OK   gate3c EURUSD_H1/TP1P5R: 572 closed rows treated",
+   "OK   gate3c EURUSD_H1/TP2P5R: 488 closed rows treated",
+   "OK   gate3c EURUSD_H1/TP3R: 488 closed rows treated",
+   "OK   gate3c EURUSD_M15/TP1R: 3053 closed rows treated",
+   "OK   gate3c EURUSD_M15/TP1P5R: 2470 closed rows treated",
+   "OK   gate3c EURUSD_M15/TP2P5R: 1990 closed rows treated",
+   "OK   gate3c EURUSD_M15/TP3R: 1990 closed rows treated",
+   "OK   gate3c GBPJPY_H1/TP1R: 765 closed rows treated",
+   "OK   gate3c GBPJPY_H1/TP1P5R: 627 closed rows treated",
+   "OK   gate3c GBPJPY_H1/TP2P5R: 529 closed rows treated",
+   "OK   gate3c GBPJPY_H1/TP3R: 529 closed rows treated"
+  ],
+  "pairingKey": "decisionId",
+  "pairingProof": [
+   "EURUSD_H1: decisionId invariant (integrity reproduces CONTROL row-for-row)",
+   "EURUSD_M15: decisionId invariant (integrity reproduces CONTROL row-for-row)",
+   "GBPJPY_H1: decisionId invariant (integrity reproduces CONTROL row-for-row)"
+  ]
+ },
+ "perFile": {
+  "EURUSD_H1": {
+   "TP1R": {
+    "tier": 1.0,
+    "nClosed": {
+     "twoR": 1420,
+     "tier": 1420
+    },
+    "nPaired": 1420,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0239,
+     "tier": -0.0211
+    },
+    "delta": 0.0028,
+    "ci": {
+     "lo": -0.08809020436927413,
+     "hi": 0.09659090909090909
+    },
+    "dailyCi": {
+     "lo": -0.08575215329873712,
+     "hi": 0.0974447969789585
+    },
+    "observedDailyDelta": 0.004628882734472796,
+    "pairedDays": 63,
+    "winRate": {
+     "twoR": 0.3254,
+     "tier": 0.4894
+    },
+    "tpHitRate": {
+     "twoR": 0.32535211267605635,
+     "tier": 0.4894366197183099
+    },
+    "transition2RtoTier": {
+     "1->1": 462,
+     "2->1": 233,
+     "2->2": 725
+    },
+    "nOpen": {
+     "twoR": 48,
+     "tier": 48
+    }
+   },
+   "TP1P5R": {
+    "tier": 1.5,
+    "nClosed": {
+     "twoR": 1420,
+     "tier": 1420
+    },
+    "nPaired": 1420,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0239,
+     "tier": -0.0493
+    },
+    "delta": -0.0254,
+    "ci": {
+     "lo": -0.0731966053748232,
+     "hi": 0.02255109231853418
+    },
+    "dailyCi": {
+     "lo": -0.07241727389242918,
+     "hi": 0.02363344327630041
+    },
+    "observedDailyDelta": -0.02446679154753689,
+    "pairedDays": 63,
+    "winRate": {
+     "twoR": 0.3254,
+     "tier": 0.3803
+    },
+    "tpHitRate": {
+     "twoR": 0.32535211267605635,
+     "tier": 0.38028169014084506
+    },
+    "transition2RtoTier": {
+     "1->1": 462,
+     "2->1": 78,
+     "2->2": 880
+    },
+    "nOpen": {
+     "twoR": 48,
+     "tier": 48
+    }
+   },
+   "TP2P5R": {
+    "tier": 2.5,
+    "nClosed": {
+     "twoR": 1420,
+     "tier": 1420
+    },
+    "nPaired": 1420,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0239,
+     "tier": -0.0548
+    },
+    "delta": -0.0309,
+    "ci": {
+     "lo": -0.09212376933895922,
+     "hi": 0.028070175438596492
+    },
+    "dailyCi": {
+     "lo": -0.09300840669146358,
+     "hi": 0.026866005515073836
+    },
+    "observedDailyDelta": -0.031916500675730985,
+    "pairedDays": 63,
+    "winRate": {
+     "twoR": 0.3254,
+     "tier": 0.2704
+    },
+    "tpHitRate": {
+     "twoR": 0.32535211267605635,
+     "tier": 0.2697183098591549
+    },
+    "transition2RtoTier": {
+     "1->2": 78,
+     "2->2": 958,
+     "1->1": 384
+    },
+    "nOpen": {
+     "twoR": 48,
+     "tier": 48
+    }
+   },
+   "TP3R": {
+    "tier": 3.0,
+    "nClosed": {
+     "twoR": 1420,
+     "tier": 1420
+    },
+    "nPaired": 1420,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0239,
+     "tier": -0.0251
+    },
+    "delta": -0.0011,
+    "ci": {
+     "lo": -0.08788463728551338,
+     "hi": 0.08381798846694796
+    },
+    "dailyCi": {
+     "lo": -0.08815324919516815,
+     "hi": 0.08264852580964556
+    },
+    "observedDailyDelta": -0.001786277389612631,
+    "pairedDays": 63,
+    "winRate": {
+     "twoR": 0.3254,
+     "tier": 0.2465
+    },
+    "tpHitRate": {
+     "twoR": 0.32535211267605635,
+     "tier": 0.24084507042253522
+    },
+    "transition2RtoTier": {
+     "1->2": 112,
+     "2->2": 958,
+     "1->1": 350
+    },
+    "nOpen": {
+     "twoR": 48,
+     "tier": 48
+    }
+   }
+  },
+  "EURUSD_M15": {
+   "TP1R": {
+    "tier": 1.0,
+    "nClosed": {
+     "twoR": 5931,
+     "tier": 5931
+    },
+    "nPaired": 5931,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0126,
+     "tier": -0.0124
+    },
+    "delta": 0.0003,
+    "ci": {
+     "lo": -0.045282440928667574,
+     "hi": 0.046081219908752954
+    },
+    "dailyCi": {
+     "lo": -0.043150842930224455,
+     "hi": 0.04862734974473805
+    },
+    "observedDailyDelta": 0.00262458373275469,
+    "pairedDays": 65,
+    "winRate": {
+     "twoR": 0.3315,
+     "tier": 0.4928
+    },
+    "tpHitRate": {
+     "twoR": 0.3225425729219356,
+     "tier": 0.4928342606643062
+    },
+    "transition2RtoTier": {
+     "2->2": 3008,
+     "1->1": 1966,
+     "2->1": 952,
+     "3->1": 5
+    },
+    "nOpen": {
+     "twoR": 50,
+     "tier": 50
+    }
+   },
+   "TP1P5R": {
+    "tier": 1.5,
+    "nClosed": {
+     "twoR": 5931,
+     "tier": 5931
+    },
+    "nPaired": 5931,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0126,
+     "tier": 0.0066
+    },
+    "delta": 0.0192,
+    "ci": {
+     "lo": -0.011388153404541631,
+     "hi": 0.05033792790669856
+    },
+    "dailyCi": {
+     "lo": -0.009889701145054622,
+     "hi": 0.051139151664934504
+    },
+    "observedDailyDelta": 0.02041464572890954,
+    "pairedDays": 65,
+    "winRate": {
+     "twoR": 0.3315,
+     "tier": 0.403
+    },
+    "tpHitRate": {
+     "twoR": 0.3225425729219356,
+     "tier": 0.39892092395886025
+    },
+    "transition2RtoTier": {
+     "2->2": 3539,
+     "1->1": 1966,
+     "2->1": 421,
+     "3->3": 2,
+     "3->1": 3
+    },
+    "nOpen": {
+     "twoR": 50,
+     "tier": 50
+    }
+   },
+   "TP2P5R": {
+    "tier": 2.5,
+    "nClosed": {
+     "twoR": 5931,
+     "tier": 5931
+    },
+    "nPaired": 5931,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0126,
+     "tier": -0.0247
+    },
+    "delta": -0.0121,
+    "ci": {
+     "lo": -0.04201884509151973,
+     "hi": 0.0180244298524173
+    },
+    "dailyCi": {
+     "lo": -0.04363390414724762,
+     "hi": 0.01671357299908199
+    },
+    "observedDailyDelta": -0.013479099645368359,
+    "pairedDays": 65,
+    "winRate": {
+     "twoR": 0.3315,
+     "tier": 0.2854
+    },
+    "tpHitRate": {
+     "twoR": 0.3225425729219356,
+     "tier": 0.26740853144495025
+    },
+    "transition2RtoTier": {
+     "2->2": 3960,
+     "1->1": 1693,
+     "1->2": 272,
+     "3->3": 5,
+     "1->3": 1
+    },
+    "nOpen": {
+     "twoR": 50,
+     "tier": 50
+    }
+   },
+   "TP3R": {
+    "tier": 3.0,
+    "nClosed": {
+     "twoR": 5931,
+     "tier": 5931
+    },
+    "nPaired": 5931,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0126,
+     "tier": -0.0361
+    },
+    "delta": -0.0234,
+    "ci": {
+     "lo": -0.07268308158316632,
+     "hi": 0.026773835677562145
+    },
+    "dailyCi": {
+     "lo": -0.07279972295692995,
+     "hi": 0.025933349337445902
+    },
+    "observedDailyDelta": -0.023876461946271937,
+    "pairedDays": 65,
+    "winRate": {
+     "twoR": 0.3315,
+     "tier": 0.2538
+    },
+    "tpHitRate": {
+     "twoR": 0.3225425729219356,
+     "tier": 0.22357106727364695
+    },
+    "transition2RtoTier": {
+     "2->2": 3960,
+     "1->1": 1505,
+     "1->2": 460,
+     "3->3": 5,
+     "1->3": 1
+    },
+    "nOpen": {
+     "twoR": 50,
+     "tier": 50
+    }
+   }
+  },
+  "GBPJPY_H1": {
+   "TP1R": {
+    "tier": 1.0,
+    "nClosed": {
+     "twoR": 217,
+     "tier": 217
+    },
+    "nPaired": 217,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0599,
+     "tier": -0.0783
+    },
+    "delta": -0.0184,
+    "ci": {
+     "lo": -0.1875,
+     "hi": 0.17266187050359713
+    },
+    "dailyCi": {
+     "lo": -0.26218162516584315,
+     "hi": 0.08242539383141964
+    },
+    "observedDailyDelta": -0.09791220257504331,
+    "pairedDays": 41,
+    "winRate": {
+     "twoR": 0.3134,
+     "tier": 0.4608
+    },
+    "tpHitRate": {
+     "twoR": 0.31336405529953915,
+     "tier": 0.4608294930875576
+    },
+    "transition2RtoTier": {
+     "2->2": 117,
+     "1->1": 68,
+     "2->1": 32
+    },
+    "nOpen": {
+     "twoR": 19,
+     "tier": 19
+    }
+   },
+   "TP1P5R": {
+    "tier": 1.5,
+    "nClosed": {
+     "twoR": 217,
+     "tier": 217
+    },
+    "nPaired": 217,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0599,
+     "tier": -0.0438
+    },
+    "delta": 0.0161,
+    "ci": {
+     "lo": -0.09316770186335403,
+     "hi": 0.13612565445026178
+    },
+    "dailyCi": {
+     "lo": -0.1308263313284834,
+     "hi": 0.14788893355966526
+    },
+    "observedDailyDelta": -0.00955483023273554,
+    "pairedDays": 41,
+    "winRate": {
+     "twoR": 0.3134,
+     "tier": 0.3825
+    },
+    "tpHitRate": {
+     "twoR": 0.31336405529953915,
+     "tier": 0.3824884792626728
+    },
+    "transition2RtoTier": {
+     "2->2": 134,
+     "1->1": 68,
+     "2->1": 15
+    },
+    "nOpen": {
+     "twoR": 19,
+     "tier": 19
+    }
+   },
+   "TP2P5R": {
+    "tier": 2.5,
+    "nClosed": {
+     "twoR": 217,
+     "tier": 217
+    },
+    "nPaired": 217,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0599,
+     "tier": -0.0645
+    },
+    "delta": -0.0046,
+    "ci": {
+     "lo": -0.13484848484848486,
+     "hi": 0.10550458715596331
+    },
+    "dailyCi": {
+     "lo": -0.1977566511282437,
+     "hi": 0.12335496481837945
+    },
+    "observedDailyDelta": -0.008173537764642498,
+    "pairedDays": 41,
+    "winRate": {
+     "twoR": 0.3134,
+     "tier": 0.2673
+    },
+    "tpHitRate": {
+     "twoR": 0.31336405529953915,
+     "tier": 0.2672811059907834
+    },
+    "transition2RtoTier": {
+     "2->2": 149,
+     "1->1": 58,
+     "1->2": 10
+    },
+    "nOpen": {
+     "twoR": 19,
+     "tier": 19
+    }
+   },
+   "TP3R": {
+    "tier": 3.0,
+    "nClosed": {
+     "twoR": 217,
+     "tier": 217
+    },
+    "nPaired": 217,
+    "unmatched": {
+     "twoR": 0,
+     "tier": 0
+    },
+    "meanR": {
+     "twoR": -0.0599,
+     "tier": -0.0954
+    },
+    "delta": -0.0355,
+    "ci": {
+     "lo": -0.2299361697740113,
+     "hi": 0.13290042960526316
+    },
+    "dailyCi": {
+     "lo": -0.431092642041668,
+     "hi": 0.11259975674398773
+    },
+    "observedDailyDelta": -0.14153666955886612,
+    "pairedDays": 41,
+    "winRate": {
+     "twoR": 0.3134,
+     "tier": 0.2304
+    },
+    "tpHitRate": {
+     "twoR": 0.31336405529953915,
+     "tier": 0.21658986175115208
+    },
+    "transition2RtoTier": {
+     "2->2": 149,
+     "1->1": 50,
+     "1->2": 18
+    },
+    "nOpen": {
+     "twoR": 19,
+     "tier": 19
+    }
+   }
+  }
+ },
+ "thresholds": {
+  "minEffect": 0.1,
+  "minN": 50,
+  "iters": 10000,
+  "seed": 20260813
+ },
+ "note": "delta = MeanR(tier) - MeanR(2.0R); verdict and decision ladder are computed in the decision report"
+}

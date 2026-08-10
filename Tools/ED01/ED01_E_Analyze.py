@@ -650,7 +650,8 @@ def analyze(art_dir, iters):
                 if key is None or key2 is None:
                     continue
                 t = (key.get("outcome", "?"), key2.get("outcome", "?"))
-                trans[t] = trans.get(t, 0) + 1
+                tk = "%s->%s" % t
+                trans[tk] = trans.get(tk, 0) + 1
             comps[kind] = {
                 "tier": TIER_VALUES[kind],
                 "nClosed": {"twoR": len(cl_c), "tier": len(cl_a)},

@@ -1,0 +1,236 @@
+{
+    "protocol":  "docs/Sprint20_ED01E_Protocol.md section 14",
+    "authorized":  "2026-08-09 user authorization (15-run batch: 3 integrity + 12 tier)",
+    "runs":  [
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "INTEGRITY",
+                     "tier":  2,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T19:45:03",
+                     "end":  "2026-08-09T19:45:53",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "INTEGRITY",
+                     "tier":  2,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T19:45:53",
+                     "end":  "2026-08-09T19:46:48",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "INTEGRITY",
+                     "tier":  2,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T19:46:48",
+                     "end":  "2026-08-09T19:58:11",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "TP1R",
+                     "tier":  1,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T19:58:11",
+                     "end":  "2026-08-09T19:59:01",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "TP1P5R",
+                     "tier":  1.5,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T19:59:01",
+                     "end":  "2026-08-09T19:59:51",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "TP2P5R",
+                     "tier":  2.5,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T19:59:51",
+                     "end":  "2026-08-09T20:00:41",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_H1",
+                     "kind":  "TP3R",
+                     "tier":  3,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:00:41",
+                     "end":  "2026-08-09T20:01:31",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "TP1R",
+                     "tier":  1,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:01:31",
+                     "end":  "2026-08-09T20:02:27",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "TP1P5R",
+                     "tier":  1.5,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:02:27",
+                     "end":  "2026-08-09T20:03:22",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "TP2P5R",
+                     "tier":  2.5,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:03:22",
+                     "end":  "2026-08-09T20:04:22",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "GBPJPY_H1",
+                     "kind":  "TP3R",
+                     "tier":  3,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:04:22",
+                     "end":  "2026-08-09T20:05:17",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260605.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "TP1R",
+                     "tier":  1,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:05:17",
+                     "end":  "2026-08-09T20:16:34",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "TP1P5R",
+                     "tier":  1.5,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:16:34",
+                     "end":  "2026-08-09T20:27:52",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "TP2P5R",
+                     "tier":  2.5,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:27:52",
+                     "end":  "2026-08-09T20:38:29",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 },
+                 {
+                     "file":  "EURUSD_M15",
+                     "kind":  "TP3R",
+                     "tier":  3,
+                     "status":  "DONE",
+                     "start":  "2026-08-09T20:38:29",
+                     "end":  "2026-08-09T20:49:27",
+                     "rows":  "2/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v4_20260421.csv",
+                                   "telemetry_v4_20260505.csv",
+                                   "telemetry_v4_20260520.csv",
+                                   "telemetry_v4_20260604.csv",
+                                   "telemetry_v4_20260618.csv",
+                                   "telemetry_v4_20260703.csv"
+                               ]
+                 }
+             ]
+}
