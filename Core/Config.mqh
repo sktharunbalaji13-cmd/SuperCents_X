@@ -21,6 +21,11 @@ private:
     ENUM_ENTRY_MODE m_entryMode;
     ENUM_OUTCOME_TP_MODE m_outcomeTpMode;
     double m_fixedRrTier;
+    //--- Sprint 22 (RL-HYP-01): swing-significance admission gate tier.
+    //    Default 0.0 = gate OFF (B8 behavior); tier values are the k in
+    //    amplitude >= k * ATR(14) (§5). Lives OUTSIDE the configuration
+    //    fingerprint (§11.1, ED01-E hardcoded-token precedent).
+    double m_swingSignificanceTier;
 
 public:
     CConfig(void);
@@ -37,16 +42,18 @@ public:
     //--- ED01-E prerequisite: fixed-RR TP tier (R-multiple). Default 2.0R
     //    keeps the B8 settle-time behavior; the tier sweep overrides it.
     double GetFixedRrTier(void) const { return m_fixedRrTier; }
+    double GetSwingSignificanceTier(void) const { return m_swingSignificanceTier; }
 
     //--- Setters
     void SetLoggingEnabled(bool enabled) { m_loggingEnabled = enabled; }
     void SetEntryMode(ENUM_ENTRY_MODE mode) { m_entryMode = mode; }
     void SetOutcomeTpMode(ENUM_OUTCOME_TP_MODE mode) { m_outcomeTpMode = mode; }
     void SetFixedRrTier(double tier) { m_fixedRrTier = tier; }
+    void SetSwingSignificanceTier(double tier) { m_swingSignificanceTier = tier; }
 };
 
 //--- Inline implementation
-CConfig::CConfig(void) : m_isInitialized(false), m_loggingEnabled(true), m_eaName("SuperCents_X"), m_magicNumber(0), m_slippage(3), m_entryMode(ENTRY_MODE_LEGACY), m_outcomeTpMode(OUTCOME_TP_FIXED_RR), m_fixedRrTier(2.0) {}
+CConfig::CConfig(void) : m_isInitialized(false), m_loggingEnabled(true), m_eaName("SuperCents_X"), m_magicNumber(0), m_slippage(3), m_entryMode(ENTRY_MODE_LEGACY), m_outcomeTpMode(OUTCOME_TP_FIXED_RR), m_fixedRrTier(2.0), m_swingSignificanceTier(0.0) {}
 
 bool CConfig::Init(void)
 {

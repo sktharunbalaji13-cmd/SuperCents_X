@@ -398,8 +398,20 @@ private:
 
 public:
     //--- Serialize a row to CSV (mirrors TelemetryCollector::WriteRow).
+    //--- Serialize one row for round-trip auditing.  Schema v5 rows
+    //    carry the 3 swing-gate columns (append-only over v3.1); legacy
+    //    rows re-serialize byte-identically to their original shape.
     static string SerializeRow(const TelemetryRow &row)
     {
+        int    v5QualifyingId = 0;
+        double v5Amplitude    = 0.0;
+        string v5Decision     = "OFF";
+        if(row.schemaVersion >= 5)
+        {
+            v5QualifyingId = row.swingQualifyingId;
+            v5Amplitude    = row.swingAmplitude;
+            v5Decision     = row.gateDecision;
+        }
         return StringFormat(
             "%d,%llu,%s,%s,%d,%s,%d,%d,%.8f,"
             "%.8f,%.6f,%.8f,%.8f,%.6f,%.8f,%.8f,%.6f,%.8f,"
@@ -412,7 +424,8 @@ public:
             "%d,%d,%d,%d,"
             "%d,%d,%d,%d,%d,%d,"
             "%s,"
-            "%d,%d,%s,%s,%s,%s,%s",
+            "%d,%d,%s,%s,%s,%s,%s,"
+            "%d,%.8f,%s",
             (int)row.schemaVersion,
             (ulong)row.configFingerprint,
             TimeToString(row.timestamp),
@@ -476,7 +489,11 @@ public:
             row.fvgSize,
             row.fvgStrength,
             TimeToString(row.fvgCreatedTime),
-            TimeToString(row.fvgFillTime));
+            TimeToString(row.fvgFillTime),
+            //--- Schema v5 swing-gate columns (append-only over v3.1).
+            v5QualifyingId,
+            v5Amplitude,
+            v5Decision);
     }
 
 private:
@@ -529,6 +546,10 @@ private:
         if(reparsed.symbol != original.symbol) return false;
         if(reparsed.direction != original.direction) return false;
         if(reparsed.outcome != original.outcome) return false;
+        //--- Schema v5 gate columns.
+        if(reparsed.swingQualifyingId != original.swingQualifyingId) return false;
+        if(MathAbs(reparsed.swingAmplitude - original.swingAmplitude) > 1e-12) return false;
+        if(reparsed.gateDecision != original.gateDecision) return false;
         return true;
     }
 
@@ -693,8 +714,10 @@ public:
             RegisterRule(row.firedRuleId, row.ruleName, row.componentData == 1);
         }
 
-        //--- Schema version pass: 100% v3+ (v3 and v3.1 rows both count).
-        int v3PlusCount = report.schema.schemaVersionCounts[3] + report.schema.schemaVersionCounts[4];
+        //--- Schema version pass: 100% v3+ (v3, v3.1 and v5 rows count).
+        int v3PlusCount = report.schema.schemaVersionCounts[3]
+                        + report.schema.schemaVersionCounts[4]
+                        + report.schema.schemaVersionCounts[5];
         report.schema.schemaVersionPass = (v3PlusCount == count);
 
         //--- Legacy consistency pass.
@@ -765,10 +788,11 @@ public:
                 rtFailures++;
                 continue;
             }
-            //--- Round-trip audits the ACTIVE schema only: legacy v2/v3
+            //--- Round-trip audits the ACTIVE schema only: legacy v2/v3/v4
             //    rows are not re-serialized (SerializeRow always emits the
-            //    v3.1 shape, which v3 rows must not be validated against).
-            if(row.schemaVersion != 4)
+            //    active shape, which legacy rows must not be validated
+            //    against).
+            if(row.schemaVersion != (int)TELEMETRY_SCHEMA_VERSION)
                 continue;
             if(!RoundTripRow(row))
                 rtFailures++;
@@ -792,7 +816,7 @@ private:
         if(report.schema.schemaVersionPass)
             score += HEALTH_WEIGHT_SCHEMA_VERSION;
         else
-            reasons += "schemaVersion: not 100% v3; ";
+            reasons += "schemaVersion: not 100% v3+; ";
 
         //--- 2. Parse success (15 pts).
         if(report.parse.parseSuccessRate >= 0.9999 && report.parse.unexpectedEnumCount == 0)
@@ -914,6 +938,7 @@ public:
         out += StringFormat("  Schema version pass:     %s\n", report.schema.schemaVersionPass ? "YES" : "NO");
         out += StringFormat("  v3 rows:                 %d\n", report.schema.schemaVersionCounts[3]);
         out += StringFormat("  v3.1 rows:               %d\n", report.schema.schemaVersionCounts[4]);
+        out += StringFormat("  v5 (RL-HYP-01) rows:     %d\n", report.schema.schemaVersionCounts[5]);
         out += StringFormat("  v2 rows:                 %d\n", report.schema.schemaVersionCounts[2]);
         out += StringFormat("  Legacy consistency pass: %s\n", report.schema.legacyConsistencyPass ? "YES" : "NO");
         out += StringFormat("  Round-trip pass:         %s (%d/%d sampled)\n",
@@ -993,6 +1018,7 @@ public:
         out += StringFormat("schema,schemaVersionPass,%d\n", report.schema.schemaVersionPass ? 1 : 0);
         out += StringFormat("schema,v3Rows,%d\n", report.schema.schemaVersionCounts[3]);
         out += StringFormat("schema,v31Rows,%d\n", report.schema.schemaVersionCounts[4]);
+        out += StringFormat("schema,v5Rows,%d\n", report.schema.schemaVersionCounts[5]);
         out += StringFormat("schema,v2Rows,%d\n", report.schema.schemaVersionCounts[2]);
         out += StringFormat("schema,legacyConsistencyPass,%d\n", report.schema.legacyConsistencyPass ? 1 : 0);
         out += StringFormat("schema,roundTripPass,%d\n", report.schema.roundTripPass ? 1 : 0);

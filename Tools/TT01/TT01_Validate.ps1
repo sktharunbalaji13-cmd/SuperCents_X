@@ -101,7 +101,7 @@ $RunDir     = Join-Path $ScriptDir "run"
 $ArtDir     = Join-Path $ScriptDir "artifacts"
 $BaseCsv    = Join-Path $BaseDir "telemetry_v4_20260130.csv"
 $BaseMan    = Join-Path $BaseDir "baseline.manifest.json"
-$OutCsv     = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry\telemetry_v4_20260130.csv"
+$OutCsv     = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry\telemetry_v5_20260130.csv"
 $TesterRoot = Join-Path $env:APPDATA "MetaQuotes\Tester"
 # RH01: locate the agent dir directly under the Tester root, independent of
 # repo depth / MT5 layout (Tester\<id>\Agent-... vs Tester\<id>\Experts\Agent-...)

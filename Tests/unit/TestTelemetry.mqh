@@ -75,9 +75,33 @@ void TestHeader_V31ColumnCount(TestCounters &counters)
     }
 }
 
+// ─── Sprint 22 RL-HYP-01: schema v5 gate contract ───────────────────
+
+void TestHeader_V5ColumnCount(TestCounters &counters)
+{
+    string v31parts[];
+    int v31n = StringSplit(TELEMETRY_CSV_HEADER_V31, ',', v31parts);
+
+    string parts[];
+    int n = StringSplit(TELEMETRY_CSV_HEADER_V5, ',', parts);
+    TEST_INT_EQ(78, n, "v5 header has 78 columns (75 v3.1 + 3 gate)");
+    TEST_INT_EQ(75 + 3, n, "v5 is strictly append-only over v3.1");
+    TEST_STR_EQ("schemaVersion", parts[0], "v5 header starts with schemaVersion");
+    TEST_STR_EQ("gateDecision", parts[77], "v5 header ends with gateDecision");
+    TEST_STR_EQ("swingQualifyingId", parts[75], "column 76 is swingQualifyingId");
+    TEST_STR_EQ("swingAmplitude", parts[76], "column 77 is swingAmplitude");
+    TEST_STR_EQ("gateDecision", parts[77], "column 78 is gateDecision");
+
+    for(int i = 0; i < v31n; i++)
+    {
+        string msg = StringFormat("v5 keeps v3.1 column %d (%s) in place", i, v31parts[i]);
+        TEST_STR_EQ(v31parts[i], parts[i], msg);
+    }
+}
+
 void TestSchema_Version31(TestCounters &counters)
 {
-    TEST_INT_EQ(4, TELEMETRY_SCHEMA_VERSION, "Active schema version is 4 (v3.1)");
+    TEST_INT_EQ(5, TELEMETRY_SCHEMA_VERSION, "Active schema version is 5 (v5, Sprint 22 RL-HYP-01)");
     TEST_STR_EQ("v3.0", TELEMETRY_EA_VERSION, "EA version string updated");
     TEST_STR_EQ("rule-layer-v1", TELEMETRY_SCORE_ARCHITECTURE, "score architecture versioned");
     TEST_STR_EQ("rule-layer", TELEMETRY_TELEMETRY_ARCHITECTURE, "telemetry architecture tagged");
@@ -255,7 +279,7 @@ void TestRowBuilder_EvidenceCapture(TestCounters &counters)
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
                                                       w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig(), sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds");
-    TEST_INT_EQ(4, (int)row.schemaVersion, "Row stamped schema v4 (v3.1)");
+    TEST_INT_EQ(5, (int)row.schemaVersion, "Row stamped schema v5 (v5 gate columns)");
     TEST_DBL_NEAR(0.60, row.confidence, 1e-9, "v2 columns still populated (confidence)");
     TEST_DBL_NEAR(80.0, row.structureRaw, 1e-9, "legacy component columns still populated");
 
@@ -434,7 +458,7 @@ void TestRowBuilder_EvidenceFallback(TestCounters &counters)
     TelemetryRow row;
     CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
                                 w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig());
-    TEST_INT_EQ(4, (int)row.schemaVersion, "Build() stamps schema v4 (v3.1)");
+    TEST_INT_EQ(5, (int)row.schemaVersion, "Build() stamps schema v5 (v5 gate columns)");
     TEST_INT_EQ(0, row.componentData, "no evidence claim without a signal");
     TEST_INT_EQ(EV_UNKNOWN, row.hasBOS, "unevaluated flags stay UNKNOWN, not FALSE");
     TEST_INT_EQ(0, row.firedRuleId, "no fired rule");
@@ -789,6 +813,7 @@ TestCounters RunTelemetryTests()
     TestHeader_V2ColumnCount(counters);
     TestHeader_V3ColumnCount(counters);
     TestHeader_V31ColumnCount(counters);
+    TestHeader_V5ColumnCount(counters);
     TestSchema_Version31(counters);
     TestTelemetryRuleNames(counters);
     TestRowBuilder_NormalizedConfidence(counters);

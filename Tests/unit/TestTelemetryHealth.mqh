@@ -14,11 +14,11 @@
 #include "../TestAssert.mqh"
 #include "../../Telemetry/TelemetryHealthReport.mqh"
 
-//--- One v3.1 evidence row (schema v4) with sane defaults (rule 5, WIN).
+//--- One v5 evidence row (schema v5) with sane defaults (rule 5, WIN).
 TelemetryRow HealthRow(int ruleId = 5, int decisionId = 0, int outcome = 1)
 {
-    TelemetryRow row = TelemetryRow();
-    row.schemaVersion = 4;
+    TelemetryRow row;
+    row.schemaVersion = (int)TELEMETRY_SCHEMA_VERSION;
     row.configFingerprint = 0x1D1EF3C650D79C3F;
     row.timestamp = StringToTime("2026.01.05 09:45:00");
     row.symbol = "EURUSD";
@@ -100,7 +100,7 @@ bool HealthWriteLoad(const string fname, const TelemetryRow &rows[], int count,
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     if(h == INVALID_HANDLE)
         return false;
-    FileWrite(h, TELEMETRY_CSV_HEADER_V31);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
     for(int i = 0; i < count; i++)
         FileWrite(h, CTelemetryHealthAnalyzer::SerializeRow(rows[i]));
     FileClose(h);
@@ -131,7 +131,7 @@ void TestHealth_PerfectDataset(TestCounters &counters)
     TEST_INT_EQ(0, rep.parse.schemaFailures, "no refused rows");
     TEST_DBL_NEAR(1.0, rep.parse.parseSuccessRate, 1e-9, "parse rate 100%");
     TEST_TRUE(rep.schema.schemaVersionPass, "schema version pass");
-    TEST_INT_EQ(3, rep.schema.schemaVersionCounts[4], "all rows v3.1");
+    TEST_INT_EQ(3, rep.schema.schemaVersionCounts[5], "all rows v5");
     TEST_TRUE(rep.schema.legacyConsistencyPass, "legacy consistency pass");
     TEST_TRUE(rep.schema.roundTripPass, "round-trip pass");
     TEST_INT_EQ(0, rep.schema.missingMarkerCount, "no MISSING markers");
@@ -160,7 +160,7 @@ void TestHealth_EmptyDataset(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "empty file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V31);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
     FileClose(h);
 
     CCalibrationDataset ds;
@@ -247,7 +247,7 @@ string HealthV2Line(const TelemetryRow &row)
 }
 
 //====================================================================
-//  Mixed schema versions: a v2 row survives but fails the v4 gate.
+//  Mixed schema versions: a v2 row survives but fails the v5 gate.
 //====================================================================
 void TestHealth_SchemaVersionMixed(TestCounters &counters)
 {
@@ -275,8 +275,8 @@ void TestHealth_SchemaVersionMixed(TestCounters &counters)
     CTelemetryHealthAnalyzer a;
     TelemetryHealthReport rep = a.Analyze(ds);
 
-    TEST_FALSE(rep.schema.schemaVersionPass, "mixed versions fail the v4 gate");
-    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[4], "one v3.1 row");
+    TEST_FALSE(rep.schema.schemaVersionPass, "mixed versions fail the v5 gate");
+    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[5], "one v5 row");
     TEST_INT_EQ(1, rep.schema.schemaVersionCounts[2], "one v2 row");
     TEST_INT_EQ(85, rep.healthScore, "score 85 (15 pts lost)");
     TEST_INT_EQ(HEALTH_WARN, rep.verdict, "verdict WARN");
@@ -310,14 +310,14 @@ void TestHealth_LegacyV3FileStillLoads(TestCounters &counters)
 
     TEST_TRUE(rep.schema.schemaVersionPass, "100% v3 still passes the gate");
     TEST_INT_EQ(2, rep.schema.schemaVersionCounts[3], "two v3 rows");
-    TEST_INT_EQ(0, rep.schema.schemaVersionCounts[4], "no v4 rows");
-    TEST_TRUE(rep.schema.roundTripPass, "round-trip only audits v4 rows");
+    TEST_INT_EQ(0, rep.schema.schemaVersionCounts[5], "no v5 rows");
+    TEST_TRUE(rep.schema.roundTripPass, "round-trip only audits active-schema rows");
     TEST_INT_EQ(100, rep.healthScore, "legacy file stays healthy");
     TEST_INT_EQ(HEALTH_PASS, rep.verdict, "verdict PASS");
 }
 
 //====================================================================
-//  Mixed v3 + v4 rows in one v3.1 file: both parse, gate passes.
+//  Mixed v3 + v5 rows in one v5 file: both parse, gate passes.
 //====================================================================
 void TestHealth_MixedV3V4Rows(TestCounters &counters)
 {
@@ -325,32 +325,32 @@ void TestHealth_MixedV3V4Rows(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "mixed file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V31);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
     FileWrite(h, HealthV3Line(HealthRow(5, 0, 1)));
     FileWrite(h, CTelemetryHealthAnalyzer::SerializeRow(HealthRow(1, 1, 2)));
     FileClose(h);
 
     CCalibrationDataset ds;
-    TEST_TRUE(ds.LoadFile(path), "mixed v3+v4 dataset loads");
+    TEST_TRUE(ds.LoadFile(path), "mixed v3+v5 dataset loads");
     FileDelete(path, FILE_COMMON);
     TEST_INT_EQ(2, ds.GetCount(), "both rows parsed");
 
     CTelemetryHealthAnalyzer a;
     TelemetryHealthReport rep = a.Analyze(ds);
 
-    TEST_TRUE(rep.schema.schemaVersionPass, "v3 + v4 mix passes the gate");
+    TEST_TRUE(rep.schema.schemaVersionPass, "v3 + v5 mix passes the gate");
     TEST_INT_EQ(1, rep.schema.schemaVersionCounts[3], "one v3 row");
-    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[4], "one v4 row");
+    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[5], "one v5 row");
     TEST_INT_EQ(100, rep.healthScore, "mixed file healthy");
     TEST_INT_EQ(HEALTH_PASS, rep.verdict, "verdict PASS");
 }
 
-//--- A genuine v3 (68-column) line: truncate the 75-column v3.1
-//    serialization at the end of field 68. The v3.1 layout is strictly
-//    append-only over v3, so this reproduces the exact legacy file format
-//    written before Sprint 20 — including the pre-TC02 contract of
-//    zero legacy raws (the v3.0 engine never computed them). Commas
-//    inside the quoted ruleEvidenceIds field must not count as
+//--- A genuine v3 (68-column) line: stamp v3, then truncate the
+//    v3-shape serialization at the end of field 68. The v3.1/v5 layouts
+//    are strictly append-only over v3, so this reproduces the exact
+//    legacy file format written before Sprint 20 — including the pre-TC02
+//    contract of zero legacy raws (the v3.0 engine never computed them).
+//    Commas inside the quoted ruleEvidenceIds field must not count as
 //    separators.
 string HealthV3Line(const TelemetryRow &row)
 {
@@ -521,7 +521,7 @@ void TestHealth_RoundTripCorrupt(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "corrupt file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V31);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
     TelemetryRow r1 = HealthRow(5, 0, 1);
     string line = CTelemetryHealthAnalyzer::SerializeRow(r1);
     StringReplace(line, "0.45000000", "0.450000001");
@@ -550,7 +550,7 @@ void TestHealth_ParseFailures(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "parse file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V31);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
     TelemetryRow r1 = HealthRow(5, 0, 1);
     FileWrite(h, CTelemetryHealthAnalyzer::SerializeRow(r1));
     FileWrite(h, "3,1,2,3");   // malformed: refused by the reader

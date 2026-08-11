@@ -19,6 +19,15 @@ $script:TT01_HEADER_V31 = @(
     "layerOrderBlock","layerFVG","fvgClass","fvgSize","fvgStrength","fvgCreatedTime","fvgFillTime"
 )
 
+# Sprint 22 RL-HYP-01: schema v5 appends the 3 swing-gate columns (append-only over v3.1).
+$script:TT01_HEADER_V5 = @($script:TT01_HEADER_V31) + @("swingQualifyingId","swingAmplitude","gateDecision")
+
+# Schema-recording columns: exempted from behavior byte-compare against the frozen
+# v4 baseline (B7). The version flip 4 -> 5 and the sentinel gate values record the
+# Sprint 22 policy (gate OFF at tier 0.0 => surfacing integers equal to the legacy
+# TelemetryRow beyond these columns); byte-identity must hold on every other column.
+$script:TT01_SCHEMA_RECORDING = @("schemaVersion","swingQualifyingId","swingAmplitude","gateDecision")
+
 $script:TT01_NUMERIC = @(
     "confidence",    "structureRaw","structureWeight","structureContribution",
     "obRaw","obWeight","obContribution",
@@ -82,9 +91,9 @@ function Test-TT01Contract {
     $fail = 0
     $headerLine = Get-Content -LiteralPath $Path -TotalCount 1
     $cols = $headerLine.Split(",")
-    if ($cols.Count -ne 75) { $fail++; $detail.Add("header column count $($cols.Count) != 75") }
-    foreach ($i in 0..([Math]::Min($cols.Count, $script:TT01_HEADER_V31.Count) - 1)) {
-        if ($cols[$i] -ne $script:TT01_HEADER_V31[$i]) { $fail++; $detail.Add("column[$i] '$($cols[$i])' != '$($script:TT01_HEADER_V31[$i])'" ) }
+    if ($cols.Count -ne $script:TT01_HEADER_V5.Count) { $fail++; $detail.Add("header column count $($cols.Count) != $($script:TT01_HEADER_V5.Count) (v5)") }
+    foreach ($i in 0..([Math]::Min($cols.Count, $script:TT01_HEADER_V5.Count) - 1)) {
+        if ($cols[$i] -ne $script:TT01_HEADER_V5[$i]) { $fail++; $detail.Add("column[$i] '$($cols[$i])' != '$($script:TT01_HEADER_V5[$i])'" ) }
     }
     $rows = Import-Csv -LiteralPath $Path
     foreach ($c in $script:TT01_NUMERIC) {
@@ -110,13 +119,25 @@ function Test-TT01Contract {
             if (-not [datetime]::TryParse($r.$c, [ref]$t)) { $fail++; $detail.Add("bad datetime '$c' value '$($r.$c)' row '$($r.signalTime)'"); break }
         }
     }
-    $schemaBad = @($rows | Where-Object { $_.schemaVersion -ne "4" }).Count
-    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad rows with schemaVersion != 4") }
+    $schemaBad = @($rows | Where-Object { $_.schemaVersion -ne "5" }).Count
+    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad rows with schemaVersion != 5") }
+    foreach ($r in $rows) {
+        $q = 0; $a = 0.0
+        if (-not [int]::TryParse($r.swingQualifyingId, [ref]$q)) { $fail++; $detail.Add("non-integer swingQualifyingId '$($r.swingQualifyingId)' row '$($r.signalTime)'"); break }
+        if (-not [double]::TryParse($r.swingAmplitude, [ref]$a)) { $fail++; $detail.Add("non-numeric swingAmplitude '$($r.swingAmplitude)' row '$($r.signalTime)'"); break }
+        if ($r.gateDecision -notin @("OFF","ADMIT","GATE-OUT")) { $fail++; $detail.Add("bad gateDecision '$($r.gateDecision)' row '$($r.signalTime)'"); break }
+    }
+    #--- Default harness profile runs the gate at tier 0.0 (OFF): the 3 gate
+    #--- columns must therefore carry their sentinel recordings on every row,
+    #--- proving the default configuration surfaces the legacy TelemetryRow
+    #--- unchanged (byte-identity contract, protocol 11.3a).
+    $sentinelBad = @($rows | Where-Object { $_.swingQualifyingId -ne "0" -or $_.swingAmplitude -ne "0.00000000" -or $_.gateDecision -ne "OFF" }).Count
+    if ($sentinelBad -gt 0) { $fail++; $detail.Add("$sentinelBad rows with non-sentinel gate columns (tier 0.0 must record 0/0.00000000/OFF)") }
     $fp = @($rows | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique).Count
     if ($fp -ne 1) { $fail++; $detail.Add("configFingerprint not constant ($fp distinct)") }
     $timeBad = @($rows | Where-Object { $_.signalTime -notmatch "^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}" }).Count
     if ($timeBad -gt 0) { $fail++; $detail.Add("$timeBad rows with malformed signalTime") }
-    if ($fail -eq 0) { $detail.Add("header 75/75 exact, schemaVersion=4, all numerics/flags/times parse, fingerprint constant") }
+    if ($fail -eq 0) { $detail.Add("header $($script:TT01_HEADER_V5.Count)/$($script:TT01_HEADER_V5.Count) exact (v5 = v3.1 + 3 gate columns), schemaVersion=5, gate sentinels OFF, all numerics/flags/times parse, fingerprint constant") }
     New-TT01Result -Name "TELEMETRY-CONTRACT" -Pass ($fail -eq 0) -Details $detail.ToArray()
 }
 
@@ -239,6 +260,7 @@ function Test-TT01Behavior {
             $diff = @($cols | Where-Object {
                 $c = $_
                 if ($AllowDecisionIds.Count -gt 0 -and $c -eq "configFingerprint") { return $false }
+                if ($script:TT01_SCHEMA_RECORDING -contains $c) { return $false }
                 return $run[$i].$c -ne $base[$i].$c
             })
             if ($diff.Count -eq 0) { continue }
@@ -320,6 +342,7 @@ function Test-TT01Behavior {
             if (-not $baseById.ContainsKey($id)) { $added++; continue }
             foreach ($c in $cols) {
                 if ($AllowDelta -contains $c) { continue }
+                if ($script:TT01_SCHEMA_RECORDING -contains $c) { continue }
                 if ($runById[$id].$c -ne $baseById[$id].$c) {
                     $sharedBad++
                     if ($sharedBad -le 5) { $detail.Add("shared decisionId $id differs on column $c") }
@@ -339,13 +362,28 @@ function Test-TT01Behavior {
         }
         $detail.Add("row-set delta: +$added added, -$missing missing (rows $($base.Count) -> $($run.Count))")
     } else {
+        #--- schema-recording flip check: under the default tier-0.0 profile the
+        #--- run CSV is schema v5 (append-only recording) over the frozen v4
+        #--- baseline. A clean flip 4 -> 5 on every row is the expected, localized
+        #--- recording difference; byte-identity must hold on every other column.
+        $schemaFlip = 0
+        for ($i = 0; $i -lt $run.Count; $i++) {
+            if ($run[$i].schemaVersion -eq "5" -and $base[$i].schemaVersion -eq "4") { $schemaFlip++ }
+        }
+        if ($schemaFlip -eq $run.Count) {
+            $detail.Add("schemaVersion 4 -> 5 on all $($run.Count) rows (Sprint 22 schema recording; gate columns carry OFF sentinels, verified by CONTRACT)")
+        } else {
+            $fail++
+            $detail.Add("schema flip FAIL: $($run.Count - $schemaFlip)/$($run.Count) rows are not v4->v5")
+        }
         foreach ($c in $cols) {
+            if ($script:TT01_SCHEMA_RECORDING -contains $c) { continue }
             $d = 0
             for ($i = 0; $i -lt $run.Count; $i++) { if ($run[$i].$c -ne $base[$i].$c) { $d++ } }
             if ($d -gt 0) { $diffCols += "$c=$d" }
         }
         if ($diffCols.Count -eq 0) {
-            $detail.Add("all $($cols.Count) columns byte-identical across $($run.Count) rows")
+            $detail.Add("all $($cols.Count - $script:TT01_SCHEMA_RECORDING.Count) behavior columns byte-identical across $($run.Count) rows")
         } else {
             $bad = @($diffCols | Where-Object { $name = ($_ -split "=")[0]; $AllowDelta -notcontains $name })
             foreach ($d in $diffCols) { $detail.Add("differing column: $d") }

@@ -7,6 +7,7 @@
 //  @frozen v2.9.2 TelemetryRow  (schemaVersion = 2)
 //  @frozen v3.1   TelemetryRow  (schemaVersion = 3)
 //  @schema v3.1   TelemetryRow  (schemaVersion = 4)  [Sprint 20 TC01]
+//  @schema v5     TelemetryRow  (schemaVersion = 5)  [Sprint 22 RL-HYP-01]
 //
 //  CONTRACT RULES (append-only, never break):
 //  - Column order and semantics are frozen once data collection starts.
@@ -40,6 +41,16 @@
 //  gap lifecycle timestamps (fvgCreatedTime/fvgFillTime — populated by
 //  TC04).  v3 files (68 columns) remain readable unchanged; v3.1 is
 //  strictly append-only over v3.
+//
+//  v5 semantics (Sprint 22 RL-HYP-01, schemaVersion = 5): appends 3
+//  more columns at the END: swingQualifyingId / swingAmplitude (the
+//  k*ATR(14) significance threshold at decision time) / gateDecision
+//  (ADMIT | GATE-OUT | OFF) — the swing-significance admission gate
+//  telemetry required by the frozen Sprint 22 protocol (§14; proves the
+//  gate operated, §11.3b).  Defaults are neutral (0 / 0.0 / "OFF") so
+//  non-gated rows stay byte-identical to ungated v3.1 rows in all
+//  shared columns.  v3.1 files (75 columns) remain readable unchanged;
+//  v5 is strictly append-only over v3.1.
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_TYPES_MQH__
 #define __TELEMETRY_TYPES_MQH__
@@ -51,7 +62,7 @@
 //--- Canonical EA version used by the configuration fingerprint.
 #define TELEMETRY_EA_VERSION "v3.0"
 
-#define TELEMETRY_SCHEMA_VERSION     4
+#define TELEMETRY_SCHEMA_VERSION     5
 #define MAX_TELEMETRY_VALIDATORS     12
 #define TELEMETRY_COMPONENT_COUNT    6
 
@@ -124,6 +135,14 @@ enum ENUM_EVIDENCE_STATE
     "layerOrderBlock,layerFVG," \
     "fvgClass,fvgSize,fvgStrength," \
     "fvgCreatedTime,fvgFillTime"
+
+//--- Active v5 header (Sprint 22 RL-HYP-01): 78 columns = v3.1 (75) + 3
+//    swing-gate columns appended at the END. Strictly append-only over
+//    v3.1.  The gate columns carry neutral defaults (0 / 0.0 / "OFF")
+//    until the gate runs.
+#define TELEMETRY_CSV_HEADER_V5 \
+    TELEMETRY_CSV_HEADER_V31 "," \
+    "swingQualifyingId,swingAmplitude,gateDecision"
 
 enum ENUM_TELEMETRY_OUTCOME
 {
@@ -287,8 +306,16 @@ struct TelemetryRow
     string   fvgClass;             // REVERSAL | BREAKAWAY | CONTINUATION | UNKNOWN
     string   fvgSize;              // SMALL | MEDIUM | LARGE | UNKNOWN
     string   fvgStrength;          // WEAK | NORMAL | STRONG | UNKNOWN
-    datetime fvgCreatedTime;       // gap detection time (0 until TC04 wires timestamps)
+    datetime fvgCreatedTime;       // gap creation time (0 until TC04 wires timestamps)
     datetime fvgFillTime;          // gap fill time (0 = not filled)
+
+    //--- Schema v5 swing-gate columns (Sprint 22 RL-HYP-01; append-only
+    //    over v3.1). Populated by SwingSignificanceGate (§5/§14); the
+    //    gate-OFF defaults (0 / 0.0 / "OFF") keep every shared column
+    //    byte-identical to the ungated B8 row (gate 3b).
+    int      swingQualifyingId;    // qualifying structural pivot id (0 = none)
+    double   swingAmplitude;       // k*ATR(14) significance threshold at decision time
+    string   gateDecision;         // ADMIT | GATE-OUT | OFF
 
     TelemetryRow(void)
         : schemaVersion(TELEMETRY_SCHEMA_VERSION)
@@ -354,6 +381,9 @@ struct TelemetryRow
         , fvgStrength("UNKNOWN")
         , fvgCreatedTime(0)
         , fvgFillTime(0)
+        , swingQualifyingId(0)
+        , swingAmplitude(0.0)
+        , gateDecision("OFF")
     {}
 
     void SetComponent(ENUM_CONFLUENCE_COMPONENT type, double raw, double weight, double contribution)

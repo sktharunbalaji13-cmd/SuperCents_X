@@ -57,6 +57,23 @@ string TestV31Line(void)
            "2026.01.05 09:30:00,2026.01.05 09:45:00";
 }
 
+//--- A literal v5 (78-column) line: the v3.1 line above plus the 3
+//    Sprint 22 RL-HYP-01 swing-gate columns
+//    (swingQualifyingId/swingAmplitude/gateDecision), matching
+//    TELEMETRY_CSV_HEADER_V5.
+string TestV5Line(void)
+{
+    return "5" + StringSubstr(TestV31Line(), 1) + ","
+           "0,0.00000000,OFF";
+}
+
+//--- v5 gate columns populated (an ADMITTED row).
+string TestV5LineAdmitted(void)
+{
+    return "5" + StringSubstr(TestV31Line(), 1) + ","
+           "7,0.00300000,ADMIT";
+}
+
 void TestParse_V2BackwardCompatible(TestCounters &counters)
 {
     TelemetryRow row;
@@ -119,12 +136,34 @@ void TestParse_V31EvidenceRoundTrip(TestCounters &counters)
     TEST_TRUE(row.fvgFillTime == StringToTime("2026.01.05 09:45:00"), "fvgFillTime exact");
 }
 
+void TestParse_V5GateRoundTrip(TestCounters &counters)
+{
+    //--- Neutral gate row (defaults).
+    TelemetryRow row;
+    bool ok = CCalibrationDataset::ParseRow(TestV5Line(), row);
+    TEST_TRUE(ok, "v5 line parses");
+    TEST_INT_EQ(5, (int)row.schemaVersion, "v5 row keeps schemaVersion 5");
+    TEST_DBL_NEAR(0.45, row.confidence, 1e-9, "v5 row keeps v2 columns (confidence)");
+    TEST_STR_EQ("REVERSAL", row.fvgClass, "v5 row keeps v3.1 columns (fvgClass)");
+    TEST_INT_EQ(0, row.swingQualifyingId, "neutral gate: no qualifying pivot");
+    TEST_DBL_EQ(0.0, row.swingAmplitude, "neutral gate: zero significance amplitude");
+    TEST_STR_EQ("OFF", row.gateDecision, "neutral gate: OFF decision token");
+
+    //--- Admitted row (gate columns populated).
+    TelemetryRow admit;
+    ok = CCalibrationDataset::ParseRow(TestV5LineAdmitted(), admit);
+    TEST_TRUE(ok, "v5 admitted line parses");
+    TEST_INT_EQ(5, (int)admit.schemaVersion, "admitted row keeps schemaVersion 5");
+    TEST_INT_EQ(7, admit.swingQualifyingId, "qualifying pivot id parsed");
+    TEST_DBL_NEAR(0.0030, admit.swingAmplitude, 1e-12, "significance amplitude (k*ATR value) parsed");
+    TEST_STR_EQ("ADMIT", admit.gateDecision, "ADMIT decision token parsed");
+}
+
 void TestParse_RefusesUnknownVersions(TestCounters &counters)
 {
     TelemetryRow row;
-    string v5 = TestV31Line();
-    StringSetCharacter(v5, 0, '5');
-    TEST_FALSE(CCalibrationDataset::ParseRow(v5, row), "schemaVersion 5 refused");
+    string v5junk = TestV5Line() + ",extra";
+    TEST_FALSE(CCalibrationDataset::ParseRow(v5junk, row), "v5 line with extra column refused");
 
     string v1 = TestV3Line();
     StringSetCharacter(v1, 0, '1');
@@ -150,6 +189,12 @@ void TestParse_RefusesUnknownVersions(TestCounters &counters)
         TEST_TRUE(false, "test harness could not trim v3 line");
     }
 
+    //--- A v3.1 line with 75 columns but a v5 label must refuse too:
+    //    column count is bound to the declared version (v5 needs 78).
+    string mismatch5 = TestV31Line();
+    StringSetCharacter(mismatch5, 0, '5');
+    TEST_FALSE(CCalibrationDataset::ParseRow(mismatch5, row), "v5 label with 75 columns refused");
+
     //--- A v3 line with 68 columns but the v4 header shape must refuse too:
     //    column count is bound to the declared version.
     string mismatch = TestV3Line();
@@ -161,7 +206,7 @@ TestCounters RunCalibrationDatasetTests(void)
 {
     TestCounters counters;
 
-    SUITE_BEGIN("CalibrationDataset.ParseUnsigned + schema v3/v3.1 reader");
+    SUITE_BEGIN("CalibrationDataset.ParseUnsigned + schema v3/v3.1/v5 reader");
 
     TEST_TRUE(CCalibrationDataset::ParseUnsigned("0") == 0, "empty/zero: 0 -> 0");
 
@@ -189,13 +234,14 @@ TestCounters RunCalibrationDatasetTests(void)
     TEST_TRUE(max == 18446744073709551615, "ULONG_MAX parses exactly");
     TEST_TRUE(max != 9223372036854775807, "ULONG_MAX is NOT the INT64_MAX phantom");
 
-    //--- Schema v3/v3.1 reader contract.
+    //--- Schema v3/v3.1/v5 reader contract.
     TestParse_V2BackwardCompatible(counters);
     TestParse_V3EvidenceRoundTrip(counters);
     TestParse_V31EvidenceRoundTrip(counters);
+    TestParse_V5GateRoundTrip(counters);
     TestParse_RefusesUnknownVersions(counters);
 
-    SUITE_END("CalibrationDataset.ParseUnsigned + schema v3/v3.1 reader");
+    SUITE_END("CalibrationDataset.ParseUnsigned + schema v3/v3.1/v5 reader");
 
     return counters;
 }
