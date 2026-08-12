@@ -20,6 +20,7 @@
 #include "../Structure/OrderBlockDetector.mqh"
 #include "../Structure/FVGDetector.mqh"
 #include "../Structure/LiquidityDetector.mqh"
+#include "../Structure/SwingSignificanceGate.mqh"
 #include "../Visualization/VisualizationManager.mqh"
 #include "../Confluence/ConfluenceEngine.mqh"
 #include "../Entry/EntrySetup.mqh"
@@ -129,6 +130,9 @@ private:
     //    the replay outcome sim stays byte-identical to the B8 baseline.
     COpposingLiquidityTPPolicy m_opposingOutcomePolicy;
     ENUM_OUTCOME_TP_MODE       m_outcomeTpMode;
+    //--- Sprint 22 (RL-HYP-01): swing-significance admission gate tier
+    //    (k in k x ATR(14), protocol §5/§14). 0.0 = gate OFF (B8).
+    double                     m_swingSignificanceTier;
     TelemetryRow              m_pendingRows[];
     datetime                  m_pendingEntryTime[];
     int                       m_pendingCandidateId[];
@@ -207,6 +211,16 @@ public:
         m_outcomePolicy.SetTpR(tier);
         m_logger.LogInfo(StringFormat("FixedRR TP tier set: %.2fR", tier));
     }
+    //--- Sprint 22 (RL-HYP-01): swing-significance gate tier (k in
+    //    k x ATR(14)). Applied at the decision point before any decision
+    //    is created; 0.0 = OFF (B8 behavior). The gate only reads this
+    //    value at decision time, so it is safe to set before Init runs.
+    void SetSwingSignificanceTier(double tier)
+    {
+        m_swingSignificanceTier = tier;
+        m_logger.LogInfo(StringFormat("Swing significance gate tier set: %.2f", tier));
+    }
+    double GetSwingSignificanceTier(void) const { return m_swingSignificanceTier; }
     void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 
@@ -272,6 +286,7 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_outcomePolicy()
     , m_opposingOutcomePolicy()
     , m_outcomeTpMode(OUTCOME_TP_FIXED_RR)
+    , m_swingSignificanceTier(0.0)
     , m_pendingCount(0)
     , m_shadowProvider()
     , m_shadowRisk()
@@ -826,111 +841,150 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
         ConfluenceResult cr;
         if(m_confluenceEngine.GetLatestConfluence(cr) && cr.valid)
         {
-            double bid = SymbolInfoDouble(m_symbol, SYMBOL_BID);
-            double ask = SymbolInfoDouble(m_symbol, SYMBOL_ASK);
-            double spreadPips = (ask - bid) / _Point;
-
-            // TODO(v2.9): Replace with EntrySetup price once ExecutionPlanner integration exists
-            double candPrice = bid;
-
-            // TODO(v2.9): Replace with signal lifecycle age once tracked
-            int barsSince = 0;
-
-            ulong t0 = GetMicrosecondCount();
-            EntryDecision newDecision = m_entryOrchestrator.Evaluate(
-                cr, spreadPips, TimeCurrent(), bid, ask, barsSince, candPrice);
-            ulong t1 = GetMicrosecondCount();
-
-            if(m_entryMode == ENTRY_MODE_SHADOW || m_entryMode == ENTRY_MODE_NEW)
+            //--- Sprint 22 (RL-HYP-01): settlement runs BEFORE the swing
+            //    gate on EVERY candidate bar (Design A, approved). The
+            //    trigger is admission-independent: an already-admitted
+            //    row settles on its boundary bar whether that bar is
+            //    ADMIT or GATE-OUT, reading the boundary bar forming
+            //    (first tick) exactly as CONTROL does. GATE-OUT bars
+            //    still create no decision, no row, no queue entry below.
+            //    The swing-significance admission gate (frozen
+            //    SwingSignificanceGate.mqh, protocol §5/§14) runs after
+            //    settlement: a GATED-OUT candidate creates no decision
+            //    and no telemetry row (absent from the treatment CSV;
+            //    the analyzer assigns 0R via the decisionId pairing,
+            //    Amendment A1). tier <= 0.0 = OFF: every candidate
+            //    admitted, byte-identical B8 behavior. The pivot chain
+            //    is read-only; SwingGateEvaluate never mutates it
+            //    (unit-proven in the gate suite).
+            SettleDue();
+            SwingGateResult gate;
+            gate.admitted = true;
+            gate.gateDecision = SWING_GATE_DECISION_OFF;
+            gate.qualifyingPivotId = 0;
+            gate.thresholdKATR = 0.0;
+            gate.amplitude = 0.0;
+            if(m_structuralPivotEngine != NULL)
+                SwingGateEvaluate(*m_structuralPivotEngine, rates_total - 1, rates_total,
+                                  high, low, close, m_swingSignificanceTier, gate);
+            if(!gate.admitted)
             {
-                //--- A-01 (v2.9.2): decision-level comparison. The legacy
-                //    side is the most recent CEntryDecisionEngine decision
-                //    (persists until superseded or expired — same lifecycle
-                //    semantics the planner plans had). The old plan-existence
-                //    proxy is gone: status vs status, direction vs direction.
-                EntryDecision legacyDecision;
-                bool hasLegacy = m_confluenceEngine.GetLastEntryDecision(legacyDecision);
-                bool legacyQualified = hasLegacy && (legacyDecision.status == DECISION_QUALIFIED);
-                bool newQualified = (newDecision.status == DECISION_QUALIFIED);
+                //--- GATE-OUT: no decision is created for this entry candidate.
+                m_logger.LogInfo(StringFormat("SwingGate: GATE-OUT at bar %d (tier %.2f)",
+                                              rates_total - 1, m_swingSignificanceTier));
+            }
+            else
+            {
+                double bid = SymbolInfoDouble(m_symbol, SYMBOL_BID);
+                double ask = SymbolInfoDouble(m_symbol, SYMBOL_ASK);
+                double spreadPips = (ask - bid) / _Point;
 
-                ShadowComparison cmp;
-                cmp.formatVersion    = 2;
-                cmp.timestamp        = TimeCurrent();
-                cmp.symbol           = m_symbol;
-                cmp.timeframe        = (ENUM_TIMEFRAMES)Period();
-                cmp.eaVersion        = TELEMETRY_EA_VERSION;
-                cmp.validationTimeUs = (uint)(t1 - t0);
-                cmp.legacyConfidence = hasLegacy ? legacyDecision.confidence : 0.0;
-                cmp.newConfidence    = newDecision.confidence;
+                // TODO(v2.9): Replace with EntrySetup price once ExecutionPlanner integration exists
+                double candPrice = bid;
 
-                cmp.decisionMatch = (legacyQualified == newQualified);
-                cmp.directionMatch = hasLegacy && (legacyDecision.direction == newDecision.direction);
+                // TODO(v2.9): Replace with signal lifecycle age once tracked
+                int barsSince = 0;
 
-                cmp.legacyFirstReason = REASON_NONE;
-                cmp.newFirstReason = (newDecision.rejectionCount > 0)
-                    ? REASON_UNKNOWN : REASON_NONE;
+                ulong t0 = GetMicrosecondCount();
+                EntryDecision newDecision = m_entryOrchestrator.Evaluate(
+                    cr, spreadPips, TimeCurrent(), bid, ask, barsSince, candPrice);
+                ulong t1 = GetMicrosecondCount();
 
-                m_entryOrchestrator.RecordShadowComparison(cmp);
-
-                //--- A-03 (v2.9.2): persist one schema-v2 row per decision.
-                if(m_telemetry != NULL)
+                if(m_entryMode == ENTRY_MODE_SHADOW || m_entryMode == ENTRY_MODE_NEW)
                 {
-                    string disabled = "";
-                    CValidatorRegistry *reg = m_entryOrchestrator.GetRegistry();
-                    if(reg != NULL)
+                    //--- A-01 (v2.9.2): decision-level comparison. The legacy
+                    //    side is the most recent CEntryDecisionEngine decision
+                    //    (persists until superseded or expired — same lifecycle
+                    //    semantics the planner plans had). The old plan-existence
+                    //    proxy is gone: status vs status, direction vs direction.
+                    EntryDecision legacyDecision;
+                    bool hasLegacy = m_confluenceEngine.GetLastEntryDecision(legacyDecision);
+                    bool legacyQualified = hasLegacy && (legacyDecision.status == DECISION_QUALIFIED);
+                    bool newQualified = (newDecision.status == DECISION_QUALIFIED);
+
+                    ShadowComparison cmp;
+                    cmp.formatVersion    = 2;
+                    cmp.timestamp        = TimeCurrent();
+                    cmp.symbol           = m_symbol;
+                    cmp.timeframe        = (ENUM_TIMEFRAMES)Period();
+                    cmp.eaVersion        = TELEMETRY_EA_VERSION;
+                    cmp.validationTimeUs = (uint)(t1 - t0);
+                    cmp.legacyConfidence = hasLegacy ? legacyDecision.confidence : 0.0;
+                    cmp.newConfidence    = newDecision.confidence;
+
+                    cmp.decisionMatch = (legacyQualified == newQualified);
+                    cmp.directionMatch = hasLegacy && (legacyDecision.direction == newDecision.direction);
+
+                    cmp.legacyFirstReason = REASON_NONE;
+                    cmp.newFirstReason = (newDecision.rejectionCount > 0)
+                        ? REASON_UNKNOWN : REASON_NONE;
+
+                    m_entryOrchestrator.RecordShadowComparison(cmp);
+
+                    //--- A-03 (v2.9.2): persist one schema-v2 row per decision.
+                    if(m_telemetry != NULL)
                     {
-                        for(int v = 0; v < reg.Count(); v++)
+                        string disabled = "";
+                        CValidatorRegistry *reg = m_entryOrchestrator.GetRegistry();
+                        if(reg != NULL)
                         {
-                            if(!reg.IsEnabledAt(v))
+                            for(int v = 0; v < reg.Count(); v++)
                             {
-                                IEntryValidator *val = reg.GetValidator(v);
-                                if(val != NULL)
+                                if(!reg.IsEnabledAt(v))
                                 {
-                                    if(disabled != "")
-                                        disabled += ",";
-                                    disabled += val.GetName();
+                                    IEntryValidator *val = reg.GetValidator(v);
+                                    if(val != NULL)
+                                    {
+                                        if(disabled != "")
+                                            disabled += ",";
+                                        disabled += val.GetName();
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    TelemetryRow row;
-                    //--- Sprint 17: schema v3 evidence capture. The runtime
-                    //    ConfluenceSignal carries the rule/layer/evidence
-                    //    observations the v2 columns never recorded; when it
-                    //    is unavailable the row falls back to schema v3 with
-                    //    componentData = 0 (refused by structural analysis).
-                    ConfluenceSignal sig;
-                    bool hasSig = m_confluenceEngine.GetLatestSignal(sig);
-                    if(hasSig)
-                        CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDecision, hasLegacy,
-                                                                legacyDecision,
-                                                                m_confVal.GetMinConfidence(),
-                                                                m_weights, m_symbol, (int)Period(),
-                                                                disabled, "tick",
-                                                                (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
-                                                                m_confVal.GetConfig(),
-                                                                sig);
-                    else
-                        CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
-                                                    legacyDecision,
-                                                    m_confVal.GetMinConfidence(),
-                                                    m_weights, m_symbol, (int)Period(),
-                                                    disabled, "tick",
-                                                    (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
-                                                    m_confVal.GetConfig());
-                    //--- Sprint 15.3: settle previously queued rows first so
-                    //    the collector receives rows in decision order, then
-                    //    queue the new row for forward-outcome settlement.
-                    //    GR02A: the candidate id travels with the row so the
-                    //    settler can link a live close back to this decision.
-                    //    ED01-D: the row's source-liquidity context travels
-                    //    with it so the opposing-liquidity TP arm can resolve
-                    //    its pool at settle time.
-                    SettleDue();
-                    QueueForSettlement(row, newDecision.candidateId,
-                                       hasSig && sig.hasLiquiditySweep,
-                                       hasSig ? sig.liquidityLevelId : -1);
+                        TelemetryRow row;
+                        //--- Sprint 17: schema v3 evidence capture. The runtime
+                        //    ConfluenceSignal carries the rule/layer/evidence
+                        //    observations the v2 columns never recorded; when it
+                        //    is unavailable the row falls back to schema v3 with
+                        //    componentData = 0 (refused by structural analysis).
+                        ConfluenceSignal sig;
+                        bool hasSig = m_confluenceEngine.GetLatestSignal(sig);
+                        if(hasSig)
+                            CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDecision, hasLegacy,
+                                                                    legacyDecision,
+                                                                    m_confVal.GetMinConfidence(),
+                                                                    m_weights, m_symbol, (int)Period(),
+                                                                    disabled, "tick",
+                                                                    (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
+                                                                    m_confVal.GetConfig(),
+                                                                    sig);
+                        else
+                            CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
+                                                        legacyDecision,
+                                                        m_confVal.GetMinConfidence(),
+                                                        m_weights, m_symbol, (int)Period(),
+                                                        disabled, "tick",
+                                                        (int)SymbolInfoInteger(m_symbol, SYMBOL_DIGITS),
+                                                        m_confVal.GetConfig());
+                        //--- Sprint 15.3: previously queued rows were already
+                        //    settled by the pre-gate SettleDue() above, so the
+                        //    collector receives rows in decision order; queue
+                        //    the new row for forward-outcome settlement.
+                        //    GR02A: the candidate id travels with the row so the
+                        //    settler can link a live close back to this decision.
+                        //    ED01-D: the row's source-liquidity context travels
+                        //    with it so the opposing-liquidity TP arm can resolve
+                        //    its pool at settle time.
+                        //--- Sprint 22: stamp the gate telemetry onto the row
+                        //    (§14 columns; ADMIT = qualifying pivot id + k*ATR(14)
+                        //    threshold, OFF = neutral sentinels 0/0.0/OFF).
+                        SwingGateApplyToRow(row, gate);
+                        QueueForSettlement(row, newDecision.candidateId,
+                                           hasSig && sig.hasLiquiditySweep,
+                                           hasSig ? sig.liquidityLevelId : -1);
+                    }
                 }
             }
         }

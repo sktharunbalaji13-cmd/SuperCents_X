@@ -431,3 +431,249 @@ function Test-TT01Behavior {
     }
     New-TT01Result -Name "BEHAVIOR-REGRESSION" -Pass ($fail -eq 0) -Details $detail.ToArray()
 }
+
+#───────────────────────────────────────────────────────────────────────
+#  Sprint 22 (RL-HYP-01): active-tier replay evidence (11.3c/3b).
+#  The K1 replay runs the SAME profile with SwingSignificanceTier=1.0.
+#  Expected: fewer rows (nGatedOut >= 1), every admitted row records
+#  ADMIT with a qualifying pivot id + k*ATR(14) threshold, the fingerprint
+#  stays constant and equal to the default run (tier outside canonical),
+#  and the admitted decisions (paired by signalTime - the decision bar)
+#  are byte-identical to the default run on every shared column
+#  (admission-only invariance, gate 3b).
+#
+#  PAIRING KEY: signalTime, NOT decisionId. decisionId is a sequential
+#  collector id assigned in settle/record order; when rows are gated out
+#  the admitted rows renumber (e.g. decisionId 1 in the K1 run is the
+#  first ADMITTED bar, which may be the default run's decisionId 2). The
+#  bar is the stable identity - the analyzer's 0R reconstruction
+#  (protocol Amendment A1) must pair on the bar too.
+#───────────────────────────────────────────────────────────────────────
+function Test-TT01ActiveTier {
+    param([string]$RunPath, [string]$BasePath)
+    $detail = [System.Collections.Generic.List[string]]::new()
+    $fail = 0
+    $run = Import-Csv -LiteralPath $RunPath
+    $base = Import-Csv -LiteralPath $BasePath
+    $nGatedOut = $base.Count - $run.Count
+
+    if ($run.Count -le 0) { $fail++; $detail.Add("active-tier run produced no rows") }
+    if ($run.Count -ge $base.Count) {
+        $fail++; $detail.Add("admitted $($run.Count) !< default $($base.Count) -> nGatedOut=0 (gate inert, 11.3c FAIL)")
+    } else {
+        $detail.Add("nGatedOut = $nGatedOut (default $($base.Count) -> admitted $($run.Count))")
+    }
+
+    if ($run.Count -gt 0) {
+        #--- admission recording: every admitted row must carry ADMIT + evidence
+        $admitBad = @($run | Where-Object { $_.gateDecision -ne "ADMIT" }).Count
+        if ($admitBad -gt 0) { $fail++; $detail.Add("$admitBad rows with gateDecision != ADMIT") }
+        else { $detail.Add("all $($run.Count) admitted rows record gateDecision=ADMIT") }
+        $qBad = @($run | Where-Object { [long]($_.swingQualifyingId) -le 0 }).Count
+        if ($qBad -gt 0) { $fail++; $detail.Add("$qBad rows with swingQualifyingId <= 0 (ADMIT must reference a pivot)") }
+        $aBad = @($run | Where-Object { [double]($_.swingAmplitude) -le 0.0 }).Count
+        if ($aBad -gt 0) { $fail++; $detail.Add("$aBad rows with swingAmplitude <= 0 (ADMIT must record k*ATR(14) threshold)") }
+        $sBad = @($run | Where-Object { $_.schemaVersion -ne "5" }).Count
+        if ($sBad -gt 0) { $fail++; $detail.Add("$sBad rows with schemaVersion != 5") }
+
+        #--- fingerprint invariance: constant and equal to the default run
+        $fp = @($run | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
+        $baseFp = @($base | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
+        if ($fp.Count -ne 1) { $fail++; $detail.Add("configFingerprint not constant ($($fp.Count) distinct)") }
+        elseif ($baseFp.Count -ne 1 -or $fp[0] -ne $baseFp[0]) {
+            $fail++; $detail.Add("active-tier fingerprint $($fp[0]) != default $($baseFp -join ',') (tier leaked into the canonical string)")
+        } else {
+            $detail.Add("fingerprint invariant: $($fp[0]) constant and equal to the default run (tier outside canonical)")
+        }
+
+        #--- decision identity: same bars as the default run, unique (gating
+        #    is a pure filter; it changes no candidate, it only drops some).
+        $runTimes = @($run | ForEach-Object { $_.signalTime } | Sort-Object -Unique)
+        $baseTimes = @($base | ForEach-Object { $_.signalTime } | Sort-Object -Unique)
+        if ($runTimes.Count -ne $run.Count) { $fail++; $detail.Add("signalTime not unique ($($runTimes.Count) unique vs $($run.Count) rows)") }
+        $notInBase = @($run | Where-Object { $baseTimes -notcontains $_.signalTime })
+        if ($notInBase.Count -gt 0) { $fail++; $detail.Add("$($notInBase.Count) admitted bars absent from the default run (gate must not invent candidates)") }
+        else { $detail.Add("decision identity: all $($run.Count) admitted bars are a subset of the default run's bars (gating is a pure filter)") }
+
+        #--- gate 3b: same-bar rows byte-identical on every non-schema-recording,
+        #    non-identity column. decisionId is exempt: it is a sequential
+        #    collector id that renumbers when rows are gated out (a recording
+        #    difference, like the schema flip - verified above via signalTime).
+        $baseByTime = @{}; foreach ($r in $base) { $baseByTime[$r.signalTime] = $r }
+        $exempt = @($script:TT01_SCHEMA_RECORDING) + @("decisionId")
+        $sharedBad = 0; $sharedBadSample = @()
+        foreach ($r in $run) {
+            if (-not $baseByTime.ContainsKey($r.signalTime)) { continue }
+            foreach ($c in $base[0].PSObject.Properties.Name) {
+                if ($exempt -contains $c) { continue }
+                if ($r.$c -ne $baseByTime[$r.signalTime].$c) {
+                    $sharedBad++
+                    if ($sharedBadSample.Count -lt 5) { $sharedBadSample += "bar $($r.signalTime) column $c" }
+                }
+            }
+        }
+        if ($sharedBad -gt 0) { $fail++; $detail.Add("gate 3b FAIL: $sharedBad column diffs on admitted bars ($($sharedBadSample -join ' ; '))" ) }
+        else { $detail.Add("gate 3b: all $($run.Count) admitted rows byte-identical to the default run on all $($base[0].PSObject.Properties.Name.Count - $exempt.Count) shared columns (signalTime-paired)") }
+    }
+    New-TT01Result -Name "ACTIVE-TIER" -Pass ($fail -eq 0) -Details $detail.ToArray()
+}
+
+#───────────────────────────────────────────────────────────────────────
+#  Sprint 22 (RL-HYP-01): SETTLEMENT-ISOLATION + INTEGRITY-CONTROL
+#  gates (Design A, docs/Sprint22_RL_HYP_01_Settlement_Isolation_Design
+#  .md §8; TDD RED -> GREEN evidence §7).
+#
+#  Defect under test: SettleDue() is called ONLY inside the gate-ADMIT
+#  branch of CSymbolContext::Update (SymbolContext.mqh:975). A queued row
+#  whose boundary bar is GATE-OUT is NOT settled on that bar; it defers
+#  to the next ADMIT bar, by which time the boundary bar is CLOSED. The
+#  horizon exit reads close[boundary bar] (ForwardOutcomeSimulator.mqh
+#  :172), so the closed-bar read diverges from the forming-bar read -
+#  exactly the 58-row divergence class (all exitReason=4, barsHeld=51).
+#
+#  The Jan-2026 H1 window used by ACTIVE-TIER never contains a GATE-OUT
+#  boundary bar (gate 3b stays green there). The SETTLEMENT-ISOLATION
+#  gate replays the DEFECT-FIRING window (EURUSD M15 2026-04-05..
+#  07-05, the frozen batch window) as a tiered pair: tier 0.0 (CONTROL)
+#  vs tier 1.0. RED on the unfixed build (admitted rows diverge on
+#  shared columns), GREEN after Design A (0 divergences).
+#
+#  Same-bar pairing (signalTime) + exemption set (schema-recording cols
+#  + decisionId) mirror the gate 3b / analyzer contract exactly.
+#───────────────────────────────────────────────────────────────────────
+
+function Get-TT01ArmRows {
+    param([string]$Path)
+    $rows = @()
+    if (Test-Path -LiteralPath $Path -PathType Container) {
+        foreach ($f in @(Get-ChildItem -LiteralPath $Path -Filter "telemetry_v5_*.csv" | Sort-Object Name)) {
+            $rows += @(Import-Csv -LiteralPath $f.FullName)
+        }
+    }
+    elseif (Test-Path -LiteralPath $Path) {
+        $rows = @(Import-Csv -LiteralPath $Path)
+    }
+    return $rows
+}
+
+function Compare-TT01SameBarGroups {
+    #--- shared-column byte-identity of the run arm's rows against the
+    #    base arm by signalTime. Exempt set = schema-recording records
+    #    (gate cols + schemaVersion) + decisionId (sequential collector
+    #    id, renumbers when bars are gated out). Returns failures + a
+    #    diagnostic listing of differing columns grouped by bar.
+    param([object[]]$Run, [object[]]$Base, [string[]]$Exempt)
+    $baseByTime = @{}; foreach ($r in $Base) { $baseByTime[$r.signalTime] = $r }
+    $bad = 0; $samples = [System.Collections.Generic.List[string]]::new(); $compared = 0
+    foreach ($r in $Run) {
+        if (-not $baseByTime.ContainsKey($r.signalTime)) { continue }
+        $compared++
+        foreach ($c in $Base[0].PSObject.Properties.Name) {
+            if ($Exempt -contains $c) { continue }
+            if ($r.$c -ne $baseByTime[$r.signalTime].$c) {
+                $bad++
+                if ($samples.Count -lt 8) { $samples.Add("bar $($r.signalTime) col $c`: $($baseByTime[$r.signalTime].$c) -> $($r.$c)") }
+            }
+        }
+    }
+    [pscustomobject]@{ bad = $bad; compared = $compared; samples = @($samples) }
+}
+
+function Test-TT01SettlementIsolation {
+    param([string]$RunPath, [string]$BasePath)
+    $detail = [System.Collections.Generic.List[string]]::new()
+    $fail = 0
+    $run = @(Get-TT01ArmRows -Path $RunPath)
+    $base = @(Get-TT01ArmRows -Path $BasePath)
+
+    if ($run.Count -eq 0 -or $base.Count -eq 0) {
+        $fail++; $detail.Add("no rows: run=$($run.Count) base=$($base.Count) (replay unhealthy)")
+        New-TT01Result -Name "SETTLEMENT-ISOLATION" -Pass $false -Details $detail.ToArray()
+        return
+    }
+    $nGatedOut = $base.Count - $run.Count
+    if ($run.Count -ge $base.Count) {
+        $fail++; $detail.Add("admitted $($run.Count) !< default $($base.Count) -> nGatedOut=0 (gate inert in the isolation window, 11.3c FAIL)")
+    } else {
+        $detail.Add("nGatedOut = $nGatedOut (default $($base.Count) -> admitted $($run.Count))")
+    }
+
+    $schemaBad = @($run | Where-Object { $_.schemaVersion -ne "5" }).Count
+    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad isolation-tier rows with schemaVersion != 5") }
+    $schemaBadB = @($base | Where-Object { $_.schemaVersion -ne "5" }).Count
+    if ($schemaBadB -gt 0) { $fail++; $detail.Add("$schemaBadB isolation-control rows with schemaVersion != 5") }
+
+    $fpRun = @($run | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
+    $fpBase = @($base | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
+    if ($fpRun.Count -ne 1) { $fail++; $detail.Add("isolation-tier fingerprint not constant ($($fpRun.Count) distinct)") }
+    if ($fpBase.Count -ne 1) { $fail++; $detail.Add("isolation-control fingerprint not constant ($($fpBase.Count) distinct)") }
+    if ($fpRun.Count -eq 1 -and $fpBase.Count -eq 1 -and $fpRun[0] -ne $fpBase[0]) {
+        $fail++; $detail.Add("isolation-tier fingerprint $($fpRun[0]) != control $($fpBase[0]) (tier leaked into canonical)")
+    }
+    if ($fail -eq 0 -and $fpRun.Count -eq 1) {
+        $detail.Add("fingerprint invariant: $($fpRun[0]) constant and equal across the tiered pair (tier outside canonical)")
+    }
+
+    $runTimes = @($run | ForEach-Object { $_.signalTime } | Sort-Object -Unique)
+    if ($runTimes.Count -ne $run.Count) { $fail++; $detail.Add("isolation-tier signalTime not unique ($($runTimes.Count) unique vs $($run.Count) rows)") }
+    $baseTimes = @($base | ForEach-Object { $_.signalTime } | Sort-Object -Unique)
+    $notInBase = @($run | Where-Object { $baseTimes -notcontains $_.signalTime })
+    if ($notInBase.Count -gt 0) { $fail++; $detail.Add("$($notInBase.Count) admitted bars absent from the isolation control (gate invented candidates)") }
+    else { $detail.Add("decision identity: all admitted bars are a subset of the control bars (gating is a pure filter)") }
+
+    $exempt = @($script:TT01_SCHEMA_RECORDING) + @("decisionId")
+    $cmp = Compare-TT01SameBarGroups -Run $run -Base $base -Exempt $exempt
+    if ($cmp.bad -gt 0) {
+        $fail++
+        $detail.Add("gate 3b isolation FAIL: $($cmp.bad) column diffs on $($cmp.compared) admitted rows (Design A RED)")
+        foreach ($s in $cmp.samples) { $detail.Add("  $s") }
+    } else {
+        $detail.Add("gate 3b isolation: all $($cmp.compared) admitted rows byte-identical on all shared non-gate columns (Design A, 58 -> 0)")
+    }
+
+    $horizonRun = @($run | Where-Object { $_.exitReason -eq "4" })
+    $horizonBase = @($base | Where-Object { $_.exitReason -eq "4" })
+    $detail.Add("horizon rows (exitReason=4): control $($horizonBase.Count) vs admitted $($horizonRun.Count) (the deferral-sensitive class, barsHeld=51)")
+    $hBad = @($horizonRun | Where-Object { $_.barsHeld -ne "51" }).Count
+    if ($hBad -gt 0) { $fail++; $detail.Add("$hBad horizon rows with barsHeld != 51") }
+    else { $detail.Add("all horizon rows settle at the max-hold boundary (barsHeld=51)") }
+
+    $admits = @($run | Where-Object { $_.gateDecision -eq "ADMIT" }).Count
+    $off = @($run | Where-Object { $_.gateDecision -eq "OFF" }).Count
+    $detail.Add("admitted tier-1.0 rows: $admits ADMIT, $off OFF (tier 1.0 must admit only strong pivots)")
+    if ($admits -ne $run.Count) { $fail++; $detail.Add("$($run.Count - $admits) admitted rows without gateDecision=ADMIT") }
+
+    New-TT01Result -Name "SETTLEMENT-ISOLATION" -Pass ($fail -eq 0) -Details $detail.ToArray()
+}
+
+function Test-TT01IntegrityControl {
+    #--- regression control (Design doc §8.3): the fresh tier-0 isolation
+    #    arm must be byte-identical to the frozen CONTROL_RLHYP01 batch
+    #    artifact (same window/profile): determinism + criterion-6 guard.
+    #    Exemption: decisionId only (both records are schema v5).
+    param([string]$RunPath, [string]$BasePath)
+    $detail = [System.Collections.Generic.List[string]]::new()
+    $fail = 0
+    $run = @(Get-TT01ArmRows -Path $RunPath)
+    $base = @(Get-TT01ArmRows -Path $BasePath)
+    if ($run.Count -eq 0) { $fail++; $detail.Add("fresh tier-0 arm has no rows (replay unhealthy)") }
+    if ($base.Count -eq 0) { $fail++; $detail.Add("frozen CONTROL artifact has no rows at $BasePath (missing? env error)") }
+    if ($fail -gt 0) {
+        New-TT01Result -Name "INTEGRITY-CONTROL" -Pass $false -Details $detail.ToArray()
+        return
+    }
+    if ($run.Count -ne $base.Count) {
+        $fail++; $detail.Add("row count $($run.Count) != frozen CONTROL $($base.Count) (determinism drift)")
+    } else {
+        $detail.Add("row count $($run.Count) == frozen CONTROL (determinism holds)")
+    }
+    $cmp = Compare-TT01SameBarGroups -Run $run -Base $base -Exempt @("decisionId")
+    if ($cmp.bad -gt 0) {
+        $fail++
+        $detail.Add("INTEGRITY byte-identity FAIL: $($cmp.bad) column diffs on $($cmp.compared) rows vs frozen CONTROL")
+        foreach ($s in $cmp.samples) { $detail.Add("  $s") }
+    } else {
+        $detail.Add("INTEGRITY byte-identity: $($cmp.compared)/$($run.Count) rows identical to frozen CONTROL on all shared non-record columns")
+    }
+    New-TT01Result -Name "INTEGRITY-CONTROL" -Pass ($fail -eq 0) -Details $detail.ToArray()
+}

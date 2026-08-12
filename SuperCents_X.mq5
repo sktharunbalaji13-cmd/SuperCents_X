@@ -48,6 +48,10 @@ input ENUM_OUTCOME_TP_MODE OutcomeTpMode = OUTCOME_TP_FIXED_RR;
 //--- ED01-E prerequisite: fixed-RR TP tier in R-multiples (default 2.0R =
 //    B8 legacy; the tier sweep overrides per run). Inert in LEGACY.
 input double FixedRRTier = 2.0;
+//--- Sprint 22 (RL-HYP-01) prerequisite: swing-significance admission gate
+//    tier k in k x ATR(14) (frozen protocol §5/§14). 0.0 = OFF (B8
+//    behavior); the experiment tiers override per run. Inert in LEGACY.
+input double SwingSignificanceTier = 0.0;
 
 //--- v2.9: calibrated confluence weights (Sprint 14 Calibration).
 input double WeightStructure       = 25.0;   // Weight: Structure
@@ -97,6 +101,11 @@ int OnInit()
     //--- ED01-E prerequisite: fixed-RR TP tier (default 2.0R keeps the
     //    B8 settle-time behavior; the tier sweep overrides per run).
     g_engine.SetFixedRrTier(FixedRRTier);
+
+    //--- Sprint 22 (RL-HYP-01) prerequisite: swing-significance admission
+    //    gate tier (default 0.0 = OFF keeps B8; the experiment tiers
+    //    override per run).
+    g_engine.SetSwingSignificanceTier(SwingSignificanceTier);
 
     // Initialize the engine
     if(!g_engine.Init())

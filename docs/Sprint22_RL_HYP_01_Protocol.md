@@ -479,6 +479,82 @@ Post-freeze changes to any of these require a §16 amendment record.
 11. **Commit + push** — dedicated Sprint 22 commit(s); TT01 full gate after
     any production code change (none expected under any verdict).
 
+## 16. Amendment records (post-freeze)
+
+### 16.1 Scope and convention
+
+Post-freeze changes to the frozen protocol text are recorded in this
+section as numbered amendment records, preserving the original text of
+every amended section (guardrail 7, §15.2; ED01-D §16.2 precedent). Each
+record states its evidence basis and the operative change it makes to the
+frozen text. Acceptance is recorded by user review; a record is operative
+only when marked ACCEPTED.
+
+### 16.2 Amendment A2 — cross-arm pairing key: decisionId → canonical opportunity key (ACCEPTED and frozen 2026-08-11, user approval)
+
+**Acceptance:** ACCEPTED by user review on 2026-08-11 and frozen with this record. Wording intent kept exactly: decisionId remains useful for the integrity rerun certificate, but is not the cross-arm opportunity key.
+
+**Evidence basis:** `docs/Sprint22_Pairing_Identity_Review.md`
+(analysis-only; no code, protocol, analyzer, runner, or artifact modified;
+no Strategy Tester run).
+
+**Defect found (post-freeze):** `decisionId` is assigned at Record() time by
+the telemetry collector and counts only recorded rows
+(`Telemetry/TelemetryCollector.mqh:257-258`). GATE-OUT opportunities are
+never recorded, so treatment CSVs renumber `decisionId` 1..nAdmitted while
+the frozen CONTROL CSVs hold 1..nTotal over the same chronological bar
+sequence. `decisionId` is therefore **not an invariant cross-arm
+opportunity identity** when admission gating is active.
+
+**K1 evidence (frozen artifacts, read-only):**
+`Tools/TT01/artifacts/TT01_20260811_195509/telemetry_v5_default.csv`
+(gate OFF, 500 rows) vs `telemetry_v5_k1.csv` (K1, 273 rows):
+
+- K1 rows whose `decisionId` matches CONTROL at the same `signalTime`:
+  **0 of 273** — **273 of 273 would be mispaired** under the frozen §6
+  `decisionId` pairing (even row 1: CONTROL id 1 = 2026.01.02 04:00 is
+  gated out; K1 id 1 = 2026.01.02 08:00).
+- nGatedOut = 227; Mean R(gated-out subset) = +0.145374.
+- **Frozen A1 identity independently reproduced:** Δ Mean R =
+  −(227/500) × 0.145374 = −0.066, exactly matching the observed paired
+  Δ Mean R; every admitted row contributes d = 0 (zero violations).
+
+**Operative change (A2):** the §6 pairing bullet ("Pairing key =
+`decisionId`") and the §11 gate 3a/3b pairing references are **superseded**
+by the canonical opportunity key already established in the ED01
+methodology (ED01-D/E protocol 14; `Tools/ED01/ED01_D_Analyze.py:127-131`):
+
+- **Pairing key = `{signalTime, configFingerprint, symbol, timeframe}`**
+  (the full four-tuple; `signalTime` alone is unique within each frozen
+  file, but the four-tuple is retained for robustness and ED01-methodology
+  continuity).
+- `decisionId` remains telemetry metadata (run-local record sequence) and
+  stays the §11.3a row-for-row byte-identity certificate for the **ungated**
+  integrity rerun, but is **not a valid cross-arm pairing key** when
+  admission gating changes the recorded population.
+- The frozen Amendment A1 opportunity-level estimand is **unchanged**:
+  every eligible CONTROL decision pairs to exactly one treatment outcome
+  (ADMITTED → actual rMultiple; GATED-OUT → 0R); the 0R reconstruction
+  keys on canonical identity (CONTROL canonical keys absent from the
+  treatment CSV).
+- **Hard audits, required before any statistic is computed:** (1) canonical-
+  key uniqueness within each arm and across the merged run set, per file;
+  (2) cross-arm identity audit — every treatment canonical key must exist
+  in CONTROL and map to byte-identical rows on all non-gate columns;
+  (3) the §6 identity check (every admitted row contributes d = 0). Any
+  violation → run set rejected.
+- **No new telemetry identity field is required** — existing columns
+  suffice.
+
+**Unchanged by A2:** populations (§4), tier set (§5, §15.2.2), effect-size
+criterion (§7), bootstrap settings and seed 20260811 (§6), decision ladder
+(§8), OOS hierarchy (§12), and the §15.3 execution order. The original
+text of §3, §6, §15.1, §15.2, and §15.3 is preserved verbatim.
+
+**Scope of this amendment:** pairing-key definition only. The analyzer
+(`ED01_RLHYP01_Analyze.py`) and the run batch are NOT created under this
+amendment; no Strategy Tester run; no production code change.
+
 ## Appendix A — Population measurement provenance
 
 Measured 2026-08-09 from the frozen CONTROL artifacts (ED01-E Appendix A,

@@ -4,6 +4,18 @@
 #
 # Gates: COMPILE (6 targets) | SUITE (unit suite summary) | REPLAY (real run)
 #        TELEMETRY-CONTRACT | EVIDENCE-REGRESSION | BEHAVIOR-REGRESSION (vs frozen baseline)
+#        ACTIVE-TIER (Sprint 22: second replay with SwingSignificanceTier=1.0,
+#        nGatedOut >= 1, ADMIT recording, fingerprint invariance, decision subset,
+#        admitted rows byte-identical on shared columns - 11.3c/3b evidence)
+#        SETTLEMENT-ISOLATION (Sprint 22 Design A: tiered pair over the
+#        DEFECT-FIRING window EURUSD M15 2026-04-05..07-05 - the frozen batch
+#        window - replaying tier 0.0 vs 1.0 with the SAME profile; every
+#        admitted row must be byte-identical on all shared non-gate columns
+#        (the 58 -> 0 acceptance; RED on the unfixed build, GREEN after
+#        Design A: SettleDue hoisted to run on GATE-OUT bars too)
+#        INTEGRITY-CONTROL (Design A §8.3: the fresh tier-0 arm vs the frozen
+#        CONTROL_RLHYP01 batch artifact, byte-identical - determinism guard,
+#        criterion 6)
 #        PERFORMANCE (record + warn)  -> artifacts\TT01_<runId>\manifest.json
 #
 # Baseline history (canonical = B6 until the DD05 freeze; B7 after):
@@ -85,7 +97,8 @@ param(
     [string[]]$AllowDecisionIds = @(),
     [switch]$FreezeBaseline,
     [string]$FreezeId = "B6",
-    [int]$ArtifactsKeep = 3
+    [int]$ArtifactsKeep = 3,
+    [switch]$OnlyIsolation
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,6 +115,14 @@ $ArtDir     = Join-Path $ScriptDir "artifacts"
 $BaseCsv    = Join-Path $BaseDir "telemetry_v4_20260130.csv"
 $BaseMan    = Join-Path $BaseDir "baseline.manifest.json"
 $OutCsv     = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry\telemetry_v5_20260130.csv"
+# Sprint 22 Design A: the isolation replay window emits MANY dated CSVs
+# (the collector rotates by buffer flush; the batch artifacts show the same
+# segmenting). The isolation arms capture every telemetry_v5_*.csv file.
+$TelemetryDir = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry"
+# Frozen Sprint-22 batch artifact (CONTROL arm, EURUSD M15 2026-04-05..07-05,
+# tier 0.0): the INTEGRITY-CONTROL determinism guard compares the fresh
+# isolation CONTROL arm against it byte-for-byte.
+$IsolationControlDir = Join-Path $Root "Tools\ED01\artifacts\EURUSD_M15\CONTROL_RLHYP01_INTEGRITY"
 $TesterRoot = Join-Path $env:APPDATA "MetaQuotes\Tester"
 # RH01: locate the agent dir directly under the Tester root, independent of
 # repo depth / MT5 layout (Tester\<id>\Agent-... vs Tester\<id>\Experts\Agent-...)
@@ -157,6 +178,50 @@ ShutdownTerminal=1
 [TesterInputs]
 '@
 
+# Sprint 22 (RL-HYP-01): active-tier replay variant (k = 1.0). Same profile
+# as the default replay; only the swing-significance gate tier differs.
+# NOTE: a here-string excludes the newline before its closing '@, so the
+# appended input needs its own leading newline to stay under [TesterInputs].
+$script:ReplayK1Ini = $script:ReplayIni + "`r`nSwingSignificanceTier=1.0`r`n"
+
+# Sprint 22 (RL-HYP-01) Design A: SETTLEMENT-ISOLATION scenario. Frozen batch
+# profile for the DEFECT-FIRING window (EURUSD M15 2026-04-05..07-05, the
+# 12-run batch window; ED01 INI parity - Model=4 real-tick replay). The
+# isolation pair replays this window twice: tier 0.0 (CONTROL arm) and
+# tier 1.0 (K1 arm). On the unfixed build the K1 arm's admitted rows defer
+# settlement across GATE-OUT boundary bars and diverge from the control arm
+# (the 58-row class); Design A makes them byte-identical.
+$script:IsolationIni = @'
+[Tester]
+Expert=SuperCents_X\SuperCents_X.ex5
+Symbol=EURUSD
+Period=M15
+Optimization=0
+Model=4
+FromDate=2026.04.05
+ToDate=2026.07.05
+ForwardMode=0
+Deposit=10000
+Currency=GBP
+ProfitInPips=0
+Leverage=200
+ExecutionMode=1000
+OptimizationCriterion=0
+Visual=0
+ReplaceReport=1
+ShutdownTerminal=1
+
+[TesterInputs]
+EntryMode=2
+WeightStructure=25.0
+WeightOrderBlock=20.0
+WeightFVG=15.0
+WeightLiquidity=15.0
+WeightTrend=15.0
+WeightPremiumDiscount=10.0
+'@
+$script:IsolationK1Ini = $script:IsolationIni + "`r`nSwingSignificanceTier=1.0`r`n"
+
 $script:CompileTargets = @(
     @{ Label = "SuperCents_X";     Path = Join-Path $SC "SuperCents_X.mq5" },
     @{ Label = "CalibrationRunner";Path = Join-Path $SC "CalibrationRunner.mq5" },
@@ -200,9 +265,11 @@ function Start-TT01Headless {
 function Get-TT01LastJournalRun {
     # Isolates the LAST "GRAND TOTAL" block in the agent journal (suite prints category
     # summary lines immediately before its GRAND TOTAL). Replay facts use last occurrence.
+    # NOTE: the agent journal grows to multi-GB; ALWAYS read with -Tail (full reads
+    # block for minutes).
     param()
     if (-not (Test-Path $AgentLog)) { return @() }
-    $all = Get-Content -LiteralPath $AgentLog
+    $all = @(Get-Content -LiteralPath $AgentLog -Tail 4000 -ErrorAction SilentlyContinue)
     $gtLines = @(for ($i = 0; $i -lt $all.Count; $i++) { if ($all[$i] -match "GRAND TOTAL") { $i } })
     if ($gtLines.Count -eq 0) { return @() }
     $start = if ($gtLines.Count -gt 1) { $gtLines[-2] + 1 } else { 0 }
@@ -217,9 +284,11 @@ function Invoke-TT01Compile {
     foreach ($t in $script:CompileTargets) {
         $log = Join-Path $RunDir ("compile_" + $t.Label + ".log")
         Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue
+        $t0 = Get-Date
         Start-Process -FilePath $MetaEditor -ArgumentList "/compile:`"$($t.Path)`" /log:`"$log`"" -Wait | Out-Null
         Start-Sleep -Seconds 2
         $line = (Get-Content -LiteralPath $log -ErrorAction SilentlyContinue | Select-String "Result:" | Select-Object -Last 1).Line
+        Write-Host ("    compile {0}: {1} ({2} s)" -f $t.Label, ($line -replace ".*Result: ", ""), [math]::Round(((Get-Date) - $t0).TotalSeconds)) -ForegroundColor DarkGray
         if ($line -match "(\d+) errors, (\d+) warnings") {
             $errs = [int]$Matches[1]; $warns = [int]$Matches[2]
             if ($errs -gt 0) { $fail++; New-Gate ("COMPILE-" + $t.Label) $false @($line) }
@@ -278,7 +347,7 @@ function Invoke-TT01Replay {
     $script:Perf.peakMemMB = [math]::Round([double]$peak / 1MB, 1)
 
     if (-not (Test-Path $AgentLog)) { New-Gate "REPLAY" $false @("agent log missing"); return }
-    $all = Get-Content -LiteralPath $AgentLog
+    $all = @(Get-Content -LiteralPath $AgentLog -Tail 2000 -ErrorAction SilentlyContinue)
     $rows = [int](-1); $faults = [int](-1)
     foreach ($line in $all) {
         if ($line -match "Rows Written\s+(\d+)") { $rows = [int]$Matches[1] }
@@ -319,6 +388,153 @@ function Invoke-TT01Evidence {
 function Invoke-TT01Behavior {
     $res = Test-TT01Behavior -RunPath $OutCsv -BasePath $BaseCsv -AllowDelta $AllowDelta -ExpectedRows $ExpectedRows -AllowDecisionIds $AllowDecisionIds
     $script:Results.Add($res)
+}
+
+function Invoke-TT01ActiveTier {
+    param([string]$BasePath)
+    if ($Skip -contains "activetier") { New-Gate "ACTIVE-TIER" $true @("skipped"); return }
+    Write-Step "ACTIVE-TIER: replay with SwingSignificanceTier=1.0 (RL-HYP-01 11.3c/3b evidence)"
+    Remove-Item -LiteralPath $OutCsv -Force -ErrorAction SilentlyContinue
+    $ini = Join-Path $RunDir "TT01_K1_Replay.ini"
+    $k1Content = ($script:ReplayK1Ini -replace "`r?`n", "`r`n")
+    Set-Content -LiteralPath $ini -Value $k1Content -Encoding ASCII
+    Start-TT01Headless $ini
+
+    if (-not (Test-Path -LiteralPath $AgentLog)) { New-Gate "ACTIVE-TIER" $false @("agent log missing"); return }
+    $all = @(Get-Content -LiteralPath $AgentLog -Tail 2000 -ErrorAction SilentlyContinue)
+    $rows = [int](-1); $faults = [int](-1)
+    foreach ($line in $all) {
+        if ($line -match "Rows Written\s+(\d+)") { $rows = [int]$Matches[1] }
+        if ($line -match "I/O Faults\s+(\d+)") { $faults = [int]$Matches[1] }
+    }
+    $healthy = @($all | Where-Object { $_ -match "Overall Status\s+(\S+)" } | ForEach-Object { $Matches[1] } | Select-Object -Last 1)
+    $crit = @($all | Where-Object { $_ -match "Critical\s+(\d+)" } | ForEach-Object { [int]$Matches[1] } | Select-Object -Last 1)
+    $healthVerdict = (($healthy -join ",") -eq "HEALTHY") -and (([int]($crit -join ",")) -eq 0)
+
+    $ok = $false
+    $deadline = (Get-Date).AddMinutes(10)
+    while (-not $ok -and (Get-Date) -lt $deadline) {
+        if (Test-Path -LiteralPath $OutCsv) {
+            $h1 = (Get-FileHash -LiteralPath $OutCsv -ErrorAction SilentlyContinue).Hash
+            Start-Sleep -Seconds 2
+            $h2 = (Get-FileHash -LiteralPath $OutCsv -ErrorAction SilentlyContinue).Hash
+            if ($h1 -eq $h2) { $ok = $true }
+        }
+        if (-not $ok) { Start-Sleep -Seconds 5 }
+    }
+    if (-not $ok -or $rows -lt 0 -or $faults -ne 0 -or -not $healthVerdict) {
+        New-Gate "ACTIVE-TIER" $false @("replay unhealthy: rows=$rows faults=$faults health=$healthy critical=$crit csvCaptured=$ok")
+        return
+    }
+    $k1Csv = Join-Path $runArt "telemetry_v5_k1.csv"
+    Copy-Item -LiteralPath $OutCsv -Destination $k1Csv -Force
+    $res = Test-TT01ActiveTier -RunPath $k1Csv -BasePath $BasePath
+    $res.Details += "K1 replay health: rows=$rows faults=$faults health=$healthy critical=$crit"
+    $script:Results.Add($res)
+}
+
+function Clear-TT01Telemetry {
+    Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
+function Invoke-TT01ReplayArm {
+    param([string]$Name, [string]$IniContent, [int]$TimeoutSec = 1500)
+    #--- run one replay arm headlessly; returns health facts
+    $ini = Join-Path $RunDir "TT01_${Name}.ini"
+    Set-Content -LiteralPath $ini -Value ($IniContent -replace "`r?`n", "`r`n") -Encoding ASCII
+    Stop-TT01Terminal
+    $armStart = Get-Date
+    Write-Host ("    arm {0} started {1:HH:mm:ss}" -f $Name, $armStart) -ForegroundColor DarkGray
+    Start-Process -FilePath $Terminal -ArgumentList "/config:`"$ini`"" -WorkingDirectory $Root | Out-Null
+    $deadline = $armStart.AddSeconds($TimeoutSec)
+    do {
+        Start-Sleep -Seconds 30
+        $p = Get-Process terminal64 -ErrorAction SilentlyContinue
+        if ($p) { Write-Host ("    arm {0} still running ({1:HH:mm:ss}, elapsed {2} min)" -f $Name, (Get-Date), [math]::Round(((Get-Date) - $armStart).TotalMinutes, 1)) -ForegroundColor DarkGray }
+    }
+    while ($p -and (Get-Date) -lt $deadline)
+    if ($p) { throw "terminal did not exit within timeout for $Name" }
+    Write-Host ("    arm {0} completed {1:HH:mm:ss} (elapsed {2} min)" -f $Name, (Get-Date), [math]::Round(((Get-Date) - $armStart).TotalMinutes, 1)) -ForegroundColor DarkGray
+
+    $all = @(Get-Content -LiteralPath $AgentLog -Tail 2000 -ErrorAction SilentlyContinue)
+    $rows = [int](-1); $faults = [int](-1)
+    foreach ($line in $all) {
+        if ($line -match "Rows Written\s+(\d+)") { $rows = [int]$Matches[1] }
+        if ($line -match "I/O Faults\s+(\d+)") { $faults = [int]$Matches[1] }
+    }
+    $healthy = @($all | Where-Object { $_ -match "Overall Status\s+(\S+)" } | ForEach-Object { $Matches[1] } | Select-Object -Last 1)
+    $crit = @($all | Where-Object { $_ -match "Critical\s+(\d+)" } | ForEach-Object { [int]$Matches[1] } | Select-Object -Last 1)
+    [pscustomobject]@{ rows = $rows; faults = $faults; healthy = ($healthy -join ","); critical = ([int]($crit -join ",")) }
+}
+
+function Invoke-TT01Isolation {
+    if ($Skip -contains "isolation") { New-Gate "SETTLEMENT-ISOLATION" $true @("skipped"); New-Gate "INTEGRITY-CONTROL" $true @("skipped"); return }
+    Write-Step "SETTLEMENT-ISOLATION: tiered pair EURUSD M15 2026-04-05..07-05 (tier 0.0 vs 1.0; Design A RED->GREEN evidence)"
+    Write-Host ("    phase started {0:HH:mm:ss} - each M15 arm takes ~9 min; progress is printed every 30 s" -f (Get-Date)) -ForegroundColor DarkGray
+
+    $ctlDir = Join-Path $runArt "isolation_control"
+    New-Item -ItemType Directory -Path $ctlDir -Force | Out-Null
+    #--- a reusable control arm must (a) match the frozen segment names,
+    #    (b) carry tier-0 OFF sentinels on every row, and (c) match the
+    #    frozen row total. Anything else (suite telemetry, a K1-arm
+    #    residue - segment names overlap across arms) is rejected.
+    $expected = @(Get-ChildItem -LiteralPath $IsolationControlDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $preserved = @(Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+        Where-Object { $expected -contains $_.Name })
+    $reuseOk = ($OnlyIsolation -and $preserved.Count -gt 0)
+    if ($reuseOk) {
+        $preservedRows = @($preserved | ForEach-Object { Import-Csv -LiteralPath $_.FullName })
+        $sentinelBad = @($preservedRows | Where-Object { $_.gateDecision -ne "OFF" }).Count
+        if ($sentinelBad -gt 0 -or $preservedRows.Count -ne (Get-TT01ArmRows -Path $IsolationControlDir).Count) {
+            $reuseOk = $false
+            Write-Host ("    preserved CSVs rejected for reuse (sentinelBad=$sentinelBad rows=$($preservedRows.Count)) - regenerating the control arm") -ForegroundColor DarkGray
+        }
+    }
+    if ($reuseOk) {
+        #--- RED run: reuse the preserved control-arm CSVs (produced by the
+        #    aborted full run at a known timestamp on the same build) instead
+        #    of regenerating - the RED vs GREEN comparison then isolates the
+        #    settlement defect without introducing a replay variable.
+        $stamp = ($preserved | Sort-Object LastWriteTime | Select-Object -Last 1).LastWriteTime
+        $preserved | Copy-Item -Destination $ctlDir -Force
+        $ctlRows = @($preserved | ForEach-Object { Import-Csv -LiteralPath $_.FullName }).Count
+        $ctlHealth = [pscustomobject]@{ rows = $ctlRows; faults = 0; healthy = "PRESERVED"; critical = 0 }
+        Write-Host ("    control arm REUSED: $($preserved.Count) files ($($ctlRows) rows) from $stamp (same build, NOT regenerated)") -ForegroundColor DarkGray
+    } else {
+        Clear-TT01Telemetry
+        $ctlHealth = Invoke-TT01ReplayArm -Name "IsolationControl" -IniContent $script:IsolationIni
+        Write-Host ("    control arm health: rows=$($ctlHealth.rows) faults=$($ctlHealth.faults) health=$($ctlHealth.healthy) critical=$($ctlHealth.critical)") -ForegroundColor DarkGray
+        Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+            Copy-Item -Destination $ctlDir -Force
+    }
+    $ctlFiles = @(Get-ChildItem -LiteralPath $ctlDir -Filter "telemetry_v5_*.csv").Count
+
+    Clear-TT01Telemetry
+    $k1Health = Invoke-TT01ReplayArm -Name "IsolationK1" -IniContent $script:IsolationK1Ini
+    Write-Host ("    k1 arm health: rows=$($k1Health.rows) faults=$($k1Health.faults) health=$($k1Health.healthy) critical=$($k1Health.critical)") -ForegroundColor DarkGray
+    $k1Dir = Join-Path $runArt "isolation_k1"
+    New-Item -ItemType Directory -Path $k1Dir -Force | Out-Null
+    Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+        Copy-Item -Destination $k1Dir -Force
+    $k1Files = @(Get-ChildItem -LiteralPath $k1Dir -Filter "telemetry_v5_*.csv").Count
+
+    if ($ctlFiles -eq 0 -or $k1Files -eq 0) {
+        New-Gate "SETTLEMENT-ISOLATION" $false @("replay unhealthy: controlFiles=$ctlFiles k1Files=$k1Files",
+            "control health: rows=$($ctlHealth.rows) faults=$($ctlHealth.faults) health=$($ctlHealth.healthy) critical=$($ctlHealth.critical)",
+            "k1 health: rows=$($k1Health.rows) faults=$($k1Health.faults) health=$($k1Health.healthy) critical=$($k1Health.critical)")
+    } else {
+        $res = Test-TT01SettlementIsolation -RunPath $k1Dir -BasePath $ctlDir
+        $res.Details += "control arm health: rows=$($ctlHealth.rows) faults=$($ctlHealth.faults) health=$($ctlHealth.healthy) critical=$($ctlHealth.critical) files=$ctlFiles"
+        $res.Details += "k1 arm health: rows=$($k1Health.rows) faults=$($k1Health.faults) health=$($k1Health.healthy) critical=$($k1Health.critical) files=$k1Files"
+        $script:Results.Add($res)
+        Write-Host ("    SETTLEMENT-ISOLATION: {0} ({1})" -f $(if ($res.Pass) { "PASS" } else { "RED" }), $($res.Details -join " | ")) -ForegroundColor $(if ($res.Pass) { "Green" } else { "Red" })
+
+        $res2 = Test-TT01IntegrityControl -RunPath $ctlDir -BasePath $IsolationControlDir
+        $res2.Details += "fresh control arm vs frozen CONTROL_RLHYP01_INTEGRITY (EURUSD_M15): determinism guard"
+        $script:Results.Add($res2)
+        Write-Host ("    INTEGRITY-CONTROL: {0} ({1})" -f $(if ($res2.Pass) { "PASS" } else { "FAIL" }), $($res2.Details -join " | ")) -ForegroundColor $(if ($res2.Pass) { "Green" } else { "Red" })
+    }
 }
 
 function Invoke-TT01Perf {
@@ -392,20 +608,33 @@ if ($FreezeBaseline) {
 
 if (-not (Test-Path -LiteralPath $BaseMan)) { Write-Error "baseline manifest missing - run with -FreezeBaseline first"; exit 2 }
 
-Invoke-TT01Compile
-Invoke-TT01Suite
-Invoke-TT01Replay
-if (-not (Test-Path -LiteralPath $OutCsv)) {
-    New-Gate "TELEMETRY-CONTRACT" $false @("no CSV to validate at $OutCsv")
-    New-Gate "EVIDENCE-REGRESSION" $false @("no CSV to validate at $OutCsv")
-    New-Gate "BEHAVIOR-REGRESSION" $false @("no CSV to validate at $OutCsv")
+if ($OnlyIsolation) {
+    #--- RED/partial mode (Sprint 22 Design A): suite + settlement-isolation
+    #    pair only. The control arm is reused from preserved telemetry CSVs
+    #    (same build) so the pair comparison isolates the settlement defect.
+    Invoke-TT01Suite
+    Invoke-TT01Isolation
 } else {
-    Invoke-TT01Contract
-    Invoke-TT01Evidence
-    Invoke-TT01Behavior
-    Copy-Item -LiteralPath $OutCsv -Destination (Join-Path $runArt "telemetry_v4_20260130.csv") -Force
+    Invoke-TT01Compile
+    Invoke-TT01Suite
+    Invoke-TT01Replay
+    if (-not (Test-Path -LiteralPath $OutCsv)) {
+        New-Gate "TELEMETRY-CONTRACT" $false @("no CSV to validate at $OutCsv")
+        New-Gate "EVIDENCE-REGRESSION" $false @("no CSV to validate at $OutCsv")
+        New-Gate "BEHAVIOR-REGRESSION" $false @("no CSV to validate at $OutCsv")
+        New-Gate "ACTIVE-TIER" $false @("no CSV to validate at $OutCsv")
+    } else {
+        Invoke-TT01Contract
+        Invoke-TT01Evidence
+        Invoke-TT01Behavior
+        $defaultCsv = Join-Path $runArt "telemetry_v5_default.csv"
+        Copy-Item -LiteralPath $OutCsv -Destination $defaultCsv -Force
+        Copy-Item -LiteralPath $OutCsv -Destination (Join-Path $runArt "telemetry_v4_20260130.csv") -Force
+        Invoke-TT01ActiveTier -BasePath $defaultCsv
+        Invoke-TT01Isolation
+    }
 }
-Invoke-TT01Perf
+if (-not $OnlyIsolation) { Invoke-TT01Perf }
 
 $allPass = ($script:Results | Where-Object { -not $_.Pass }).Count -eq 0
 if ($allPass -and (Test-Path -LiteralPath $BaseMan) -and $script:Perf.replayMs -gt 0) {

@@ -25,6 +25,8 @@
 #include "unit/TestFixedRRTier.mqh"
 #include "VF02/TestPaletteParity.mqh"
 #include "unit/TestSwingSignificanceGate.mqh"
+#include "unit/TestSwingGateWiring.mqh"
+#include "unit/TestSettlementIsolation.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
 
@@ -112,6 +114,12 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunSwingSignificanceGateTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunSwingGateWiringTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunSettlementIsolationTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunOutcomeTpPolicyTests();

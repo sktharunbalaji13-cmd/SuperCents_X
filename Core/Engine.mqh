@@ -50,6 +50,11 @@ public:
     //--- ED01-E prerequisite: fixed-RR TP tier (R-multiple) for the tier
     //    sweep; applied to the primary context during Init. Default 2.0R.
     void SetFixedRrTier(double tier) { m_config.SetFixedRrTier(tier); }
+    //--- Sprint 22 (RL-HYP-01) prerequisite: swing-significance admission
+    //    gate tier (k in k x ATR(14), protocol §5/§14); applied to the
+    //    primary context during Init. Default 0.0 = OFF (B8 behavior).
+    void SetSwingSignificanceTier(double tier) { m_config.SetSwingSignificanceTier(tier); }
+    double GetSwingSignificanceTier(void) const { return m_config.GetSwingSignificanceTier(); }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
     ConfluenceWeights GetWeights(void) const { return m_weights; }
 
@@ -167,6 +172,12 @@ bool CEngine::Init(void)
     //    context (default 2.0R = B8; the tier sweep overrides it per run).
     if(primary != NULL)
         primary.SetFixedRrTier(m_config.GetFixedRrTier());
+
+    //--- Sprint 22 (RL-HYP-01) prerequisite: apply the swing-significance
+    //    gate tier to the primary context (default 0.0 = OFF keeps B8;
+    //    the experiment tiers override it per run).
+    if(primary != NULL)
+        primary.SetSwingSignificanceTier(m_config.GetSwingSignificanceTier());
 
     m_logger.LogInfo("Engine initialization complete");
     m_telemetry.Init();
