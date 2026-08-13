@@ -20,6 +20,7 @@
 #include "unit/TestProductionProviders.mqh"
 #include "unit/TestLifecycleContract.mqh"
 #include "unit/TestHistoryEpoch.mqh"
+#include "unit/TestVisualizationReset.mqh"
 #include "unit/TestLiquidityRenderer.mqh"
 #include "unit/TestOutcomeTpPolicy.mqh"
 #include "unit/TestFixedRRTier.mqh"
@@ -102,6 +103,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunHistoryEpochTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunVisualizationResetTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunReconstructionTests();

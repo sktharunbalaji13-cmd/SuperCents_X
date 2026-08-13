@@ -313,6 +313,87 @@ void TestEN01_CallSiteOrientationContract(TestCounters &counters)
     ctx.Shutdown();
 }
 
+//--- EN-02 (Sprint 24 audit #2): the visualization manager must be a
+//    history-reset consumer. Production registers it with the epoch in
+//    CSymbolContext::Init (the detectors and the context itself are
+//    registered there already), so the SAME TIME_RESET broadcast that
+//    clears the detectors must reach the manager (its renderers drop
+//    stale draw state). RED pre-fix: the manager is never registered and
+//    its reset counter stays 0. This drives the PRODUCTION call site
+//    exactly like TestEN01_CallSiteOrientationContract.
+void TestEN02_CallSiteResetReachesVisualization(TestCounters &counters)
+{
+    const int R = 500;
+    datetime time[];
+    double open[], high[], low[], close[];
+    ArrayResize(time, R);
+    ArrayResize(open, R);
+    ArrayResize(high, R);
+    ArrayResize(low, R);
+    ArrayResize(close, R);
+
+    for(int i = 0; i < R; i++)
+    {
+        time[i]  = D'2026.01.01 00:00' + i * 3600;
+        open[i]  = 1.10000;
+        close[i] = 1.10000;
+        high[i]  = 1.10000 + ((i % 5 == 0) ? 0.00020 : 0.00000);
+        low[i]   = 1.09980 - ((i % 5 == 2) ? 0.00020 : 0.00000);
+    }
+
+    CSymbolContext ctx("FIXTURE_EN02", 0, ENTRY_MODE_LEGACY);
+    TEST_TRUE(ctx.Init(NULL), "EN-02: CSymbolContext fixture initializes");
+
+    CVisualizationManager *mgr = ctx.GetVisualizationManager();
+    TEST_TRUE(mgr != NULL, "EN-02: visualization manager constructed by the context");
+    TEST_INT_EQ(0, (int)mgr.GetHistoryResetCount(), "EN-02: no reset before any feed");
+
+    //--- tick 1: baseline - the epoch records its first observation
+    //    (no event, no broadcast); the manager must not be notified.
+    ArraySetAsSeries(time, false);
+    ArraySetAsSeries(open, false);
+    ArraySetAsSeries(high, false);
+    ArraySetAsSeries(low, false);
+    ArraySetAsSeries(close, false);
+    ctx.Update(open, high, low, close, time, R);
+    TEST_INT_EQ(0, (int)mgr.GetHistoryResetCount(), "EN-02: baseline tick fires no reset");
+
+    //--- tick 2: history revision (same rates_total, newest-bar time
+    //    moved back) -> TIME_RESET broadcast must reach the manager.
+    ArraySetAsSeries(time, false);
+    ArraySetAsSeries(open, false);
+    ArraySetAsSeries(high, false);
+    ArraySetAsSeries(low, false);
+    ArraySetAsSeries(close, false);
+    time[R - 1] = D'2026.01.01 00:00' + (R - 3) * 3600;
+    ctx.Update(open, high, low, close, time, R);
+    TEST_INT_EQ(1, (int)mgr.GetHistoryResetCount(),
+        "EN-02: TIME_RESET broadcast reached the visualization manager");
+
+    //--- tick 3: normal extension - no spurious reset broadcast.
+    int R3 = R + 1;
+    ArraySetAsSeries(time, false);
+    ArraySetAsSeries(open, false);
+    ArraySetAsSeries(high, false);
+    ArraySetAsSeries(low, false);
+    ArraySetAsSeries(close, false);
+    ArrayResize(time, R3);
+    ArrayResize(open, R3);
+    ArrayResize(high, R3);
+    ArrayResize(low, R3);
+    ArrayResize(close, R3);
+    time[R3 - 1]  = D'2026.01.01 00:00' + R * 3600;
+    open[R3 - 1]  = 1.10000;
+    close[R3 - 1] = 1.10000;
+    high[R3 - 1]  = 1.10000 + 0.00020;
+    low[R3 - 1]   = 1.09980;
+    ctx.Update(open, high, low, close, time, R3);
+    TEST_INT_EQ(1, (int)mgr.GetHistoryResetCount(),
+        "EN-02: post-reset extension fires no second reset");
+
+    ctx.Shutdown();
+}
+
 TestCounters RunHistoryEpochTests(void)
 {
     TestCounters counters;
@@ -331,6 +412,10 @@ TestCounters RunHistoryEpochTests(void)
 
     //--- EN-01 (Sprint 24 audit #1): call-site orientation contract.
     TestEN01_CallSiteOrientationContract(counters);
+
+    //--- EN-02 (Sprint 24 audit #2): call-site reset reaches the
+    //    visualization manager (renderer reset contract).
+    TestEN02_CallSiteResetReachesVisualization(counters);
 
     SUITE_END("History Epoch Tests");
 

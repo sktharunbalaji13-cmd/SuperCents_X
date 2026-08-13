@@ -50,6 +50,11 @@ public:
     void SetDetector(CBOSDetector *detector);
     void SetPivotEngine(CStructuralPivotEngine *engine);
     void SetVSE(CVisualStateEngine *vse);
+
+    //--- EN-02 test surface (renderer reset fixtures): the incremental
+    //    draw cursor (number of BOS events drawn since the last
+    //    Init/Clear/Shutdown). 0 after a canonical history reset.
+    int GetRenderedCount(void) const { return m_lastRenderedBOSCount; }
 };
 
 CBOSRenderer::CBOSRenderer(void)

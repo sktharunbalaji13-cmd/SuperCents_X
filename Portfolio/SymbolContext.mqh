@@ -225,6 +225,7 @@ public:
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 
     CSwingDetector             *GetSwingDetector(void) const { return m_swingDetector; }
+    CVisualizationManager      *GetVisualizationManager(void) const { return m_visualizationManager; }
     CStructuralPivotEngine     *GetStructuralPivotEngine(void) const { return m_structuralPivotEngine; }
     CBOSDetector               *GetBOSDetector(void) const { return m_bosDetector; }
     CProtectedPointManager     *GetProtectedPointManager(void) const { return m_protectedPointManager; }
@@ -456,6 +457,13 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         m_visualizationManager.SetOrderBlockDetector(m_orderBlockDetector);
         m_visualizationManager.SetFVGDetector(m_fvgDetector);
         m_visualizationManager.SetLiquidityDetector(m_liquidityDetector);
+
+        //--- EN-02 (Sprint 24 audit #2): the visualization manager is a
+        //    canonical history-reset consumer. Without this registration
+        //    the renderers keep stale incremental draw counters and stale
+        //    chart objects after a reload/history revision (their cursors
+        //    exceed the rebuilt population, so nothing re-renders).
+        m_epoch.AddConsumer(m_visualizationManager);
     }
 
     m_confluenceEngine = new CConfluenceEngine();

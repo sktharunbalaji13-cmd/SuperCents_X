@@ -8,6 +8,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
 #include "../Core/Logger.mqh"
+#include "../Core/HistoryEpoch.mqh"
 #include "RenderConfig.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/SwingDetector.mqh"
@@ -28,11 +29,12 @@
 #include "LiquidityRenderer.mqh"
 #include "VisualDiagnostic.mqh"
 
-class CVisualizationManager
+class CVisualizationManager : public IHistoryResetConsumer
 {
 private:
     CLogger m_logger;
     bool m_isInitialized;
+    ulong m_historyResetCount;
 
     CSwingDetector              *m_swingDetector;
     CStructuralPivotEngine      *m_pivotEngine;
@@ -65,8 +67,25 @@ public:
     void Clear(void);
     bool IsInitialized(void) const { return m_isInitialized; }
 
+    //--- EN-02 (Sprint 24 audit #2): canonical history reset. Clears every
+    //    renderer (stale incremental draw counters would otherwise
+    //    suppress re-rendering of the rebuilt population) and drops the
+    //    VSE records. Rebuild happens on the next Update() via the
+    //    renderers' initial-scan paths.
+    void OnHistoryReset(void);
+
+    //--- EN-02 test surface: number of canonical reset broadcasts received
+    //    (0 until the first reset; the reset fixtures assert the epoch
+    //    broadcast reaches the manager).
+    ulong GetHistoryResetCount(void) const { return m_historyResetCount; }
+
+    //--- EN-02 test surface (renderer reset fixtures): the BOS renderer's
+    //    incremental draw cursor (0 after a canonical reset cleared the
+    //    renderer).
+    int GetBOSRenderedCount(void) const { return m_bos.GetRenderedCount(); }
+
     //--- VF01 test surface: production wiring contract — the swing detector
-    //--- must reach the liquidity renderer (used by ResolveMemberTime).
+    //    must reach the liquidity renderer (used by ResolveMemberTime).
     bool IsLiquiditySwingDetectorWired(void) const { return m_liquidity.IsSwingDetectorWired(); }
 
     void SetSwingDetector(CSwingDetector *detector);
@@ -81,6 +100,7 @@ public:
 
 CVisualizationManager::CVisualizationManager(void)
     : m_logger(MODULE_VISUALIZATION_MANAGER, "VizManager"), m_isInitialized(false)
+    , m_historyResetCount(0)
     , m_swingDetector(NULL), m_pivotEngine(NULL), m_bosDetector(NULL)
     , m_chochDetector(NULL), m_protectedPointManager(NULL)
     , m_orderBlockDetector(NULL), m_fvgDetector(NULL), m_liquidityDetector(NULL) {}
@@ -208,6 +228,21 @@ void CVisualizationManager::Clear(void)
     m_ob.Clear();
     m_fvg.Clear();
     m_liquidity.Clear();
+}
+
+//--- EN-02 (Sprint 24 audit #2): canonical history reset. Same contract as
+//    every other IHistoryResetConsumer: drop incremental state, rebuild
+//    from the current history on the next Update(). The renderers'
+//    Clear() deletes their chart objects by prefix and zeroes their
+//    incremental draw cursors; the VSE drops its tracked records so stale
+//    entries cannot win FindRecord() afterwards.
+void CVisualizationManager::OnHistoryReset(void)
+{
+    Clear();
+    m_vse.Reset();
+    m_historyResetCount++;
+    m_logger.LogInfo(StringFormat("History reset broadcast received (#%llu); renderers cleared",
+                                  m_historyResetCount));
 }
 
 void CVisualizationManager::SetSwingDetector(CSwingDetector *detector)

@@ -246,6 +246,18 @@ public:
         ArrayResize(m_records, 0);
     }
 
+    //--- EN-02 (Sprint 24 audit #2): drop every tracked record WITHOUT
+    //    shutting the engine down (canonical history reset). Renderers
+    //    keep their VSE pointer and keep executing commands afterwards.
+    //    Without this, stale pre-reset records win FindRecord() in
+    //    HandleExtend/HandleFreeze/HandleDelete after a reset and the
+    //    rebuilt active line silently stops extending.
+    void Reset()
+    {
+        m_recordCount = 0;
+        ArrayResize(m_records, 0);
+    }
+
     void ExecuteBatch(VisualCommand &cmds[], int count)
     {
         for(int i = 0; i < count; i++)
