@@ -71,8 +71,11 @@ public:
     ~CHistoryEpoch(void);
 
     //--- Canonical detection + broadcast. Call ONCE per data update,
-    //--- BEFORE driving any consumer's Update(), with the series
-    //--- order arrays (timeNewest = time[0], the current/newest bar).
+    //--- before the chain consumers are driven, with SERIES-order
+    //--- arrays: timeNewest = time[0] = the NEWEST bar (index 0 AFTER
+    //--- ArraySetAsSeries(array, true)). Passing a pre-orientation
+    //--- time[0] (the oldest bar) violates the contract and dead-locks
+    //--- the time-reversal path (EN-01).
     EHistoryEvent Update(int rates_total, datetime timeNewest);
 
     //--- Context re-init (symbol/timeframe change, EA restart):

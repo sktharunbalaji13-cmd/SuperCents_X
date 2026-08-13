@@ -722,11 +722,19 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
     if(!m_isInitialized)
         return;
 
-    //--- LC02: detect history shrink / time reversal BEFORE driving any
-    //    consumer. time[] is series-order (index 0 = newest bar) here,
-    //    so timeNewest = time[0]. A detected reset broadcasts to all
-    //    registered consumers (incl. this context).
-    m_epoch.Update(rates_total, time[0]);
+    //--- EN-01 (Sprint 24 audit #1): the series-orientation flip below is
+    //    applied to the CALLER's arrays (passed by reference) and would
+    //    otherwise leak out of this method, silently re-indexing arrays
+    //    the caller still owns (the EN-01 fixture observed exactly this:
+    //    a fresh chronological feed mutated to series order between
+    //    ticks, dead-locking the TIME_RESET path). Save the caller's
+    //    original orientation and restore it before returning, keeping
+    //    the functional semantics of this method unchanged.
+    bool openSeries  = ArrayIsSeries(open);
+    bool highSeries  = ArrayIsSeries(high);
+    bool lowSeries   = ArrayIsSeries(low);
+    bool closeSeries = ArrayIsSeries(close);
+    bool timeSeries  = ArrayIsSeries(time);
 
     ulong s, e;
     string perf = "";
@@ -743,6 +751,17 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
     ArraySetAsSeries(low, true);
     ArraySetAsSeries(close, true);
     ArraySetAsSeries(time, true);
+
+    //--- LC02 (EN-01, Sprint 24 audit #1): history shrink / time reversal
+    //    detection runs AFTER the series orientation is applied - the
+    //    HistoryEpoch contract binds timeNewest = time[0] to SERIES order
+    //    (index 0 = NEWEST bar). Reading time[0] before ArraySetAsSeries
+    //    returned the OLDEST bar of the chronological Copy* array and
+    //    dead-locked the LC5 time-reversal path. A detected reset
+    //    broadcasts to all registered consumers (incl. this context);
+    //    every consumer except the swing detector (which consumes the
+    //    chronological arrays by design) is cleared before its Update().
+    m_epoch.Update(rates_total, time[0]);
 
     s = GetMicrosecondCount();
     if(m_structuralPivotEngine != NULL && m_swingDetector != NULL)
@@ -1082,6 +1101,17 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
     }
 
     m_updateCount++;
+
+    //--- EN-01: restore the caller's original array orientation. The
+    //    series indexing was applied to the by-reference arrays only for
+    //    the duration of this method; returning with the caller's flags
+    //    untouched keeps the call site contract leak-free for every
+    //    consumer (production and tests).
+    ArraySetAsSeries(open, openSeries);
+    ArraySetAsSeries(high, highSeries);
+    ArraySetAsSeries(low, lowSeries);
+    ArraySetAsSeries(close, closeSeries);
+    ArraySetAsSeries(time, timeSeries);
 }
 
 void CSymbolContext::Shutdown(void)

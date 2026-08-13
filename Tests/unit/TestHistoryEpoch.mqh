@@ -21,6 +21,7 @@
 #define __TEST_HISTORY_EPOCH_MQH__
 
 #include "../../Core/HistoryEpoch.mqh"
+#include "../../Portfolio/SymbolContext.mqh"
 #include "../TestAssert.mqh"
 
 //--- Mock consumer: counts OnHistoryReset invocations
@@ -197,6 +198,121 @@ void TestLC02_ExplicitResetRebaselines(TestCounters &counters)
     TEST_INT_EQ(mock.m_resetCount, 1, "LC02.9: no extra notification after Reset()");
 }
 
+//--- EN-01 (Sprint 24 audit #1, CRITICAL): the production call site fed
+//    the epoch with time[0] BEFORE the series orientation was applied
+//    (SymbolContext.mqh:729 - ArraySetAsSeries(time,true) ran later in
+//    the same method), so timeNewest = time[0] was the OLDEST bar of the
+//    chronological Copy* array - violating the HistoryEpoch contract
+//    (timeNewest = time[0] in SERIES order = the NEWEST bar). Consequence:
+//    the LC5 time-reversal path was dead and all registered consumers
+//    kept stale state on reload / history revision.
+//
+//    This test drives the PRODUCTION call site (CSymbolContext::Update,
+//    LEGACY mode) with chronological arrays exactly as Copy* delivers
+//    them and pins the orientation contract: a newest-bar time reversal
+//    (same rates_total, newest timestamp moved back - history revision)
+//    MUST fire the TIME_RESET broadcast and reach the registered
+//    consumers (swing cleared to 0). RED on the pre-orientation read;
+//    GREEN once the call site moves post-ArraySetAsSeries.
+void TestEN01_CallSiteOrientationContract(TestCounters &counters)
+{
+    const int R = 500;
+    datetime time[];
+    double open[], high[], low[], close[];
+    ArrayResize(time, R);
+    ArrayResize(open, R);
+    ArrayResize(high, R);
+    ArrayResize(low, R);
+    ArrayResize(close, R);
+
+    //--- Chronological OHLC (index 0 = OLDEST bar), exactly as CEngine::
+    //    CopyOHLCArrays delivers via CopyOpen/CopyHigh/CopyLow/CopyClose/
+    //    CopyTime. Clockwork 5-bar fractals: highs at i%5==0, lows at
+    //    i%5==2.
+    for(int i = 0; i < R; i++)
+    {
+        time[i]  = D'2026.01.01 00:00' + i * 3600;
+        open[i]  = 1.10000;
+        close[i] = 1.10000;
+        high[i]  = 1.10000 + ((i % 5 == 0) ? 0.00020 : 0.00000);
+        low[i]   = 1.09980 - ((i % 5 == 2) ? 0.00020 : 0.00000);
+    }
+
+    CSymbolContext ctx("FIXTURE_EN01", 0, ENTRY_MODE_LEGACY);
+    TEST_TRUE(ctx.Init(NULL), "EN-01: CSymbolContext fixture initializes");
+
+    //--- EN-01: this fixture drives the production call site with
+    //    chronological arrays "exactly as Copy* delivers them". The call
+    //    site re-indexes the by-reference arrays to series order for the
+    //    duration of its update, so restore the chronological orientation
+    //    before EVERY call - the contract this test pins is that the
+    //    caller's arrays are consumed (not mutated) by CSymbolContext::
+    //    Update().
+    ArraySetAsSeries(time, false);
+    ArraySetAsSeries(open, false);
+    ArraySetAsSeries(high, false);
+    ArraySetAsSeries(low, false);
+    ArraySetAsSeries(close, false);
+
+    //--- tick 1: baseline - the epoch records its first observation
+    //    (no event, no broadcast); the chain builds its initial state.
+    ctx.Update(open, high, low, close, time, R);
+
+    //--- EN-01: the production call site must NOT leak series-orientation
+    //    mutations onto the caller's arrays.
+    TEST_TRUE(!ArrayIsSeries(time), "EN-01: Update() restored chronological orientation of time[]");
+    TEST_TRUE(!ArrayIsSeries(open), "EN-01: Update() restored chronological orientation of open[]");
+    TEST_TRUE(!ArrayIsSeries(high), "EN-01: Update() restored chronological orientation of high[]");
+    TEST_TRUE(!ArrayIsSeries(low), "EN-01: Update() restored chronological orientation of low[]");
+    TEST_TRUE(!ArrayIsSeries(close), "EN-01: Update() restored chronological orientation of close[]");
+    int baseHigh = ctx.GetSwingDetector().GetSwingHighCount();
+    int baseLow  = ctx.GetSwingDetector().GetSwingLowCount();
+    TEST_TRUE(baseHigh > 0 && baseLow > 0, "EN-01: baseline scan detects swings (fixture sanity)");
+
+    //--- tick 2: history revision - SAME rates_total, the NEWEST bar's
+    //    time moved BACK (reload / re-sync re-feed). The contract
+    //    requires TIME_RESET -> broadcast, so the swing consumer must be
+    //    cleared (count 0). The pre-orientation call site reads the
+    //    unchanged OLDEST time instead and stays silent - RED.
+    ArraySetAsSeries(time, false);
+    ArraySetAsSeries(open, false);
+    ArraySetAsSeries(high, false);
+    ArraySetAsSeries(low, false);
+    ArraySetAsSeries(close, false);
+    time[R - 1] = D'2026.01.01 00:00' + (R - 3) * 3600;
+    ctx.Update(open, high, low, close, time, R);
+    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingHighCount(), 0,
+        "EN-01: TIME_RESET broadcast cleared the swing consumer (orientation contract)");
+    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingLowCount(), 0,
+        "EN-01: TIME_RESET broadcast cleared the low-swing consumer (orientation contract)");
+
+    //--- tick 3: normal extension - no spurious reset; the consumers
+    //    rebuild to their baseline population via the initial-scan path.
+    int R3 = R + 1;
+    ArraySetAsSeries(time, false);
+    ArraySetAsSeries(open, false);
+    ArraySetAsSeries(high, false);
+    ArraySetAsSeries(low, false);
+    ArraySetAsSeries(close, false);
+    ArrayResize(time, R3);
+    ArrayResize(open, R3);
+    ArrayResize(high, R3);
+    ArrayResize(low, R3);
+    ArrayResize(close, R3);
+    time[R3 - 1]  = D'2026.01.01 00:00' + R * 3600;
+    open[R3 - 1]  = 1.10000;
+    close[R3 - 1] = 1.10000;
+    high[R3 - 1]  = 1.10000 + 0.00020;
+    low[R3 - 1]   = 1.09980;
+    ctx.Update(open, high, low, close, time, R3);
+    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingHighCount(), baseHigh,
+        "EN-01: post-rebuild swing-high population restored (no spurious reset)");
+    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingLowCount(), baseLow,
+        "EN-01: post-rebuild swing-low population restored (no spurious reset)");
+
+    ctx.Shutdown();
+}
+
 TestCounters RunHistoryEpochTests(void)
 {
     TestCounters counters;
@@ -212,6 +328,9 @@ TestCounters RunHistoryEpochTests(void)
     TestLC02_ConsecutiveShrinksEachEvent(counters);
     TestLC02_PostResetGrowthIsNormal(counters);
     TestLC02_ExplicitResetRebaselines(counters);
+
+    //--- EN-01 (Sprint 24 audit #1): call-site orientation contract.
+    TestEN01_CallSiteOrientationContract(counters);
 
     SUITE_END("History Epoch Tests");
 
