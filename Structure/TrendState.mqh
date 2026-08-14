@@ -50,6 +50,10 @@ public:
     Trend GetCurrentTrend(void) const { return m_currentTrend; }
     int GetBullishBOSCount(void) const { return m_bullishBOSCount; }
     int GetBearishBOSCount(void) const { return m_bearishBOSCount; }
+    //--- EN-03 Option B: testability accessor only (call-site contract
+    //    fixtures assert the coordinated gate never forces a flip on a
+    //    tick where the BOS already moved the trend). No behavior change.
+    int GetTrendFlipCount(void) const { return m_trendFlipCount; }
     void ForceTrend(Trend newTrend);
 };
 

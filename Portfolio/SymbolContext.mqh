@@ -155,6 +155,9 @@ private:
     CRiskValidator            m_riskVal;
 
     int m_lastCHOCHCount;
+    //--- EN-03 Option B: pre-TrendState::Update snapshot - detects a
+    //    same-tick BOS flip so the gate cannot revert it (FM-2).
+    Trend m_trendBeforeTrendUpdate;
 
     long m_updateCount;
 
@@ -162,7 +165,11 @@ private:
     //    Context state is re-derived by the detectors themselves; this
     //    consumer only clears the CHOCH-count watermark used by the
     //    legacy trend-flip gate so the rebuilt stream is re-examined.
-    void OnHistoryReset(void) { m_lastCHOCHCount = 0; }
+    void OnHistoryReset(void)
+    {
+        m_lastCHOCHCount = 0;
+        m_trendBeforeTrendUpdate = TREND_UNKNOWN;
+    }
 
     //--- Sprint 15.3: deferred outcome settlement.
     void QueueForSettlement(const TelemetryRow &row, const int candidateId,
@@ -298,6 +305,7 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_cooldownVal(m_stateProvider)
     , m_riskVal(m_riskEvaluator)
     , m_lastCHOCHCount(0)
+    , m_trendBeforeTrendUpdate(TREND_UNKNOWN)
     , m_updateCount(0)
 {
     //--- Sprint 15 (v3.0): providers are bound in the ctor because the
@@ -718,6 +726,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_lastCHOCHCount = 0;
+    m_trendBeforeTrendUpdate = TREND_UNKNOWN;
     m_updateCount = 0;
 
     m_isInitialized = true;
@@ -785,6 +794,11 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
     if(m_metricsCollector != NULL) m_metricsCollector.RecordTiming(MODULE_BOS_DETECTOR, e - s);
     perf += StringFormat(" BOS:%llu", e - s);
 
+    //--- EN-03 Option B: capture pre-BOS-update trend to detect a same-tick
+    //    BOS flip (FM-2 double-flip suppression).
+    m_trendBeforeTrendUpdate = (m_trendState != NULL)
+        ? m_trendState.GetCurrentTrend() : TREND_UNKNOWN;
+
     s = GetMicrosecondCount();
     if(m_trendState != NULL && m_bosDetector != NULL)
         m_trendState.Update(m_bosDetector);
@@ -818,8 +832,23 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
         {
             m_lastCHOCHCount = currentCHOCHCount;
             Trend currentTrend = m_trendState.GetCurrentTrend();
-            Trend newTrend = (currentTrend == TREND_BULLISH) ? TREND_BEARISH : TREND_BULLISH;
-            m_trendState.ForceTrend(newTrend);
+            //--- EN-03 Option B (FM-1 defensive): never force-flip from UNKNOWN.
+            //    Direction comes from the event (choch.bullish), not gate-time
+            //    trend. Suppress when the BOS already flipped the trend this
+            //    tick (FM-2), so TrendState::Update's deterministic stream is
+            //    never reverted by the gate (FM-5).
+            if(currentTrend != TREND_UNKNOWN)
+            {
+                CHOCHEvent choch;
+                if(m_chochDetector.GetCHOCH(currentCHOCHCount - 1, choch))
+                {
+                    Trend chochTrend = choch.bullish ? TREND_BULLISH : TREND_BEARISH;
+                    if(chochTrend != currentTrend && currentTrend == m_trendBeforeTrendUpdate)
+                        m_trendState.ForceTrend(chochTrend);
+                    else
+                        m_logger.LogInfo("EN-03 Option B: gate suppressed (same-tick BOS flip or direction already set)");
+                }
+            }
         }
     }
 
