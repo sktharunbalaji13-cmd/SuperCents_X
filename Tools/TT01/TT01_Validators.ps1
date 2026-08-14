@@ -677,3 +677,81 @@ function Test-TT01IntegrityControl {
     }
     New-TT01Result -Name "INTEGRITY-CONTROL" -Pass ($fail -eq 0) -Details $detail.ToArray()
 }
+
+#───────────────────────────────────────────────────────────────────────
+#  Sprint 25A (G8): authoritative manifest persistence.
+#
+#  Invariant: ONCE the gate graph is complete (the final gate has been
+#  recorded), the manifest is written and persisted BEFORE any other
+#  finalize operation (evidence copies, baseline update, binary archive,
+#  summary). gates.jsonl is written per-gate at decision time and is
+#  therefore durable before finalize; the manifest must NOT be the last
+#  substantive operation of the run, or a process termination in the
+#  finalize window loses the provenance record while gates.jsonl
+#  survives (Run 5, TT01_20260814_235134: 17/17 gates recorded, manifest
+#  absent after an external abort during finalization).
+#───────────────────────────────────────────────────────────────────────
+#───────────────────────────────────────────────────────────────────────
+#  Sprint 25A (G8): ConvertTo-Json safety. PS 5.1 pipeline output is
+#  PSObject-wrapped; ConvertTo-Json recursion-hangs on PSObject-wrapped
+#  strings (Run 5, TT01_20260814_235134: 17/17 gates recorded, manifest
+#  never written). This walker unwraps every PSObject-wrapped string in
+#  the manifest graph to a native [string] before serialization.
+#───────────────────────────────────────────────────────────────────────
+function ConvertTo-TT01JsonSafe {
+    param($Value)
+    if ($Value -is [System.Management.Automation.PSObject]) {
+        $base = $Value.PSObject.BaseObject
+        if ($base -is [string]) { return [string]$base }
+        return (ConvertTo-TT01JsonSafe $base)
+    }
+    if ($Value -is [System.Collections.IDictionary]) {
+        $out = [ordered]@{}
+        foreach ($k in $Value.Keys) { $out[[string]$k] = (ConvertTo-TT01JsonSafe $Value[$k]) }
+        return $out
+    }
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $arr = @()
+        foreach ($item in $Value) { $arr += (ConvertTo-TT01JsonSafe $item) }
+        return $arr
+    }
+    if ($Value -is [string]) { return $Value }
+    return $Value
+}
+
+function Write-TT01Manifest {
+    param(
+        [string]$RunArt,
+        [string]$RunId,
+        [string]$GitHead,
+        [bool]$AllPass,
+        [string[]]$AllowDelta = @(),
+        [int]$ExpectedRows = 0,
+        [string[]]$AllowDecisionIds = @()
+    )
+    Write-Host "[TT01] FINALIZE: writing manifest" -ForegroundColor DarkCyan
+    $manifest = [ordered]@{
+        runId = $RunId
+        timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss")
+        gitHead = $GitHead
+        overall = if ($AllPass) { "PASS" } else { "FAIL" }
+        allowDelta = $AllowDelta
+        expectedRows = $ExpectedRows
+        allowDecisionIds = $AllowDecisionIds.Count
+        gates = @($script:Results | ForEach-Object { [ordered]@{ name = $_.Name; pass = $_.Pass; details = @($_.Details) } })
+        buildIdentity = $script:BuildIdentity
+        perf = $script:Perf
+    }
+    try {
+        Write-Host "[TT01] FINALIZE: serializing manifest" -ForegroundColor DarkCyan
+        $json = (ConvertTo-TT01JsonSafe $manifest) | ConvertTo-Json -Depth 10
+        Write-Host ("[TT01] FINALIZE: writing manifest.json (" + $json.Length + " chars)") -ForegroundColor DarkCyan
+        $tmp = Join-Path $RunArt "manifest.json.tmp"
+        Set-Content -LiteralPath $tmp -Value $json -Encoding UTF8
+        Move-Item -LiteralPath $tmp -Destination (Join-Path $RunArt "manifest.json") -Force
+        Write-Host "[TT01] FINALIZE: manifest.json written" -ForegroundColor DarkCyan
+    } catch {
+        Set-Content -LiteralPath (Join-Path $RunArt "manifest_ERROR.json") -Value @("manifest serialization failed: $_", ($_ | Out-String)) -Encoding UTF8
+        throw
+    }
+}

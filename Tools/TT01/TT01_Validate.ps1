@@ -1,4 +1,4 @@
-# TT01_Validate.ps1 - TT01 Platform Validation Harness (Sprint 20)
+﻿# TT01_Validate.ps1 - TT01 Platform Validation Harness (Sprint 20)
 # Single command:  powershell -File TT01_Validate.ps1
 # Workflow: run TT01 -> all gates PASS -> commit. Answer to "did anything regress?".
 #
@@ -97,7 +97,7 @@ param(
     [string[]]$AllowDecisionIds = @(),
     [switch]$FreezeBaseline,
     [string]$FreezeId = "B6",
-    [int]$ArtifactsKeep = 3,
+    [int]$ArtifactsKeep = 10,
     [switch]$OnlyIsolation
 )
 
@@ -130,6 +130,114 @@ $AgentDir   = Join-Path ((Get-ChildItem -LiteralPath $TesterRoot -Recurse -Direc
 $AgentLog   = Join-Path $AgentDir ((Get-Date -Format "yyyyMMdd") + ".log")
 $MetaEditor = "C:\Program Files\MetaTrader 5\metaeditor64.exe"
 $Terminal   = "C:\Program Files\MetaTrader 5\terminal64.exe"
+
+#--- 25A-RUNTIME-01: build/runtime identity infrastructure
+$InstallDir       = Split-Path -Parent $Terminal
+$TerminalDataRoot = Join-Path $env:APPDATA "MetaQuotes\Terminal"
+$DataFolderId     = Get-ChildItem -LiteralPath $TerminalDataRoot -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $_.FullName "MQL5\Experts\SuperCents_X") } |
+    Select-Object -First 1 -ExpandProperty Name
+$DataFolderDir    = Join-Path $TerminalDataRoot $DataFolderId
+$OriginFile       = Join-Path $DataFolderDir "origin.txt"
+$CanonicalTestRunner = Join-Path $SC "Tests\TestRunnerEA.ex5"
+
+$script:BuildIdentity = @{
+    sourceTree = @{ gitHeadFull = $null; gitHeadShort = $null; dirty = $null; dirtyLines = 0 }
+    dataFolder = @{ id = $DataFolderId; dir = $DataFolderDir; originBinding = $null; installDir = $InstallDir;
+                    terminalVersion = $null; metaeditorVersion = $null; canonicalEx5 = $CanonicalTestRunner }
+    artifacts  = @{}
+    runtime    = @{ buildLine = $null; suiteStartedLine = $null; grandTotalLine = $null;
+                    sliceFile = $null; sliceLines = 0; binaryArchiveDir = $null }
+    run        = @{ runId = $null; compileFinishedAt = $null; suiteRunAt = $null; suiteRunFinishedAt = $null }
+}
+
+function Get-TT01ArtifactState {
+    param([string]$Path)
+    if (Test-Path -LiteralPath $Path) {
+        $f = Get-Item -LiteralPath $Path
+        [ordered]@{ hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash; size = $f.Length; mtime = $f.LastWriteTime }
+    } else {
+        [ordered]@{ hash = $null; size = 0; mtime = $null }
+    }
+}
+
+function Format-TT01BuildTime {
+    param([datetime]$Time)
+    $Time.ToString("yyyy.MM.dd HH:mm:ss")
+}
+
+function Get-TT01SourceClosure {
+    # Recursively resolves local #include "..." from a target .mq5; returns
+    # sorted relative paths (system includes <...> are platform libs, excluded).
+    param([string]$TargetPath)
+    $files = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $queue = [System.Collections.Generic.Queue[string]]::new()
+    $queue.Enqueue($TargetPath)
+    while ($queue.Count -gt 0) {
+        $cur = $queue.Dequeue()
+        if (-not (Test-Path -LiteralPath $cur)) { continue }
+        if (-not $files.Add($cur)) { continue }
+        $dir = Split-Path -Parent $cur
+        foreach ($inc in (Select-String -LiteralPath $cur -Pattern '^\s*#include\s+"([^"]+)"' -ErrorAction SilentlyContinue)) {
+            $incPath = Join-Path $dir $inc.Matches[0].Groups[1].Value
+            if (Test-Path -LiteralPath $incPath) { $queue.Enqueue($incPath) }
+        }
+    }
+    return @($files | Sort-Object)
+}
+
+function Get-TT01SourceClosureHash {
+    param([string]$TargetPath)
+    $parts = @()
+    foreach ($f in (Get-TT01SourceClosure $TargetPath)) {
+        $h = (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash
+        $parts += ("$f`t$h")
+    }
+    if ($parts.Count -eq 0) { return $null }
+    $joined = [System.Text.StringBuilder]::new()
+    foreach ($p in $parts) { [void]$joined.Append($p); [void]$joined.Append("|") }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    return ([BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($joined.ToString())))).Replace("-", "")
+}
+
+function Invoke-TT01Preflight {
+    # E: verify the MT5 install/data-folder binding and detect unexpected
+    # duplicate EX5 copies anywhere in the runtime topology.
+    $detail = [System.Collections.Generic.List[string]]::new()
+    $ok = $true
+    if (-not $DataFolderId) { $ok = $false; $detail.Add("terminal data folder for SuperCents_X NOT found under $TerminalDataRoot") }
+    else {
+        $detail.Add("dataFolder=$DataFolderId")
+        if (Test-Path -LiteralPath $OriginFile) {
+            $origin = (Get-Content -LiteralPath $OriginFile -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
+            $script:BuildIdentity.dataFolder.originBinding = $origin
+            if ($origin -eq $InstallDir) { $detail.Add("originBinding OK: $origin") }
+            else { $ok = $false; $detail.Add("originBinding MISMATCH: '$origin' != install '$InstallDir'") }
+        } else { $ok = $false; $detail.Add("origin.txt missing in $DataFolderDir - data-folder binding unprovable") }
+        $foreign = @()
+        foreach ($d in (Get-ChildItem -LiteralPath $TerminalDataRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne $DataFolderId -and $_.Name -notin @("Common", "Community", "Help") })) {
+            $foreign += @(Get-ChildItem -LiteralPath $d.FullName -Recurse -Filter "*.ex5" -ErrorAction SilentlyContinue | ForEach-Object { "$($d.Name):$($_.FullName)" })
+        }
+        if ($foreign.Count -gt 0) { $ok = $false; $detail.Add("unexpected ex5 in foreign data folders: $($foreign -join '; ')") }
+        else { $detail.Add("foreign data folders clean (no ex5)") }
+        $testerEx5 = @(Get-ChildItem -LiteralPath (Join-Path $env:APPDATA "MetaQuotes\Tester") -Recurse -Filter "*.ex5" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+        if ($testerEx5.Count -gt 0) { $ok = $false; $detail.Add("ex5 found inside tester sandboxes: $($testerEx5 -join '; ')") }
+        else { $detail.Add("tester sandbox clean (no ex5 copies)") }
+        # exact-name match only (a wildcard filter would also count e.g. the
+        # preserved TestRunnerEA.ex5.bak20260812_194614 evidence binary);
+        # \Tools\ is the harness's own archive (run artifact binaries), not
+        # a foreign/duplicate copy.
+        $canon = @(Get-ChildItem -LiteralPath (Join-Path $DataFolderDir "MQL5\Experts") -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq "TestRunnerEA.ex5" -and $_.FullName -notmatch "\\Tools\\" } | Select-Object -ExpandProperty FullName)
+        if ($canon.Count -ne 1 -or $canon[0] -ne $CanonicalTestRunner) { $ok = $false; $detail.Add("canonical TestRunnerEA.ex5 count=$($canon.Count) (expected exactly 1 at $CanonicalTestRunner)") }
+        else { $detail.Add("canonical binary unique: $CanonicalTestRunner") }
+    }
+    $script:BuildIdentity.dataFolder.terminalVersion = (Get-Item -LiteralPath $Terminal -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+    $script:BuildIdentity.dataFolder.metaeditorVersion = (Get-Item -LiteralPath $MetaEditor -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+    $detail.Add("terminal=$($script:BuildIdentity.dataFolder.terminalVersion) metaeditor=$($script:BuildIdentity.dataFolder.metaeditorVersion)")
+    New-Gate "PREFLIGHT" $ok @($detail.ToArray())
+}
 
 . (Join-Path $ScriptDir "TT01_Validators.ps1")
 
@@ -238,7 +346,22 @@ function Write-Step($s) { Write-Host "[TT01] $s" -ForegroundColor DarkCyan }
 
 function New-Gate {
     param([string]$Name, [bool]$Pass, [string[]]$Details = @())
-    $script:Results.Add([pscustomobject]@{ Name = $Name; Pass = $Pass; Details = @($Details) })
+    $res = [pscustomobject]@{ Name = $Name; Pass = $Pass; Details = @($Details) }
+    Add-TT01Result $res
+}
+
+function Add-TT01Result {
+    param($res)
+    $script:Results.Add($res)
+    # incremental persistence: every verdict is appended as JSON so the run is
+    # abort-resilient (the manifest at finalize is assembled from this too).
+    try {
+        $line = [ordered]@{ ts = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss"); name = $res.Name; pass = [bool]$res.Pass; details = @($res.Details) } | ConvertTo-Json -Compress
+        Add-Content -LiteralPath (Join-Path $RunDir "gates.jsonl") -Value $line -Encoding UTF8
+    } catch { }
+    $icon = if ($res.Pass) { "PASS" } else { "FAIL" }
+    $color = if ($res.Pass) { "Green" } else { "Red" }
+    Write-Host ("  [{0,-22}] {1}  {2}" -f $res.Name, $icon, ($res.Details -join " | ")) -ForegroundColor $color
 }
 
 function Stop-TT01Terminal {
@@ -284,19 +407,48 @@ function Invoke-TT01Compile {
     foreach ($t in $script:CompileTargets) {
         $log = Join-Path $RunDir ("compile_" + $t.Label + ".log")
         Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue
+        $ex5Path = $t.Path -replace "\.mq5$", ".ex5"
+        #--- 25A-B: capture the pre-compile artifact state; a successful compile
+        #    MUST refresh the binary (different hash, newer mtime).
+        $pre = Get-TT01ArtifactState $ex5Path
         $t0 = Get-Date
         Start-Process -FilePath $MetaEditor -ArgumentList "/compile:`"$($t.Path)`" /log:`"$log`"" -Wait | Out-Null
         Start-Sleep -Seconds 2
+        if ($t.Label -eq "TestRunnerEA") {
+            $script:BuildIdentity.run.suiteCompileStartedAt = $t0.ToString("yyyy-MM-ddTHH:mm:ss")
+            $script:BuildIdentity.run.suiteCompileEndedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+        }
         $line = (Get-Content -LiteralPath $log -ErrorAction SilentlyContinue | Select-String "Result:" | Select-Object -Last 1).Line
         Write-Host ("    compile {0}: {1} ({2} s)" -f $t.Label, ($line -replace ".*Result: ", ""), [math]::Round(((Get-Date) - $t0).TotalSeconds)) -ForegroundColor DarkGray
+        $post = Get-TT01ArtifactState $ex5Path
+        # a refreshed artifact = a binary actually (re)written during THIS
+        # compile window. MetaEditor rebuilds deterministically (identical
+        # bytes for unchanged sources), so the hash may NOT change; the mtime
+        # is the reliable signal (the compile log is written after the ex5, so
+        # it cannot be the mtime reference).
+        $hashChanged = ($null -eq $pre.hash) -or ($post.hash -ne $pre.hash)
+        $refreshed = ($null -ne $post.mtime) -and ($post.mtime -ge $t0.AddSeconds(-5))
+        $script:BuildIdentity.artifacts[$t.Label] = [ordered]@{
+            sourceHash = (Get-TT01SourceClosureHash $t.Path)
+            compileResult = $line
+            refreshed = [bool]$refreshed
+            hashChanged = [bool]$hashChanged
+            pre = $pre
+            post = $post
+        }
         if ($line -match "(\d+) errors, (\d+) warnings") {
             $errs = [int]$Matches[1]; $warns = [int]$Matches[2]
             if ($errs -gt 0) { $fail++; New-Gate ("COMPILE-" + $t.Label) $false @($line) }
-            else { New-Gate ("COMPILE-" + $t.Label) $true @($line) }
+            elseif (-not $refreshed) {
+                $fail++; New-Gate ("COMPILE-" + $t.Label) $false @($line,
+                    "artifact NOT rewritten during this compile window (pre=$($pre.hash) post=$($post.hash)) - compiled binary may be stale")
+            }
+            else { New-Gate ("COMPILE-" + $t.Label) $true @($line, "artifact refreshed: $($post.hash.Substring(0,8))... $($post.size) bytes $($post.mtime.ToString('yyyy-MM-dd HH:mm:ss')) hashChanged=$hashChanged") }
         } else {
             $fail++; New-Gate ("COMPILE-" + $t.Label) $false @("no Result line in $log")
         }
     }
+    $script:BuildIdentity.run.compileFinishedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
     New-Gate "COMPILE" ($fail -eq 0) @("targets compiled: $($script:CompileTargets.Count)")
 }
 
@@ -308,16 +460,134 @@ function Invoke-TT01Suite {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     Start-TT01Headless $ini
     $sw.Stop(); $script:Perf.suiteMs = $sw.ElapsedMilliseconds
-    $block = Get-TT01LastJournalRun
-    if ($block.Count -eq 0) { New-Gate "SUITE" $false @("no GRAND TOTAL block found in $AgentLog"); return }
-    $grand = $block | Where-Object { $_ -match "GRAND TOTAL" } | Select-Object -Last 1
+    $script:BuildIdentity.run.suiteRunAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+    if (-not (Test-Path -LiteralPath $AgentLog)) {
+        New-Gate "SUITE" $false @("agent log missing: $AgentLog")
+        $script:BuildIdentity.run.suiteRunFinishedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+        return
+    }
+    $all = @(Get-Content -LiteralPath $AgentLog -Tail 4000 -ErrorAction SilentlyContinue)
+    $gtLines = @(for ($i = 0; $i -lt $all.Count; $i++) { if ($all[$i] -match "GRAND TOTAL") { $i } })
+    if ($gtLines.Count -eq 0) {
+        New-Gate "SUITE" $false @("no GRAND TOTAL block found in $AgentLog")
+        $script:BuildIdentity.run.suiteRunFinishedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+        return
+    }
+    $start = if ($gtLines.Count -gt 1) { $gtLines[-2] + 1 } else { 0 }
+    $slice = @($all[$start..$gtLines[-1]])
+    $block = @($slice | Where-Object { $_ -match ">>> |GRAND TOTAL" })
+    #--- 25A-G8: pipeline output in PS 5.1 is PSObject-wrapped; ConvertTo-Json
+    #    recursion-hangs on wrapped strings, so every journal line stored into
+    #    BuildIdentity MUST be coerced to a native [string] at assignment.
+    $grand = [string](@($slice | Where-Object { $_ -match "GRAND TOTAL" } | Select-Object -Last 1) | Select-Object -First 1)
+    $startLine = [string](@($slice | Where-Object { $_ -match "testing of " } | Select-Object -Last 1) | Select-Object -First 1)
+    #--- 25A-A: the journal tail is dominated by fixture INFO spam (the suite
+    #    prints thousands of lines per second), so the BUILD line (printed at
+    #    run start) and FAIL lines (printed mid-run) are captured with a full
+    #    stream search instead of a line-count tail.
+    $streamed = @(Select-String -LiteralPath $AgentLog -Pattern '>>> BUILD 25A-RUNTIME-01|FAIL \[' -ErrorAction SilentlyContinue | Select-Object -Last 500)
+    $script:BuildIdentity.runtime.buildLine = [string](@($streamed | Where-Object { $_.Line -match ">>> BUILD " } | Select-Object -Last 1 | ForEach-Object { $_.Line }) | Select-Object -First 1)
+    $script:BuildIdentity.runtime.failLines = @($streamed | Where-Object { $_.Line -match "FAIL \[" } | ForEach-Object { [string]$_.Line })
+    $script:BuildIdentity.runtime.suiteStartedLine = $startLine
+    $script:BuildIdentity.runtime.grandTotalLine = $grand
+    $bl = $script:BuildIdentity.runtime.buildLine
+    if (-not $bl) { $bl = "<none>" }
+    Set-Content -LiteralPath (Join-Path $RunDir "runtime_identity.log") -Value @(
+        ("buildLine  = " + $bl)
+        ("failLines  = " + $script:BuildIdentity.runtime.failLines.Count)
+        $script:BuildIdentity.runtime.failLines
+    ) -Encoding UTF8
+
+    $details = [System.Collections.Generic.List[string]]::new()
     if ($grand -match "GRAND TOTAL: (\d+)/(\d+) passed, (\d+) failed") {
         $passed = [int]$Matches[1]; $total = [int]$Matches[2]; $failed = [int]$Matches[3]
-        $cats = @($block | Where-Object { $_ -match ">>> " } | ForEach-Object { ($_ -replace "^.*>>> ", "").Trim() })
-        New-Gate "SUITE" ($failed -eq 0) @("$passed/$total passed, $failed failed", "categories: $($cats.Count)", ($cats -join " ; "))
+        $cats = @($block | Where-Object { $_ -match ">>> " -and $_ -notmatch ">>> BUILD " } | ForEach-Object { ($_ -replace "^.*>>> ", "").Trim() })
+        $details.Add("$passed/$total passed, $failed failed")
+        $details.Add("categories: $($cats.Count)")
+        $details.Add(($cats -join " ; "))
     } else {
-        New-Gate "SUITE" $false @("unparseable GRAND TOTAL: $grand")
+        $failed = -1; $total = -1; $passed = -1
+        $details.Add("unparseable GRAND TOTAL: $grand")
     }
+
+    #--- 25A-A: runtime identity verification (G1): the executed binary must
+    #    self-report a build tag matching the compiled artifact of THIS run.
+    $identityOk = $true
+    $art = $script:BuildIdentity.artifacts["TestRunnerEA"]
+    if (-not $art -or -not $art.post) {
+        # compile phase skipped (e.g. -OnlyIsolation): reference = on-disk binary
+        $art = [ordered]@{ post = (Get-TT01ArtifactState $CanonicalTestRunner); sourceHash = $null; compileResult = "n/a (compile skipped)"; refreshed = $false }
+        $script:BuildIdentity.artifacts["TestRunnerEA"] = $art
+        $details.Add("identity reference: on-disk binary (compile skipped)")
+    }
+    if (-not $script:BuildIdentity.runtime.buildLine) {
+        $identityOk = $false
+        $details.Add("RUNTIME IDENTITY FAIL: no '>>> BUILD' line in the suite block (binary self-report absent)")
+    } else {
+        $details.Add(("runtime: " + ($script:BuildIdentity.runtime.buildLine -replace "^.*>>> BUILD ", ">>> BUILD ")))
+        if ($script:BuildIdentity.runtime.buildLine -match 'tag="([^"]+)"') {
+            $tag = $Matches[1]
+            $tagTime = [datetime]::MinValue
+            [void][datetime]::TryParseExact($tag, "yyyy.MM.dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$tagTime)
+            $w0 = $null; $w1 = $null
+            if ($script:BuildIdentity.run.suiteCompileStartedAt) {
+                # compile-window check: __DATETIME__ is captured at parse time,
+                # the ex5 is written at compile end; both must fall inside the
+                # harness-measured compile interval.
+                $w0 = [datetime]::ParseExact($script:BuildIdentity.run.suiteCompileStartedAt, "yyyy-MM-ddTHH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture).AddSeconds(-15)
+                $w1 = [datetime]::ParseExact($script:BuildIdentity.run.suiteCompileEndedAt, "yyyy-MM-ddTHH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture).AddSeconds(15)
+            } elseif ($art.post.mtime) {
+                # compile skipped (e.g. -OnlyIsolation): tolerate the on-disk artifact's compile window
+                $w0 = $art.post.mtime.AddMinutes(-10)
+                $w1 = $art.post.mtime.AddMinutes(1)
+            }
+            if ($tagTime -eq [datetime]::MinValue) {
+                $identityOk = $false
+                $details.Add("RUNTIME IDENTITY FAIL: unparseable build tag '$tag'")
+            } elseif ($w0 -and ($tagTime -lt $w0 -or $tagTime -gt $w1)) {
+                $identityOk = $false
+                $details.Add("RUNTIME IDENTITY FAIL: build tag '$tag' outside the compile window [$($w0.ToString('yyyy.MM.dd HH:mm:ss')) .. $($w1.ToString('yyyy.MM.dd HH:mm:ss'))] - stale or foreign binary loaded")
+            } else {
+                $details.Add("identity OK: runtime tag '$tag' inside the compile window")
+            }
+        } else {
+            $identityOk = $false
+            $details.Add("RUNTIME IDENTITY FAIL: build line unparseable: $($script:BuildIdentity.runtime.buildLine)")
+        }
+        if ($script:BuildIdentity.runtime.buildLine -match "path=(.+)$") {
+            $p = $Matches[1].Trim()
+            if ($p -ne "SuperCents_X\Tests\TestRunnerEA.ex5" -and $p -notlike "*\SuperCents_X\Tests\TestRunnerEA.ex5") {
+                $identityOk = $false
+                $details.Add("RUNTIME IDENTITY FAIL: executed path '$p' != canonical 'SuperCents_X\Tests\TestRunnerEA.ex5'")
+            } else {
+                $details.Add("identity OK: executed path $p")
+            }
+        }
+        $onDisk = Get-TT01ArtifactState $CanonicalTestRunner
+        if ($art.post.hash -and $onDisk.hash -ne $art.post.hash) {
+            $identityOk = $false
+            $details.Add("RUNTIME IDENTITY FAIL: on-disk ex5 hash differs from the compiled artifact (file swapped mid-run?)")
+        } else {
+            $details.Add("identity OK: on-disk ex5 hash == compiled artifact ($($onDisk.hash.Substring(0,8))...)")
+        }
+    }
+
+    #--- F: retain the journal slice + the executed binary in the artifact dir
+    $sliceFile = Join-Path $runArt "suite_journal_slice.log"
+    $slice | Set-Content -LiteralPath $sliceFile -Encoding UTF8
+    $script:BuildIdentity.runtime.sliceFile = $sliceFile
+    $script:BuildIdentity.runtime.sliceLines = $slice.Count
+    $binDir = Join-Path $runArt "binaries"
+    New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+    if (Test-Path -LiteralPath $CanonicalTestRunner) {
+        Copy-Item -LiteralPath $CanonicalTestRunner -Destination (Join-Path $binDir "TestRunnerEA.ex5") -Force
+        $h = (Get-FileHash -LiteralPath (Join-Path $binDir "TestRunnerEA.ex5") -Algorithm SHA256).Hash
+        Set-Content -LiteralPath (Join-Path $binDir "TestRunnerEA.ex5.sha256") -Value ("$h  TestRunnerEA.ex5") -Encoding ASCII
+    }
+    $script:BuildIdentity.runtime.binaryArchiveDir = $binDir
+    $script:BuildIdentity.run.suiteRunFinishedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+
+    New-Gate "SUITE" (($failed -eq 0) -and $identityOk) @($details.ToArray())
 }
 
 function Invoke-TT01Replay {
@@ -376,18 +646,18 @@ function Invoke-TT01Replay {
 function Invoke-TT01Contract {
     $res = Test-TT01Contract -Path $OutCsv
     $res | Add-Member -NotePropertyName Name -NotePropertyValue "TELEMETRY-CONTRACT" -Force
-    $script:Results.Add($res)
+    Add-TT01Result $res
 }
 
 function Invoke-TT01Evidence {
     $res = Test-TT01Evidence -Path $OutCsv
     $res | Add-Member -NotePropertyName Name -NotePropertyValue "EVIDENCE-REGRESSION" -Force
-    $script:Results.Add($res)
+    Add-TT01Result $res
 }
 
 function Invoke-TT01Behavior {
     $res = Test-TT01Behavior -RunPath $OutCsv -BasePath $BaseCsv -AllowDelta $AllowDelta -ExpectedRows $ExpectedRows -AllowDecisionIds $AllowDecisionIds
-    $script:Results.Add($res)
+    Add-TT01Result $res
 }
 
 function Invoke-TT01ActiveTier {
@@ -430,7 +700,7 @@ function Invoke-TT01ActiveTier {
     Copy-Item -LiteralPath $OutCsv -Destination $k1Csv -Force
     $res = Test-TT01ActiveTier -RunPath $k1Csv -BasePath $BasePath
     $res.Details += "K1 replay health: rows=$rows faults=$faults health=$healthy critical=$crit"
-    $script:Results.Add($res)
+    Add-TT01Result $res
 }
 
 function Clear-TT01Telemetry {
@@ -527,12 +797,12 @@ function Invoke-TT01Isolation {
         $res = Test-TT01SettlementIsolation -RunPath $k1Dir -BasePath $ctlDir
         $res.Details += "control arm health: rows=$($ctlHealth.rows) faults=$($ctlHealth.faults) health=$($ctlHealth.healthy) critical=$($ctlHealth.critical) files=$ctlFiles"
         $res.Details += "k1 arm health: rows=$($k1Health.rows) faults=$($k1Health.faults) health=$($k1Health.healthy) critical=$($k1Health.critical) files=$k1Files"
-        $script:Results.Add($res)
+        Add-TT01Result $res
         Write-Host ("    SETTLEMENT-ISOLATION: {0} ({1})" -f $(if ($res.Pass) { "PASS" } else { "RED" }), $($res.Details -join " | ")) -ForegroundColor $(if ($res.Pass) { "Green" } else { "Red" })
 
         $res2 = Test-TT01IntegrityControl -RunPath $ctlDir -BasePath $IsolationControlDir
         $res2.Details += "fresh control arm vs frozen CONTROL_RLHYP01_INTEGRITY (EURUSD_M15): determinism guard"
-        $script:Results.Add($res2)
+        Add-TT01Result $res2
         Write-Host ("    INTEGRITY-CONTROL: {0} ({1})" -f $(if ($res2.Pass) { "PASS" } else { "FAIL" }), $($res2.Details -join " | ")) -ForegroundColor $(if ($res2.Pass) { "Green" } else { "Red" })
     }
 }
@@ -571,10 +841,18 @@ function Update-TT01BaselinePerf {
 #--------------------------------------------------------------------- main
 New-Item -ItemType Directory -Path $RunDir -Force | Out-Null
 New-Item -ItemType Directory -Path $ArtDir -Force | Out-Null
+Remove-Item -LiteralPath (Join-Path $RunDir "gates.jsonl") -Force -ErrorAction SilentlyContinue
 if (-not (Test-Path -LiteralPath $BaseCsv)) { Write-Error "frozen baseline CSV missing: $BaseCsv"; exit 2 }
 
 $gitHead = git -C $ScriptDir rev-parse --short HEAD
+$gitHeadFull = git -C $ScriptDir rev-parse HEAD
+$gitDirtyLines = @(git -C $ScriptDir status --porcelain)
+$script:BuildIdentity.sourceTree.gitHeadFull = $gitHeadFull
+$script:BuildIdentity.sourceTree.gitHeadShort = $gitHead
+$script:BuildIdentity.sourceTree.dirty = ($gitDirtyLines.Count -gt 0)
+$script:BuildIdentity.sourceTree.dirtyLines = $gitDirtyLines.Count
 $runId = "TT01_" + (Get-Date -Format "yyyyMMdd_HHmmss")
+$script:BuildIdentity.run.runId = $runId
 $runArt = Join-Path $ArtDir $runId
 New-Item -ItemType Directory -Path $runArt -Force | Out-Null
 
@@ -608,6 +886,8 @@ if ($FreezeBaseline) {
 
 if (-not (Test-Path -LiteralPath $BaseMan)) { Write-Error "baseline manifest missing - run with -FreezeBaseline first"; exit 2 }
 
+Invoke-TT01Preflight
+
 if ($OnlyIsolation) {
     #--- RED/partial mode (Sprint 22 Design A): suite + settlement-isolation
     #    pair only. The control arm is reused from preserved telemetry CSVs
@@ -635,25 +915,40 @@ if ($OnlyIsolation) {
     }
 }
 if (-not $OnlyIsolation) { Invoke-TT01Perf }
+Write-Step "FINALIZE: perf gate done (replayMs=$($script:Perf.replayMs))"
 
+#--- 25A-F/G8: the authoritative manifest is persisted IMMEDIATELY once the
+#    gate graph is complete (all gates recorded). gates.jsonl is durable at
+#    decision time; the manifest must NOT be deferred behind operations it
+#    does not depend on (evidence copies, baseline update, binary archive,
+#    summary) - a termination in the finalize window would otherwise lose
+#    the provenance record while gates.jsonl survives (Run 5,
+#    TT01_20260814_235134: 17/17 gates recorded, manifest absent).
 $allPass = ($script:Results | Where-Object { -not $_.Pass }).Count -eq 0
+Write-Step ("FINALIZE: overall=" + $(if ($allPass) { "PASS" } else { "FAIL" }))
+Write-TT01Manifest -RunArt $runArt -RunId $runId -GitHead $gitHead -AllPass $allPass -AllowDelta $AllowDelta -ExpectedRows $ExpectedRows -AllowDecisionIds $AllowDecisionIds
+
+#--- 25A-F: archive the runtime identity evidence into the run artifact
+foreach ($evFile in @("runtime_identity.log", "suite_journal_slice.log")) {
+    $src = Join-Path $RunDir $evFile
+    if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination (Join-Path $runArt $evFile) -Force }
+}
+
 if ($allPass -and (Test-Path -LiteralPath $BaseMan) -and $script:Perf.replayMs -gt 0) {
     Update-TT01BaselinePerf
 }
 
-#--- manifest
-$manifest = [ordered]@{
-    runId = $runId
-    timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss")
-    gitHead = $gitHead
-    overall = if ($allPass) { "PASS" } else { "FAIL" }
-    allowDelta = $AllowDelta
-    expectedRows = $ExpectedRows
-    allowDecisionIds = $AllowDecisionIds.Count
-    gates = @($script:Results | ForEach-Object { [ordered]@{ name = $_.Name; pass = $_.Pass; details = @($_.Details) } })
-    perf = $script:Perf
+#--- archive the production replay binary alongside the suite binary (F)
+Write-Step "FINALIZE: binaries archived"
+$binDir = Join-Path $runArt "binaries"
+if (Test-Path -LiteralPath $binDir) {
+    $prodEx5 = Join-Path $SC "SuperCents_X.ex5"
+    if (Test-Path -LiteralPath $prodEx5) {
+        Copy-Item -LiteralPath $prodEx5 -Destination (Join-Path $binDir "SuperCents_X.ex5") -Force
+        $ph = (Get-FileHash -LiteralPath (Join-Path $binDir "SuperCents_X.ex5") -Algorithm SHA256).Hash
+        Set-Content -LiteralPath (Join-Path $binDir "SuperCents_X.ex5.sha256") -Value ("$ph  SuperCents_X.ex5") -Encoding ASCII
+    }
 }
-$manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $runArt "manifest.json") -Encoding UTF8
 
 #--- summary table
 Write-Host ""
@@ -669,8 +964,20 @@ $over = if ($allPass) { "OVERALL: PASS" } else { "OVERALL: FAIL" }
 Write-Host $over -ForegroundColor $(if ($allPass) { "Green" } else { "Red" })
 Write-Host ("artifacts: {0}" -f $runArt)
 
-#--- cleanup old artifacts (keep newest N)
-$old = @(Get-ChildItem -LiteralPath $ArtDir -Directory | Sort-Object Name -Descending | Select-Object -Skip $ArtifactsKeep)
+#--- cleanup old artifacts (keep newest N; NEVER delete RED/FAIL runs - they
+#    are the reproduction evidence for a validation failure; never delete the
+#    newest dir even if the count policy would)
+$keep = $ArtifactsKeep
+$old = @(Get-ChildItem -LiteralPath $ArtDir -Directory | Sort-Object Name -Descending | Select-Object -Skip $keep)
+$old = @($old | Where-Object {
+    $m = Join-Path $_.FullName "manifest.json"
+    if (-not (Test-Path -LiteralPath $m)) { return $true }
+    $man = Get-Content -LiteralPath $m -Raw | ConvertFrom-Json
+    return ($man.overall -ne "FAIL")
+})
 foreach ($d in $old) { Remove-Item -LiteralPath $d.FullName -Recurse -Force -ErrorAction SilentlyContinue }
 
+Write-Step "FINALIZE: complete - manifest at $runArt\manifest.json"
+
 if ($allPass) { exit 0 } else { exit 1 }
+
