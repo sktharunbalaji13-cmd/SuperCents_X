@@ -7,6 +7,7 @@
 #include "../Entry/ExecutionPlanTypes.mqh"
 #include "../Entry/ExecutionPlanner.mqh"
 #include "TradeExecutionResult.mqh"
+#include "ExecutionTruth.mqh"
 #include "TradeRequestBuilder.mqh"
 #include "TradeValidation.mqh"
 
@@ -178,27 +179,34 @@ void CTradeManager::Update(void)
         MqlTradeResult tradeResult;
         bool sent = OrderSend(request, tradeResult);
 
+        ExecutionTruthRecord truth = CaptureExecutionTruth(request, tradeResult, planId);
+
         TradeExecutionResult result;
         result.executionPlanId = planId;
         result.submitted = sent;
-        result.ticket = (sent ? tradeResult.order : 0);
-        result.retcode = tradeResult.retcode;
-        result.retcodeDescription = RetcodeToString(tradeResult.retcode);
-        result.filledPrice = (sent ? request.price : 0);
-        result.filledVolume = (sent ? request.volume : 0);
+        result.ticket = truth.orderTicket;
+        result.retcode = truth.retcode;
+        result.retcodeDescription = RetcodeToString(truth.retcode);
+        result.filledPrice = truth.filledPrice;
+        result.filledVolume = truth.filledVolume;
         result.executionTime = TimeCurrent();
 
-        if(sent)
+        if(truth.outcome == EXEC_OUTCOME_FILLED || truth.outcome == EXEC_OUTCOME_PARTIALLY_FILLED)
         {
-            m_totalFilledPrice += request.price;
+            m_totalFilledPrice += truth.filledPrice;
             result.rationale = "Order submitted successfully";
             m_totalSucceeded++;
+            LogOrderSent(result);
+        }
+        else if(truth.outcome == EXEC_OUTCOME_ACCEPTED_NO_DEAL)
+        {
+            result.rationale = "Order accepted, no deal confirmed";
             LogOrderSent(result);
         }
         else
         {
             result.rationale = StringFormat("OrderSend failed: retcode=%u %s",
-                tradeResult.retcode, RetcodeToString(tradeResult.retcode));
+                truth.retcode, RetcodeToString(truth.retcode));
             m_totalFailed++;
             LogOrderFailed(result);
         }
