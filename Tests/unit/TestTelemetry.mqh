@@ -99,9 +99,31 @@ void TestHeader_V5ColumnCount(TestCounters &counters)
     }
 }
 
+void TestHeader_V6ColumnCount(TestCounters &counters)
+{
+    string v5parts[];
+    int v5n = StringSplit(TELEMETRY_CSV_HEADER_V5, ',', v5parts);
+
+    string parts[];
+    int n = StringSplit(TELEMETRY_CSV_HEADER_V6, ',', parts);
+    TEST_INT_EQ(81, n, "v6 header has 81 columns (78 v5 + 3 identity)");
+    TEST_INT_EQ(78 + 3, n, "v6 is strictly append-only over v5");
+    TEST_STR_EQ("schemaVersion", parts[0], "v6 header starts with schemaVersion");
+    TEST_STR_EQ("gateDecision", parts[77], "v6 keeps v5 column 78 in place");
+    TEST_STR_EQ("runId", parts[78], "column 79 is runId");
+    TEST_STR_EQ("buildTag", parts[79], "column 80 is buildTag");
+    TEST_STR_EQ("gitHead", parts[80], "v6 header ends with gitHead");
+
+    for(int i = 0; i < v5n; i++)
+    {
+        string msg = StringFormat("v6 keeps v5 column %d (%s) in place", i, v5parts[i]);
+        TEST_STR_EQ(v5parts[i], parts[i], msg);
+    }
+}
+
 void TestSchema_Version31(TestCounters &counters)
 {
-    TEST_INT_EQ(5, TELEMETRY_SCHEMA_VERSION, "Active schema version is 5 (v5, Sprint 22 RL-HYP-01)");
+    TEST_INT_EQ(6, TELEMETRY_SCHEMA_VERSION, "Active schema version is 6 (v6, Sprint 25B B25-01 run identity)");
     TEST_STR_EQ("v3.0", TELEMETRY_EA_VERSION, "EA version string updated");
     TEST_STR_EQ("rule-layer-v1", TELEMETRY_SCORE_ARCHITECTURE, "score architecture versioned");
     TEST_STR_EQ("rule-layer", TELEMETRY_TELEMETRY_ARCHITECTURE, "telemetry architecture tagged");
@@ -279,7 +301,7 @@ void TestRowBuilder_EvidenceCapture(TestCounters &counters)
     bool ok = CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDec, true, legacyDec, 0.60,
                                                       w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig(), sig);
     TEST_TRUE(ok, "BuildWithEvidence succeeds");
-    TEST_INT_EQ(5, (int)row.schemaVersion, "Row stamped schema v5 (v5 gate columns)");
+    TEST_INT_EQ(6, (int)row.schemaVersion, "Row stamped schema v6 (identity columns)");
     TEST_DBL_NEAR(0.60, row.confidence, 1e-9, "v2 columns still populated (confidence)");
     TEST_DBL_NEAR(80.0, row.structureRaw, 1e-9, "legacy component columns still populated");
 
@@ -458,7 +480,7 @@ void TestRowBuilder_EvidenceFallback(TestCounters &counters)
     TelemetryRow row;
     CTelemetryRowBuilder::Build(row, cr, newDec, false, EntryDecision(), 0.60,
                                 w, "EURUSD", (int)PERIOD_H1, "", "tick", 5, ConfluenceConfig());
-    TEST_INT_EQ(5, (int)row.schemaVersion, "Build() stamps schema v5 (v5 gate columns)");
+    TEST_INT_EQ(6, (int)row.schemaVersion, "Build() stamps schema v6 (identity columns)");
     TEST_INT_EQ(0, row.componentData, "no evidence claim without a signal");
     TEST_INT_EQ(EV_UNKNOWN, row.hasBOS, "unevaluated flags stay UNKNOWN, not FALSE");
     TEST_INT_EQ(0, row.firedRuleId, "no fired rule");
@@ -687,6 +709,60 @@ void TestCollector_RecordAssignsDecisionId(TestCounters &counters)
     c.Shutdown();
 }
 
+// ─── B25-01: build/run identity stamping ───────────────────────────
+
+void TestCollector_IdentityStamp(TestCounters &counters)
+{
+    CTelemetryCollector c;
+    c.Init();
+
+    TelemetryRow r1, r2;
+    c.Record(r1);
+    c.Record(r2);
+
+    TEST_INT_EQ(0, StringFind(r1.runId, "RUN-"), "runId carries the RUN- prefix");
+    TEST_INT_EQ(19, StringLen(r1.buildTag), "buildTag is YYYY.MM.dd HH:mm:ss (19 chars)");
+    TEST_TRUE(StringLen(r1.runId) >= StringLen(r1.buildTag) + 5,
+              "runId embeds buildTag plus the tick suffix");
+    bool gitOk = (r1.gitHead == "unknown") || (StringLen(r1.gitHead) == 40);
+    TEST_TRUE(gitOk, "gitHead is 40-hex or unknown");
+
+    TEST_STR_EQ(r1.runId, r2.runId, "runId constant within a run");
+    TEST_STR_EQ(r1.buildTag, r2.buildTag, "buildTag constant within a run");
+    TEST_STR_EQ(r1.gitHead, r2.gitHead, "gitHead constant within a run");
+
+    c.Shutdown();
+}
+
+// ─── B25-02: checkpoint flush bounds the buffered window ───────────
+
+void TestCollector_CheckpointFlush(TestCounters &counters)
+{
+    CTelemetryCollector c;
+    c.Init();
+    c.SetCheckpointRows(2);
+
+    TelemetryRow r1;
+    c.Record(r1);
+    TEST_INT_EQ(1, c.BufferedCount(), "row stays buffered below the checkpoint");
+    c.Record(r1);
+    TEST_INT_EQ(0, c.BufferedCount(), "checkpoint flush clears the buffer at 2 rows");
+    TEST_INT_EQ(2, c.GetTotalRows(), "flushed rows counted");
+
+    TelemetryRow r2;
+    c.Record(r2);
+    TEST_INT_EQ(1, c.BufferedCount(), "buffer refills after a checkpoint");
+
+    TelemetryRow settled;
+    settled.outcome = (int)TELEMETRY_OUTCOME_WIN;
+    settled.actualOutcome = (int)TELEMETRY_OUTCOME_WIN;
+    settled.outcomeSource = (int)OUTCOME_SOURCE_ACTUAL;
+    c.Record(settled);
+    TEST_INT_EQ(0, c.BufferedCount(), "second checkpoint flushes again");
+
+    c.Shutdown();
+}
+
 void TestCollector_ApplyActualOutcome(TestCounters &counters)
 {
     CTelemetryCollector c;
@@ -814,6 +890,7 @@ TestCounters RunTelemetryTests()
     TestHeader_V3ColumnCount(counters);
     TestHeader_V31ColumnCount(counters);
     TestHeader_V5ColumnCount(counters);
+    TestHeader_V6ColumnCount(counters);
     TestSchema_Version31(counters);
     TestTelemetryRuleNames(counters);
     TestRowBuilder_NormalizedConfidence(counters);
@@ -840,6 +917,8 @@ TestCounters RunTelemetryTests()
     TestRowBuilder_FingerprintIncludesFloors(counters);
     TestRowFingerprint_ED01DefaultParity(counters);
     TestCollector_RecordAssignsDecisionId(counters);
+    TestCollector_IdentityStamp(counters);
+    TestCollector_CheckpointFlush(counters);
     TestCollector_ApplyActualOutcome(counters);
     TestActualOutcomeSettler_Classify(counters);
     TestActualOutcomeSettler_EventMapping(counters);

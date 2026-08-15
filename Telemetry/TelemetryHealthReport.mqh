@@ -328,6 +328,10 @@ private:
         if(StringFind(row.telemetryArchitecture, "MISSING") >= 0) count++;
         if(StringFind(row.evidenceContract, "MISSING") >= 0) count++;
         if(StringFind(row.confidenceModel, "MISSING") >= 0) count++;
+        //--- Schema v6 provenance (B25-01).
+        if(StringFind(row.runId, "MISSING") >= 0) count++;
+        if(StringFind(row.buildTag, "MISSING") >= 0) count++;
+        if(StringFind(row.gitHead, "MISSING") >= 0) count++;
         return count;
     }
 
@@ -399,8 +403,9 @@ private:
 public:
     //--- Serialize a row to CSV (mirrors TelemetryCollector::WriteRow).
     //--- Serialize one row for round-trip auditing.  Schema v5 rows
-    //    carry the 3 swing-gate columns (append-only over v3.1); legacy
-    //    rows re-serialize byte-identically to their original shape.
+    //    carry the 3 swing-gate columns and v6 rows the 3 provenance
+    //    columns (append-only over v3.1 / v5); legacy rows re-serialize
+    //    byte-identically to their original shape.
     static string SerializeRow(const TelemetryRow &row)
     {
         int    v5QualifyingId = 0;
@@ -412,6 +417,9 @@ public:
             v5Amplitude    = row.swingAmplitude;
             v5Decision     = row.gateDecision;
         }
+        string v6Identity = "";
+        if(row.schemaVersion >= 6)
+            v6Identity = "," + row.runId + "," + row.buildTag + "," + row.gitHead;
         return StringFormat(
             "%d,%llu,%s,%s,%d,%s,%d,%d,%.8f,"
             "%.8f,%.6f,%.8f,%.8f,%.6f,%.8f,%.8f,%.6f,%.8f,"
@@ -493,7 +501,7 @@ public:
             //--- Schema v5 swing-gate columns (append-only over v3.1).
             v5QualifyingId,
             v5Amplitude,
-            v5Decision);
+            v5Decision) + v6Identity;
     }
 
 private:
@@ -550,6 +558,10 @@ private:
         if(reparsed.swingQualifyingId != original.swingQualifyingId) return false;
         if(MathAbs(reparsed.swingAmplitude - original.swingAmplitude) > 1e-12) return false;
         if(reparsed.gateDecision != original.gateDecision) return false;
+        //--- Schema v6 provenance columns.
+        if(reparsed.runId != original.runId) return false;
+        if(reparsed.buildTag != original.buildTag) return false;
+        if(reparsed.gitHead != original.gitHead) return false;
         return true;
     }
 
@@ -714,10 +726,11 @@ public:
             RegisterRule(row.firedRuleId, row.ruleName, row.componentData == 1);
         }
 
-        //--- Schema version pass: 100% v3+ (v3, v3.1 and v5 rows count).
+        //--- Schema version pass: 100% v3+ (v3, v3.1, v5 and v6 rows count).
         int v3PlusCount = report.schema.schemaVersionCounts[3]
                         + report.schema.schemaVersionCounts[4]
-                        + report.schema.schemaVersionCounts[5];
+                        + report.schema.schemaVersionCounts[5]
+                        + report.schema.schemaVersionCounts[6];
         report.schema.schemaVersionPass = (v3PlusCount == count);
 
         //--- Legacy consistency pass.
@@ -939,6 +952,7 @@ public:
         out += StringFormat("  v3 rows:                 %d\n", report.schema.schemaVersionCounts[3]);
         out += StringFormat("  v3.1 rows:               %d\n", report.schema.schemaVersionCounts[4]);
         out += StringFormat("  v5 (RL-HYP-01) rows:     %d\n", report.schema.schemaVersionCounts[5]);
+        out += StringFormat("  v6 (B25-01) rows:        %d\n", report.schema.schemaVersionCounts[6]);
         out += StringFormat("  v2 rows:                 %d\n", report.schema.schemaVersionCounts[2]);
         out += StringFormat("  Legacy consistency pass: %s\n", report.schema.legacyConsistencyPass ? "YES" : "NO");
         out += StringFormat("  Round-trip pass:         %s (%d/%d sampled)\n",
@@ -1019,6 +1033,7 @@ public:
         out += StringFormat("schema,v3Rows,%d\n", report.schema.schemaVersionCounts[3]);
         out += StringFormat("schema,v31Rows,%d\n", report.schema.schemaVersionCounts[4]);
         out += StringFormat("schema,v5Rows,%d\n", report.schema.schemaVersionCounts[5]);
+        out += StringFormat("schema,v6Rows,%d\n", report.schema.schemaVersionCounts[6]);
         out += StringFormat("schema,v2Rows,%d\n", report.schema.schemaVersionCounts[2]);
         out += StringFormat("schema,legacyConsistencyPass,%d\n", report.schema.legacyConsistencyPass ? 1 : 0);
         out += StringFormat("schema,roundTripPass,%d\n", report.schema.roundTripPass ? 1 : 0);

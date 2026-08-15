@@ -22,11 +22,24 @@ $script:TT01_HEADER_V31 = @(
 # Sprint 22 RL-HYP-01: schema v5 appends the 3 swing-gate columns (append-only over v3.1).
 $script:TT01_HEADER_V5 = @($script:TT01_HEADER_V31) + @("swingQualifyingId","swingAmplitude","gateDecision")
 
+# Sprint 25B B25-01: schema v6 appends the 3 provenance columns (append-only over v5).
+$script:TT01_HEADER_V6 = @($script:TT01_HEADER_V5) + @("runId","buildTag","gitHead")
+
+# Schema version the current build records (data-driven; used by every
+# validator that asserts the run's schemaVersion).
+$script:TT01_EXPECTED_SCHEMA = "6"
+
 # Schema-recording columns: exempted from behavior byte-compare against the frozen
-# v4 baseline (B7). The version flip 4 -> 5 and the sentinel gate values record the
-# Sprint 22 policy (gate OFF at tier 0.0 => surfacing integers equal to the legacy
+# v4 baseline (B7). The version flip 4 -> 6 and the sentinel gate values record the
+# Sprint 22/25B policy (gate OFF at tier 0.0 => surfacing integers equal to the legacy
 # TelemetryRow beyond these columns); byte-identity must hold on every other column.
 $script:TT01_SCHEMA_RECORDING = @("schemaVersion","swingQualifyingId","swingAmplitude","gateDecision")
+
+# B25-01 provenance identity columns: constant per run, carry no behavioral
+# meaning. Exempted from byte-compares between two FRESH v6 files (runId
+# differs per run) and validated explicitly instead (constancy + format +
+# cross-run/build consistency).
+$script:TT01_IDENTITY = @("runId","buildTag","gitHead")
 
 $script:TT01_NUMERIC = @(
     "confidence",    "structureRaw","structureWeight","structureContribution",
@@ -86,14 +99,14 @@ function Get-TT01Counters {
 }
 
 function Test-TT01Contract {
-    param([string]$Path)
+    param([string]$Path, [string]$ExpectedGitHead = $null, [object[]]$ExpectedBuildTagWindow = $null)
     $detail = [System.Collections.Generic.List[string]]::new()
     $fail = 0
     $headerLine = Get-Content -LiteralPath $Path -TotalCount 1
     $cols = $headerLine.Split(",")
-    if ($cols.Count -ne $script:TT01_HEADER_V5.Count) { $fail++; $detail.Add("header column count $($cols.Count) != $($script:TT01_HEADER_V5.Count) (v5)") }
-    foreach ($i in 0..([Math]::Min($cols.Count, $script:TT01_HEADER_V5.Count) - 1)) {
-        if ($cols[$i] -ne $script:TT01_HEADER_V5[$i]) { $fail++; $detail.Add("column[$i] '$($cols[$i])' != '$($script:TT01_HEADER_V5[$i])'" ) }
+    if ($cols.Count -ne $script:TT01_HEADER_V6.Count) { $fail++; $detail.Add("header column count $($cols.Count) != $($script:TT01_HEADER_V6.Count) (v6)") }
+    foreach ($i in 0..([Math]::Min($cols.Count, $script:TT01_HEADER_V6.Count) - 1)) {
+        if ($cols[$i] -ne $script:TT01_HEADER_V6[$i]) { $fail++; $detail.Add("column[$i] '$($cols[$i])' != '$($script:TT01_HEADER_V6[$i])'" ) }
     }
     $rows = Import-Csv -LiteralPath $Path
     foreach ($c in $script:TT01_NUMERIC) {
@@ -119,8 +132,8 @@ function Test-TT01Contract {
             if (-not [datetime]::TryParse($r.$c, [ref]$t)) { $fail++; $detail.Add("bad datetime '$c' value '$($r.$c)' row '$($r.signalTime)'"); break }
         }
     }
-    $schemaBad = @($rows | Where-Object { $_.schemaVersion -ne "5" }).Count
-    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad rows with schemaVersion != 5") }
+    $schemaBad = @($rows | Where-Object { $_.schemaVersion -ne "6" }).Count
+    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad rows with schemaVersion != 6") }
     foreach ($r in $rows) {
         $q = 0; $a = 0.0
         if (-not [int]::TryParse($r.swingQualifyingId, [ref]$q)) { $fail++; $detail.Add("non-integer swingQualifyingId '$($r.swingQualifyingId)' row '$($r.signalTime)'"); break }
@@ -137,7 +150,40 @@ function Test-TT01Contract {
     if ($fp -ne 1) { $fail++; $detail.Add("configFingerprint not constant ($fp distinct)") }
     $timeBad = @($rows | Where-Object { $_.signalTime -notmatch "^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}" }).Count
     if ($timeBad -gt 0) { $fail++; $detail.Add("$timeBad rows with malformed signalTime") }
-    if ($fail -eq 0) { $detail.Add("header $($script:TT01_HEADER_V5.Count)/$($script:TT01_HEADER_V5.Count) exact (v5 = v3.1 + 3 gate columns), schemaVersion=5, gate sentinels OFF, all numerics/flags/times parse, fingerprint constant") }
+
+    #--- B25-01 identity: constant per file, well-formed, and (when the
+    #    harness provides them) equal to the run's gitHead and inside the
+    #    production compile window.
+    $runIds = @($rows | ForEach-Object { $_.runId } | Sort-Object -Unique)
+    $tags   = @($rows | ForEach-Object { $_.buildTag } | Sort-Object -Unique)
+    $heads  = @($rows | ForEach-Object { $_.gitHead } | Sort-Object -Unique)
+    if ($runIds.Count -ne 1) { $fail++; $detail.Add("identity FAIL: runId not constant ($($runIds.Count) distinct)") }
+    elseif ($runIds[0] -notmatch "^RUN-\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}-\d+$") {
+        $fail++; $detail.Add("identity FAIL: malformed runId '$($runIds[0])' (expected RUN-<buildTag>-<tick>)")
+    } else { $detail.Add("identity: runId valid and constant: $($runIds[0])") }
+    if ($tags.Count -ne 1) { $fail++; $detail.Add("identity FAIL: buildTag not constant ($($tags.Count) distinct)") }
+    else {
+        $tag = $tags[0]
+        if ($tag -notmatch "^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}$") { $fail++; $detail.Add("identity FAIL: malformed buildTag '$tag'") }
+        elseif ($ExpectedBuildTagWindow) {
+            $tagTime = [datetime]::MinValue
+            [void][datetime]::TryParseExact($tag, "yyyy.MM.dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$tagTime)
+            $w0 = [datetime]$ExpectedBuildTagWindow[0]; $w1 = [datetime]$ExpectedBuildTagWindow[1]
+            if ($tagTime -eq [datetime]::MinValue -or $tagTime -lt $w0 -or $tagTime -gt $w1) {
+                $fail++; $detail.Add("identity FAIL: buildTag '$tag' outside the production compile window [$($w0.ToString('yyyy.MM.dd HH:mm:ss')) .. $($w1.ToString('yyyy.MM.dd HH:mm:ss'))] - stale or foreign binary")
+            } else { $detail.Add("identity: buildTag '$tag' inside the production compile window") }
+        } else { $detail.Add("identity: buildTag valid: $tag (compile-window check skipped - stale CSV path)") }
+    }
+    if ($heads.Count -ne 1) { $fail++; $detail.Add("identity FAIL: gitHead not constant ($($heads.Count) distinct)") }
+    else {
+        $h = $heads[0]
+        if ($h -ne "unknown" -and $h -notmatch "^[0-9a-f]{40}$") { $fail++; $detail.Add("identity FAIL: malformed gitHead '$h'") }
+        elseif ($ExpectedGitHead -and $h -ne $ExpectedGitHead) {
+            $fail++; $detail.Add("identity FAIL: gitHead '$h' != harness '$ExpectedGitHead' (run_identity.txt stale or foreign binary)")
+        } else { $detail.Add("identity: gitHead OK: $h") }
+    }
+
+    if ($fail -eq 0) { $detail.Add("header $($script:TT01_HEADER_V6.Count)/$($script:TT01_HEADER_V6.Count) exact (v6 = v5 + 3 provenance columns), schemaVersion=6, gate sentinels OFF, all numerics/flags/times parse, fingerprint constant, identity constant/valid") }
     New-TT01Result -Name "TELEMETRY-CONTRACT" -Pass ($fail -eq 0) -Details $detail.ToArray()
 }
 
@@ -363,18 +409,18 @@ function Test-TT01Behavior {
         $detail.Add("row-set delta: +$added added, -$missing missing (rows $($base.Count) -> $($run.Count))")
     } else {
         #--- schema-recording flip check: under the default tier-0.0 profile the
-        #--- run CSV is schema v5 (append-only recording) over the frozen v4
-        #--- baseline. A clean flip 4 -> 5 on every row is the expected, localized
+        #--- run CSV is schema v6 (append-only recording) over the frozen v4
+        #--- baseline. A clean flip 4 -> 6 on every row is the expected, localized
         #--- recording difference; byte-identity must hold on every other column.
         $schemaFlip = 0
         for ($i = 0; $i -lt $run.Count; $i++) {
-            if ($run[$i].schemaVersion -eq "5" -and $base[$i].schemaVersion -eq "4") { $schemaFlip++ }
+            if ($run[$i].schemaVersion -eq $script:TT01_EXPECTED_SCHEMA -and $base[$i].schemaVersion -eq "4") { $schemaFlip++ }
         }
         if ($schemaFlip -eq $run.Count) {
-            $detail.Add("schemaVersion 4 -> 5 on all $($run.Count) rows (Sprint 22 schema recording; gate columns carry OFF sentinels, verified by CONTRACT)")
+            $detail.Add("schemaVersion 4 -> $($script:TT01_EXPECTED_SCHEMA) on all $($run.Count) rows (Sprint 25B schema recording; gate columns carry OFF sentinels and identity is verified by CONTRACT)")
         } else {
             $fail++
-            $detail.Add("schema flip FAIL: $($run.Count - $schemaFlip)/$($run.Count) rows are not v4->v5")
+            $detail.Add("schema flip FAIL: $($run.Count - $schemaFlip)/$($run.Count) rows are not v4->v$($script:TT01_EXPECTED_SCHEMA)")
         }
         foreach ($c in $cols) {
             if ($script:TT01_SCHEMA_RECORDING -contains $c) { continue }
@@ -473,8 +519,25 @@ function Test-TT01ActiveTier {
         if ($qBad -gt 0) { $fail++; $detail.Add("$qBad rows with swingQualifyingId <= 0 (ADMIT must reference a pivot)") }
         $aBad = @($run | Where-Object { [double]($_.swingAmplitude) -le 0.0 }).Count
         if ($aBad -gt 0) { $fail++; $detail.Add("$aBad rows with swingAmplitude <= 0 (ADMIT must record k*ATR(14) threshold)") }
-        $sBad = @($run | Where-Object { $_.schemaVersion -ne "5" }).Count
-        if ($sBad -gt 0) { $fail++; $detail.Add("$sBad rows with schemaVersion != 5") }
+        $sBad = @($run | Where-Object { $_.schemaVersion -ne $script:TT01_EXPECTED_SCHEMA }).Count
+        if ($sBad -gt 0) { $fail++; $detail.Add("$sBad rows with schemaVersion != $($script:TT01_EXPECTED_SCHEMA)") }
+
+        #--- B25-01 identity consistency across the pair (same binary
+        #    population, distinct runs): buildTag + gitHead equal, runId
+        #    differs and is well-formed.
+        $rIds = @($run | ForEach-Object { $_.runId } | Sort-Object -Unique)
+        $bIds = @($base | ForEach-Object { $_.runId } | Sort-Object -Unique)
+        $rTags = @($run | ForEach-Object { $_.buildTag } | Sort-Object -Unique)
+        $bTags = @($base | ForEach-Object { $_.buildTag } | Sort-Object -Unique)
+        $rHeads = @($run | ForEach-Object { $_.gitHead } | Sort-Object -Unique)
+        $bHeads = @($base | ForEach-Object { $_.gitHead } | Sort-Object -Unique)
+        if ($rIds.Count -ne 1 -or $bIds.Count -ne 1) { $fail++; $detail.Add("identity FAIL: runId not constant (run=$($rIds.Count) base=$($bIds.Count) distinct)") }
+        elseif ($rIds[0] -eq $bIds[0]) { $fail++; $detail.Add("identity FAIL: runId identical across runs ('$($rIds[0])') - runs not distinguishable") }
+        else { $detail.Add("identity: distinct runIds (run='$($rIds[0])' base='$($bIds[0])')") }
+        if ($rTags.Count -ne 1 -or $bTags.Count -ne 1 -or $rTags[0] -ne $bTags[0]) { $fail++; $detail.Add("identity FAIL: buildTag differs across the pair ($($rTags -join ',') vs $($bTags -join ','))") }
+        else { $detail.Add("identity: buildTag constant across the pair '$($rTags[0])'") }
+        if ($rHeads.Count -ne 1 -or $bHeads.Count -ne 1 -or $rHeads[0] -ne $bHeads[0]) { $fail++; $detail.Add("identity FAIL: gitHead differs across the pair ($($rHeads -join ',') vs $($bHeads -join ','))") }
+        else { $detail.Add("identity: gitHead constant across the pair '$($rHeads[0])'") }
 
         #--- fingerprint invariance: constant and equal to the default run
         $fp = @($run | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
@@ -499,8 +562,9 @@ function Test-TT01ActiveTier {
         #    non-identity column. decisionId is exempt: it is a sequential
         #    collector id that renumbers when rows are gated out (a recording
         #    difference, like the schema flip - verified above via signalTime).
+        #    B25-01 identity columns are exempt (provenance; validated above).
         $baseByTime = @{}; foreach ($r in $base) { $baseByTime[$r.signalTime] = $r }
-        $exempt = @($script:TT01_SCHEMA_RECORDING) + @("decisionId")
+        $exempt = @($script:TT01_SCHEMA_RECORDING) + @("decisionId") + $script:TT01_IDENTITY
         $sharedBad = 0; $sharedBadSample = @()
         foreach ($r in $run) {
             if (-not $baseByTime.ContainsKey($r.signalTime)) { continue }
@@ -546,7 +610,8 @@ function Get-TT01ArmRows {
     param([string]$Path)
     $rows = @()
     if (Test-Path -LiteralPath $Path -PathType Container) {
-        foreach ($f in @(Get-ChildItem -LiteralPath $Path -Filter "telemetry_v5_*.csv" | Sort-Object Name)) {
+        #--- B25-01: v6 fresh arms + frozen v5 CONTROL dir (both match v*).
+        foreach ($f in @(Get-ChildItem -LiteralPath $Path -Filter "telemetry_v*.csv" | Sort-Object Name)) {
             $rows += @(Import-Csv -LiteralPath $f.FullName)
         }
     }
@@ -598,10 +663,26 @@ function Test-TT01SettlementIsolation {
         $detail.Add("nGatedOut = $nGatedOut (default $($base.Count) -> admitted $($run.Count))")
     }
 
-    $schemaBad = @($run | Where-Object { $_.schemaVersion -ne "5" }).Count
-    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad isolation-tier rows with schemaVersion != 5") }
-    $schemaBadB = @($base | Where-Object { $_.schemaVersion -ne "5" }).Count
-    if ($schemaBadB -gt 0) { $fail++; $detail.Add("$schemaBadB isolation-control rows with schemaVersion != 5") }
+    $schemaBad = @($run | Where-Object { $_.schemaVersion -ne $script:TT01_EXPECTED_SCHEMA }).Count
+    if ($schemaBad -gt 0) { $fail++; $detail.Add("$schemaBad isolation-tier rows with schemaVersion != $($script:TT01_EXPECTED_SCHEMA)") }
+    $schemaBadB = @($base | Where-Object { $_.schemaVersion -ne $script:TT01_EXPECTED_SCHEMA }).Count
+    if ($schemaBadB -gt 0) { $fail++; $detail.Add("$schemaBadB isolation-control rows with schemaVersion != $($script:TT01_EXPECTED_SCHEMA)") }
+
+    #--- B25-01 identity consistency across the tiered pair (same binary
+    #    population, distinct runs): buildTag + gitHead equal, runId differs.
+    $rIds = @($run | ForEach-Object { $_.runId } | Sort-Object -Unique)
+    $bIds = @($base | ForEach-Object { $_.runId } | Sort-Object -Unique)
+    $rTags = @($run | ForEach-Object { $_.buildTag } | Sort-Object -Unique)
+    $bTags = @($base | ForEach-Object { $_.buildTag } | Sort-Object -Unique)
+    $rHeads = @($run | ForEach-Object { $_.gitHead } | Sort-Object -Unique)
+    $bHeads = @($base | ForEach-Object { $_.gitHead } | Sort-Object -Unique)
+    if ($rIds.Count -ne 1 -or $bIds.Count -ne 1) { $fail++; $detail.Add("identity FAIL: runId not constant (run=$($rIds.Count) base=$($bIds.Count) distinct)") }
+    elseif ($rIds[0] -eq $bIds[0]) { $fail++; $detail.Add("identity FAIL: runId identical across arms ('$($rIds[0])')") }
+    else { $detail.Add("identity: distinct runIds (tier='$($rIds[0])' control='$($bIds[0])')") }
+    if ($rTags.Count -ne 1 -or $bTags.Count -ne 1 -or $rTags[0] -ne $bTags[0]) { $fail++; $detail.Add("identity FAIL: buildTag differs across the pair ($($rTags -join ',') vs $($bTags -join ','))") }
+    else { $detail.Add("identity: buildTag constant across the pair '$($rTags[0])'") }
+    if ($rHeads.Count -ne 1 -or $bHeads.Count -ne 1 -or $rHeads[0] -ne $bHeads[0]) { $fail++; $detail.Add("identity FAIL: gitHead differs across the pair ($($rHeads -join ',') vs $($bHeads -join ','))") }
+    else { $detail.Add("identity: gitHead constant across the pair '$($rHeads[0])'") }
 
     $fpRun = @($run | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
     $fpBase = @($base | ForEach-Object { $_.configFingerprint } | Sort-Object -Unique)
@@ -621,7 +702,7 @@ function Test-TT01SettlementIsolation {
     if ($notInBase.Count -gt 0) { $fail++; $detail.Add("$($notInBase.Count) admitted bars absent from the isolation control (gate invented candidates)") }
     else { $detail.Add("decision identity: all admitted bars are a subset of the control bars (gating is a pure filter)") }
 
-    $exempt = @($script:TT01_SCHEMA_RECORDING) + @("decisionId")
+    $exempt = @($script:TT01_SCHEMA_RECORDING) + @("decisionId") + $script:TT01_IDENTITY
     $cmp = Compare-TT01SameBarGroups -Run $run -Base $base -Exempt $exempt
     if ($cmp.bad -gt 0) {
         $fail++
@@ -650,7 +731,10 @@ function Test-TT01IntegrityControl {
     #--- regression control (Design doc §8.3): the fresh tier-0 isolation
     #    arm must be byte-identical to the frozen CONTROL_RLHYP01 batch
     #    artifact (same window/profile): determinism + criterion-6 guard.
-    #    Exemption: decisionId only (both records are schema v5).
+    #    Exemptions: decisionId (sequential collector id) and the schema
+    #    recording (B25-01: the fresh arm records v6 vs the frozen v5 —
+    #    asserted explicitly below). B25-01 identity columns are absent
+    #    from the frozen file and never compared.
     param([string]$RunPath, [string]$BasePath)
     $detail = [System.Collections.Generic.List[string]]::new()
     $fail = 0
@@ -667,7 +751,25 @@ function Test-TT01IntegrityControl {
     } else {
         $detail.Add("row count $($run.Count) == frozen CONTROL (determinism holds)")
     }
-    $cmp = Compare-TT01SameBarGroups -Run $run -Base $base -Exempt @("decisionId")
+
+    #--- B25-01 recording flip: the fresh arm is schema v6 (identity
+    #    stamped), the frozen artifact stays v5. Both must hold.
+    $sFresh = @($run | Where-Object { $_.schemaVersion -ne $script:TT01_EXPECTED_SCHEMA }).Count
+    if ($sFresh -gt 0) { $fail++; $detail.Add("$sFresh fresh rows with schemaVersion != $($script:TT01_EXPECTED_SCHEMA) (recording flip violated)") }
+    $sFrozen = @($base | Where-Object { $_.schemaVersion -ne "5" }).Count
+    if ($sFrozen -gt 0) { $fail++; $detail.Add("$sFrozen frozen rows with schemaVersion != 5 (frozen artifact drifted)") }
+
+    #--- B25-01 identity constancy inside the fresh arm (provenance).
+    $ids = @($run | ForEach-Object { $_.runId } | Sort-Object -Unique)
+    $tags = @($run | ForEach-Object { $_.buildTag } | Sort-Object -Unique)
+    $heads = @($run | ForEach-Object { $_.gitHead } | Sort-Object -Unique)
+    if ($ids.Count -ne 1 -or $tags.Count -ne 1 -or $heads.Count -ne 1) {
+        $fail++; $detail.Add("identity FAIL: fresh arm provenance not constant (runId=$($ids.Count) buildTag=$($tags.Count) gitHead=$($heads.Count) distinct)")
+    } else {
+        $detail.Add("fresh arm identity: runId='$($ids[0])' buildTag='$($tags[0])' gitHead='$($heads[0])'")
+    }
+
+    $cmp = Compare-TT01SameBarGroups -Run $run -Base $base -Exempt @("decisionId","schemaVersion")
     if ($cmp.bad -gt 0) {
         $fail++
         $detail.Add("INTEGRITY byte-identity FAIL: $($cmp.bad) column diffs on $($cmp.compared) rows vs frozen CONTROL")

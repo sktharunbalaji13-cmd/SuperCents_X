@@ -3,15 +3,26 @@
 //|                                      Copyright 2026, SuperCents_X|
 //|                                             v3.1 (Sprint 17)       |
 //+------------------------------------------------------------------+
-//  Persists every decision as one CSV row (schema v3, Sprint 17
-//  Evidence Capture: v2 columns unchanged + 23 rule/layer/evidence
-//  observation columns appended; see TelemetryTypes.mqh).
+//  Persists every decision as one CSV row (schema v6, Sprint 25B
+//  B25-01: v5 columns unchanged + 3 provenance columns runId/buildTag/
+//  gitHead appended at the END; see TelemetryTypes.mqh).
 //
-//  - Daily rotation: telemetry_v3_YYYYMMDD.csv under Common\Files\Telemetry
+//  - Daily rotation: telemetry_v6_YYYYMMDD.csv under Common\Files\Telemetry
 //    (FILE_COMMON is used on write AND read sides — CalibrationDataset)
 //  - Header written only when the file is created
-//  - Rows buffered in memory and flushed on demand / when full
+//  - Rows buffered in memory and flushed on a checkpoint boundary
+//    (every N rows, B25-02), when the buffer is full, or on Shutdown
 //  - decisionId is assigned run-locally when the caller passes 0
+//
+//  B25-01 identity (provenance, no behavioral meaning):
+//  - runId    : self-generated at Init: "RUN-<buildTag>-<GetTickCount>"
+//  - buildTag : EA binary compile parse time (__DATETIME__)
+//  - gitHead  : compile-time constant from TelemetryGitHead.mqh.  The
+//    TT01 harness rewrites that file to the repo commit before compiling
+//    and restores the default after the run ("unknown" for manual/ED01
+//    builds).  Compile-time (not a runtime file read) because the tester
+//    stages FILE_COMMON in an ephemeral agent sandbox that cannot see
+//    pre-seeded harness files (TT01 B25 root cause)
 //
 //  Serialization notes:
 //  - validatorResults:   "Name=0|Name=2" (no commas inside)
@@ -24,8 +35,12 @@
 
 #include "../Core/Logger.mqh"
 #include "TelemetryTypes.mqh"
+#include "TelemetryGitHead.mqh"
 
 #define TELEMETRY_BUFFER_CAPACITY 1024
+//--- B25-02: checkpoint flush interval (rows between flushes).  The
+//    crash-loss window shrinks from the full buffer to one interval.
+#define TELEMETRY_CHECKPOINT_ROWS 64
 
 class CTelemetryCollector
 {
@@ -41,6 +56,14 @@ private:
     int     m_faultCount;
     int     m_runId;
 
+    //--- B25-01 provenance identity (constant per run).
+    string  m_runIdentity;
+    string  m_buildTag;
+    string  m_gitHead;
+
+    //--- B25-02 checkpoint interval (rows; default TELEMETRY_CHECKPOINT_ROWS).
+    int     m_checkpointEvery;
+
     string BuildFilePath(void) const
     {
         MqlDateTime dt;
@@ -53,7 +76,7 @@ private:
 
     bool WriteHeader(int handle)
     {
-        return FileWrite(handle, TELEMETRY_CSV_HEADER_V5) > 0;
+        return FileWrite(handle, TELEMETRY_CSV_HEADER_V6) > 0;
     }
 
     bool WriteRow(int handle, const TelemetryRow &row)
@@ -71,7 +94,8 @@ private:
             "%d,%d,%d,%d,%d,%d,"
             "%s,"
             "%d,%d,%s,%s,%s,%s,%s,"
-            "%d,%.8f,%s",
+            "%d,%.8f,%s,"
+            "%s,%s,%s",
             (int)row.schemaVersion,
             (ulong)row.configFingerprint,
             TimeToString(row.timestamp),
@@ -140,7 +164,11 @@ private:
             //--- Schema v5 swing-gate columns (append-only over v3.1).
             row.swingQualifyingId,
             row.swingAmplitude,
-            row.gateDecision);
+            row.gateDecision,
+            //--- Schema v6 provenance columns (append-only over v5).
+            row.runId,
+            row.buildTag,
+            row.gitHead);
         return FileWrite(handle, line) > 0;
     }
 
@@ -228,6 +256,10 @@ public:
         , m_totalRows(0)
         , m_faultCount(0)
         , m_runId(0)
+        , m_runIdentity("")
+        , m_buildTag("")
+        , m_gitHead("unknown")
+        , m_checkpointEvery(TELEMETRY_CHECKPOINT_ROWS)
     {}
 
     bool Init(const string outputDir = "Telemetry")
@@ -237,13 +269,31 @@ public:
         m_totalRows = 0;
         m_faultCount = 0;
         m_runId = 0;
+        m_checkpointEvery = TELEMETRY_CHECKPOINT_ROWS;
+
+        //--- B25-01: provenance identity, generated once per run.
+        m_buildTag = TimeToString(__DATETIME__, TIME_DATE | TIME_MINUTES | TIME_SECONDS);
+        m_gitHead = TELEMETRY_GIT_HEAD;
+        m_runIdentity = "RUN-" + m_buildTag + "-" + IntegerToString(GetTickCount());
+
         m_isInitialized = true;
         m_logger.LogInfo("Telemetry collector initialized (schema v" + IntegerToString(TELEMETRY_SCHEMA_VERSION) + ", "
                          + BuildFilePath() + ")");
+        m_logger.LogInfo("Telemetry identity runId=" + m_runIdentity
+                         + " buildTag=" + m_buildTag
+                         + " gitHead=" + m_gitHead);
         return true;
     }
 
     void SetEnabled(bool enabled) { m_enabled = enabled; }
+
+    //--- B25-02: override the checkpoint flush interval (>= 1 rows).
+    //    Test hook; the default TELEMETRY_CHECKPOINT_ROWS applies to
+    //    all production paths.
+    void SetCheckpointRows(const int rows)
+    {
+        m_checkpointEvery = (rows >= 1) ? rows : TELEMETRY_CHECKPOINT_ROWS;
+    }
 
     //--- GR02A: records a decision row and returns the decisionId the
     //    row was stored under (run-local assignment when caller passes
@@ -257,6 +307,11 @@ public:
         if(row.decisionId == 0)
             row.decisionId = ++m_runId;
 
+        //--- B25-01: stamp provenance identity (constant per run).
+        row.runId = m_runIdentity;
+        row.buildTag = m_buildTag;
+        row.gitHead = m_gitHead;
+
         int idx = m_buffered;
         if(idx >= ArraySize(m_rows))
             ArrayResize(m_rows, ArraySize(m_rows) + 256);
@@ -268,6 +323,14 @@ public:
         }
         m_rows[idx] = row;
         m_buffered++;
+
+        //--- B25-02: checkpoint flush — bounds the crash-loss window to
+        //    at most one checkpoint interval of buffered rows.
+        if(m_buffered >= m_checkpointEvery)
+        {
+            if(!FlushBuffer())
+                return 0;
+        }
         return row.decisionId;
     }
 
@@ -321,6 +384,7 @@ public:
             m_logger.LogInfo(StringFormat("  %-35s %5d", "Rows Written",      m_totalRows));
             m_logger.LogInfo(StringFormat("  %-35s %5d", "I/O Faults",        m_faultCount));
             m_logger.LogInfo(StringFormat("  %-35s %s",  "Output",            BuildFilePath()));
+            m_logger.LogInfo(StringFormat("  %-35s %s",  "Identity",          m_runIdentity));
             m_logger.LogInfo("======================================================================");
         }
         m_isInitialized = false;

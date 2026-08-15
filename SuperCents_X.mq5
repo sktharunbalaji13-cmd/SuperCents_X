@@ -69,6 +69,12 @@ CEngine g_engine;
 //+------------------------------------------------------------------+
 int OnInit()
 {
+    //--- B25-01: additive runtime identity line (mirrors the suite's
+    //    >>> BUILD pattern; the TT01 harness records it opportunistically).
+    Print(">>> BUILD 25B-PROD-01 tag=\"" + TimeToString(__DATETIME__, TIME_DATE | TIME_MINUTES | TIME_SECONDS)
+          + "\" term=" + IntegerToString(TerminalInfoInteger(TERMINAL_BUILD))
+          + " path=" + MQLInfoString(MQL_PROGRAM_PATH));
+
     Print("========================================");
     Print("SuperCents_X EA - Sprint 14 (v2.9)");
     Print("========================================");

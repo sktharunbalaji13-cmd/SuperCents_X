@@ -14,7 +14,7 @@
 #include "../TestAssert.mqh"
 #include "../../Telemetry/TelemetryHealthReport.mqh"
 
-//--- One v5 evidence row (schema v5) with sane defaults (rule 5, WIN).
+//--- One v6 evidence row (schema v6) with sane defaults (rule 5, WIN).
 TelemetryRow HealthRow(int ruleId = 5, int decisionId = 0, int outcome = 1)
 {
     TelemetryRow row;
@@ -100,7 +100,7 @@ bool HealthWriteLoad(const string fname, const TelemetryRow &rows[], int count,
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     if(h == INVALID_HANDLE)
         return false;
-    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V6);
     for(int i = 0; i < count; i++)
         FileWrite(h, CTelemetryHealthAnalyzer::SerializeRow(rows[i]));
     FileClose(h);
@@ -131,7 +131,7 @@ void TestHealth_PerfectDataset(TestCounters &counters)
     TEST_INT_EQ(0, rep.parse.schemaFailures, "no refused rows");
     TEST_DBL_NEAR(1.0, rep.parse.parseSuccessRate, 1e-9, "parse rate 100%");
     TEST_TRUE(rep.schema.schemaVersionPass, "schema version pass");
-    TEST_INT_EQ(3, rep.schema.schemaVersionCounts[5], "all rows v5");
+    TEST_INT_EQ(3, rep.schema.schemaVersionCounts[6], "all rows v6");
     TEST_TRUE(rep.schema.legacyConsistencyPass, "legacy consistency pass");
     TEST_TRUE(rep.schema.roundTripPass, "round-trip pass");
     TEST_INT_EQ(0, rep.schema.missingMarkerCount, "no MISSING markers");
@@ -152,6 +152,37 @@ void TestHealth_PerfectDataset(TestCounters &counters)
 }
 
 //====================================================================
+//  v6 identity round-trip: populated identity columns survive the
+//  serialize -> parse pipeline and the round-trip audit.
+//====================================================================
+void TestHealth_V6IdentityRoundTrip(TestCounters &counters)
+{
+    TelemetryRow r1 = HealthRow(5, 0, 1);
+    r1.runId = "RUN-2026.08.15 12:34:56-12345";
+    r1.buildTag = "2026.08.15 12:34:56";
+    r1.gitHead = "0123456789abcdef0123456789abcdef01234567";
+    TelemetryRow rows[1];
+    rows[0] = r1;
+
+    CCalibrationDataset ds;
+    TEST_TRUE(HealthWriteLoad("identity", rows, 1, ds), "identity dataset loads");
+
+    TelemetryRow parsed;
+    TEST_TRUE(ds.GetRow(0, parsed), "v6 row readable");
+    TEST_INT_EQ(6, (int)parsed.schemaVersion, "v6 row keeps schemaVersion 6");
+    TEST_STR_EQ("RUN-2026.08.15 12:34:56-12345", parsed.runId, "runId survives round-trip");
+    TEST_STR_EQ("2026.08.15 12:34:56", parsed.buildTag, "buildTag survives round-trip");
+    TEST_STR_EQ("0123456789abcdef0123456789abcdef01234567", parsed.gitHead, "gitHead survives round-trip");
+
+    CTelemetryHealthAnalyzer a;
+    TelemetryHealthReport rep = a.Analyze(ds);
+    TEST_TRUE(rep.schema.roundTripPass, "identity round-trip passes");
+    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[6], "one v6 row");
+    TEST_INT_EQ(100, rep.healthScore, "identity dataset healthy");
+    TEST_INT_EQ(HEALTH_PASS, rep.verdict, "verdict PASS");
+}
+
+//====================================================================
 //  Empty dataset: trivially healthy, no checks applicable.
 //====================================================================
 void TestHealth_EmptyDataset(TestCounters &counters)
@@ -160,7 +191,7 @@ void TestHealth_EmptyDataset(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "empty file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V6);
     FileClose(h);
 
     CCalibrationDataset ds;
@@ -247,7 +278,7 @@ string HealthV2Line(const TelemetryRow &row)
 }
 
 //====================================================================
-//  Mixed schema versions: a v2 row survives but fails the v5 gate.
+//  Mixed schema versions: a v2 row survives but fails the schema gate.
 //====================================================================
 void TestHealth_SchemaVersionMixed(TestCounters &counters)
 {
@@ -275,8 +306,8 @@ void TestHealth_SchemaVersionMixed(TestCounters &counters)
     CTelemetryHealthAnalyzer a;
     TelemetryHealthReport rep = a.Analyze(ds);
 
-    TEST_FALSE(rep.schema.schemaVersionPass, "mixed versions fail the v5 gate");
-    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[5], "one v5 row");
+    TEST_FALSE(rep.schema.schemaVersionPass, "mixed versions fail the schema gate");
+    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[6], "one v6 row");
     TEST_INT_EQ(1, rep.schema.schemaVersionCounts[2], "one v2 row");
     TEST_INT_EQ(85, rep.healthScore, "score 85 (15 pts lost)");
     TEST_INT_EQ(HEALTH_WARN, rep.verdict, "verdict WARN");
@@ -310,14 +341,14 @@ void TestHealth_LegacyV3FileStillLoads(TestCounters &counters)
 
     TEST_TRUE(rep.schema.schemaVersionPass, "100% v3 still passes the gate");
     TEST_INT_EQ(2, rep.schema.schemaVersionCounts[3], "two v3 rows");
-    TEST_INT_EQ(0, rep.schema.schemaVersionCounts[5], "no v5 rows");
+    TEST_INT_EQ(0, rep.schema.schemaVersionCounts[6], "no v6 rows");
     TEST_TRUE(rep.schema.roundTripPass, "round-trip only audits active-schema rows");
     TEST_INT_EQ(100, rep.healthScore, "legacy file stays healthy");
     TEST_INT_EQ(HEALTH_PASS, rep.verdict, "verdict PASS");
 }
 
 //====================================================================
-//  Mixed v3 + v5 rows in one v5 file: both parse, gate passes.
+//  Mixed v3 + v6 rows in one v6 file: both parse, gate passes.
 //====================================================================
 void TestHealth_MixedV3V4Rows(TestCounters &counters)
 {
@@ -325,22 +356,22 @@ void TestHealth_MixedV3V4Rows(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "mixed file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V6);
     FileWrite(h, HealthV3Line(HealthRow(5, 0, 1)));
     FileWrite(h, CTelemetryHealthAnalyzer::SerializeRow(HealthRow(1, 1, 2)));
     FileClose(h);
 
     CCalibrationDataset ds;
-    TEST_TRUE(ds.LoadFile(path), "mixed v3+v5 dataset loads");
+    TEST_TRUE(ds.LoadFile(path), "mixed v3+v6 dataset loads");
     FileDelete(path, FILE_COMMON);
     TEST_INT_EQ(2, ds.GetCount(), "both rows parsed");
 
     CTelemetryHealthAnalyzer a;
     TelemetryHealthReport rep = a.Analyze(ds);
 
-    TEST_TRUE(rep.schema.schemaVersionPass, "v3 + v5 mix passes the gate");
+    TEST_TRUE(rep.schema.schemaVersionPass, "v3 + v6 mix passes the gate");
     TEST_INT_EQ(1, rep.schema.schemaVersionCounts[3], "one v3 row");
-    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[5], "one v5 row");
+    TEST_INT_EQ(1, rep.schema.schemaVersionCounts[6], "one v6 row");
     TEST_INT_EQ(100, rep.healthScore, "mixed file healthy");
     TEST_INT_EQ(HEALTH_PASS, rep.verdict, "verdict PASS");
 }
@@ -521,7 +552,7 @@ void TestHealth_RoundTripCorrupt(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "corrupt file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V6);
     TelemetryRow r1 = HealthRow(5, 0, 1);
     string line = CTelemetryHealthAnalyzer::SerializeRow(r1);
     StringReplace(line, "0.45000000", "0.450000001");
@@ -550,7 +581,7 @@ void TestHealth_ParseFailures(TestCounters &counters)
     FileDelete(path, FILE_COMMON);
     int h = FileOpen(path, FILE_READ | FILE_WRITE | FILE_TXT | FILE_COMMON);
     TEST_TRUE(h != INVALID_HANDLE, "parse file opens");
-    FileWrite(h, TELEMETRY_CSV_HEADER_V5);
+    FileWrite(h, TELEMETRY_CSV_HEADER_V6);
     TelemetryRow r1 = HealthRow(5, 0, 1);
     FileWrite(h, CTelemetryHealthAnalyzer::SerializeRow(r1));
     FileWrite(h, "3,1,2,3");   // malformed: refused by the reader
@@ -735,6 +766,7 @@ TestCounters RunTelemetryHealthTests(void)
     SUITE_BEGIN("Telemetry Health Gate Tests");
 
     TestHealth_PerfectDataset(counters);
+    TestHealth_V6IdentityRoundTrip(counters);
     TestHealth_EmptyDataset(counters);
     TestHealth_MissingLayers(counters);
     TestHealth_MissingEvidence(counters);

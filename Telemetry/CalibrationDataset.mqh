@@ -16,6 +16,9 @@
 //  7 split-layer/FVG-classifier columns) while v2/v3 rows still parse.
 //  Sprint 22 RL-HYP-01: reads v5 (schemaVersion = 5; 78 columns = v3.1
 //  + the 3 swing-gate columns) while v2/v3/v4 rows still parse.
+//  Sprint 25B B25-01: reads v6 (schemaVersion = 6; 81 columns = v5 +
+//  the 3 provenance columns runId/buildTag/gitHead) while v2-v5 rows
+//  still parse.
 //+------------------------------------------------------------------+
 #ifndef __TELEMETRY_CALIBRATION_DATASET_MQH__
 #define __TELEMETRY_CALIBRATION_DATASET_MQH__
@@ -27,6 +30,7 @@
 #define TELEMETRY_CSV_COLUMNS_V3  68
 #define TELEMETRY_CSV_COLUMNS_V31 75
 #define TELEMETRY_CSV_COLUMNS_V5  78
+#define TELEMETRY_CSV_COLUMNS_V6  81
 
 class CCalibrationDataset
 {
@@ -60,9 +64,9 @@ public:
 public:
     //--- Parse one CSV line into a TelemetryRow. Schema-version aware:
     //    v2 lines (45 columns), v3 lines (68 columns), v3.1 lines (75
-    //    columns) and v5 lines (78 columns) are accepted; any other
-    //    schemaVersion or a column-count mismatch is refused explicitly
-    //    (no silent reinterpretation of old datasets).
+    //    columns), v5 lines (78 columns) and v6 lines (81 columns) are
+    //    accepted; any other schemaVersion or a column-count mismatch is
+    //    refused explicitly (no silent reinterpretation of old datasets).
     static bool ParseRow(const string line, TelemetryRow &out)
     {
         string col[];
@@ -73,12 +77,14 @@ public:
         string fld[];
         int m = MergeQuotedFields(col, n, fld);
         if(m != TELEMETRY_CSV_COLUMNS && m != TELEMETRY_CSV_COLUMNS_V3
-                && m != TELEMETRY_CSV_COLUMNS_V31 && m != TELEMETRY_CSV_COLUMNS_V5)
+                && m != TELEMETRY_CSV_COLUMNS_V31 && m != TELEMETRY_CSV_COLUMNS_V5
+                && m != TELEMETRY_CSV_COLUMNS_V6)
             return false;
 
         int i = 0;
         int schemaVersion = (int)StringToInteger(fld[i++]);
-        if(schemaVersion != 2 && schemaVersion != 3 && schemaVersion != 4 && schemaVersion != 5)
+        if(schemaVersion != 2 && schemaVersion != 3 && schemaVersion != 4
+                && schemaVersion != 5 && schemaVersion != 6)
             return false;
         if(schemaVersion == 2 && m != TELEMETRY_CSV_COLUMNS)
             return false;
@@ -87,6 +93,8 @@ public:
         if(schemaVersion == 4 && m != TELEMETRY_CSV_COLUMNS_V31)
             return false;
         if(schemaVersion == 5 && m != TELEMETRY_CSV_COLUMNS_V5)
+            return false;
+        if(schemaVersion == 6 && m != TELEMETRY_CSV_COLUMNS_V6)
             return false;
 
         out = TelemetryRow();
@@ -152,9 +160,9 @@ public:
             out.signalTime = StringToTime(fld[i++]);
         }
 
-        //--- Schema v3.1 evidence columns (Sprint 20 TC01; v4/v5 rows
+        //--- Schema v3.1 evidence columns (Sprint 20 TC01; v4/v5/v6 rows
         //    carry the 7 appended columns; strictly append-only over v3).
-        if(schemaVersion == 4 || schemaVersion == 5)
+        if(schemaVersion == 4 || schemaVersion == 5 || schemaVersion == 6)
         {
             out.scoreArchitecture = fld[i++];
             out.telemetryArchitecture = fld[i++];
@@ -188,13 +196,22 @@ public:
             out.fvgFillTime = StringToTime(fld[i++]);
         }
 
-        //--- Schema v5 swing-gate columns (Sprint 22 RL-HYP-01; v5 rows
+        //--- Schema v5 swing-gate columns (Sprint 22 RL-HYP-01; v5/v6 rows
         //    carry the 3 appended columns; strictly append-only over v3.1).
-        if(schemaVersion == 5)
+        if(schemaVersion == 5 || schemaVersion == 6)
         {
             out.swingQualifyingId = (int)StringToInteger(fld[i++]);
             out.swingAmplitude = StringToDouble(fld[i++]);
             out.gateDecision = fld[i++];
+        }
+
+        //--- Schema v6 provenance columns (Sprint 25B B25-01; v6 rows
+        //    carry the 3 appended columns; strictly append-only over v5).
+        if(schemaVersion == 6)
+        {
+            out.runId = fld[i++];
+            out.buildTag = fld[i++];
+            out.gitHead = fld[i++];
         }
         return true;
     }

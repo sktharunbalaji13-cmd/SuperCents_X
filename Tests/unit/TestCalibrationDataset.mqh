@@ -12,6 +12,9 @@
 //  v3 evidence lines round-trip, unknown versions are refused.
 //  Sprint 20 TC01: schema v3.1 (v4) reader contract — v3.1 lines
 //  round-trip all 7 appended columns, v5+ refused.
+//  Sprint 25B B25-01: schema v6 reader contract — identity columns
+//  (runId/buildTag/gitHead) round-trip, empty identity tolerated,
+//  v6 label bound to 81 columns.
 //+------------------------------------------------------------------+
 #ifndef __TEST_CALIBRATION_DATASET_MQH__
 #define __TEST_CALIBRATION_DATASET_MQH__
@@ -72,6 +75,23 @@ string TestV5LineAdmitted(void)
 {
     return "5" + StringSubstr(TestV31Line(), 1) + ","
            "7,0.00300000,ADMIT";
+}
+
+//--- A literal v6 (81-column) line: the v5 line above plus the 3
+//    Sprint 25B B25-01 run-identity columns
+//    (runId/buildTag/gitHead), matching TELEMETRY_CSV_HEADER_V6.
+string TestV6Line(void)
+{
+    return "6" + StringSubstr(TestV5Line(), 1) + ","
+           "RUN-2026.08.15 12:34:56-12345,2026.08.15 12:34:56,"
+           "0123456789abcdef0123456789abcdef01234567";
+}
+
+//--- v6 line with the identity columns left empty (pre-B25 row shape:
+//    rows written by the old code still parse under the v6 reader).
+string TestV6LineNoIdentity(void)
+{
+    return "6" + StringSubstr(TestV5Line(), 1) + ",,,";
 }
 
 void TestParse_V2BackwardCompatible(TestCounters &counters)
@@ -159,6 +179,28 @@ void TestParse_V5GateRoundTrip(TestCounters &counters)
     TEST_STR_EQ("ADMIT", admit.gateDecision, "ADMIT decision token parsed");
 }
 
+void TestParse_V6IdentityRoundTrip(TestCounters &counters)
+{
+    TelemetryRow row;
+    bool ok = CCalibrationDataset::ParseRow(TestV6Line(), row);
+    TEST_TRUE(ok, "v6 line parses");
+    TEST_INT_EQ(6, (int)row.schemaVersion, "v6 row keeps schemaVersion 6");
+    TEST_DBL_NEAR(0.45, row.confidence, 1e-9, "v6 row keeps v2 columns (confidence)");
+    TEST_STR_EQ("REVERSAL", row.fvgClass, "v6 row keeps v3.1 columns (fvgClass)");
+    TEST_STR_EQ("OFF", row.gateDecision, "v6 row keeps v5 columns (gateDecision)");
+    TEST_STR_EQ("RUN-2026.08.15 12:34:56-12345", row.runId, "runId parsed from column 79");
+    TEST_STR_EQ("2026.08.15 12:34:56", row.buildTag, "buildTag parsed from column 80");
+    TEST_STR_EQ("0123456789abcdef0123456789abcdef01234567", row.gitHead, "gitHead parsed from column 81");
+
+    TelemetryRow noId;
+    ok = CCalibrationDataset::ParseRow(TestV6LineNoIdentity(), noId);
+    TEST_TRUE(ok, "v6 line without identity columns parses");
+    TEST_INT_EQ(6, (int)noId.schemaVersion, "v6 row without identity keeps schemaVersion 6");
+    TEST_STR_EQ("", noId.runId, "empty runId tolerated");
+    TEST_STR_EQ("", noId.buildTag, "empty buildTag tolerated");
+    TEST_STR_EQ("", noId.gitHead, "empty gitHead tolerated");
+}
+
 void TestParse_RefusesUnknownVersions(TestCounters &counters)
 {
     TelemetryRow row;
@@ -195,6 +237,15 @@ void TestParse_RefusesUnknownVersions(TestCounters &counters)
     StringSetCharacter(mismatch5, 0, '5');
     TEST_FALSE(CCalibrationDataset::ParseRow(mismatch5, row), "v5 label with 75 columns refused");
 
+    //--- A v5 line with 78 columns but a v6 label must refuse too:
+    //    column count is bound to the declared version (v6 needs 81).
+    string mismatch6 = TestV5Line();
+    StringSetCharacter(mismatch6, 0, '6');
+    TEST_FALSE(CCalibrationDataset::ParseRow(mismatch6, row), "v6 label with 78 columns refused");
+
+    string junk6 = TestV6Line() + ",extra";
+    TEST_FALSE(CCalibrationDataset::ParseRow(junk6, row), "v6 line with extra column refused");
+
     //--- A v3 line with 68 columns but the v4 header shape must refuse too:
     //    column count is bound to the declared version.
     string mismatch = TestV3Line();
@@ -206,7 +257,7 @@ TestCounters RunCalibrationDatasetTests(void)
 {
     TestCounters counters;
 
-    SUITE_BEGIN("CalibrationDataset.ParseUnsigned + schema v3/v3.1/v5 reader");
+    SUITE_BEGIN("CalibrationDataset.ParseUnsigned + schema v3/v3.1/v5/v6 reader");
 
     TEST_TRUE(CCalibrationDataset::ParseUnsigned("0") == 0, "empty/zero: 0 -> 0");
 
@@ -234,14 +285,15 @@ TestCounters RunCalibrationDatasetTests(void)
     TEST_TRUE(max == 18446744073709551615, "ULONG_MAX parses exactly");
     TEST_TRUE(max != 9223372036854775807, "ULONG_MAX is NOT the INT64_MAX phantom");
 
-    //--- Schema v3/v3.1/v5 reader contract.
+    //--- Schema v3/v3.1/v5/v6 reader contract.
     TestParse_V2BackwardCompatible(counters);
     TestParse_V3EvidenceRoundTrip(counters);
     TestParse_V31EvidenceRoundTrip(counters);
     TestParse_V5GateRoundTrip(counters);
+    TestParse_V6IdentityRoundTrip(counters);
     TestParse_RefusesUnknownVersions(counters);
 
-    SUITE_END("CalibrationDataset.ParseUnsigned + schema v3/v3.1/v5 reader");
+    SUITE_END("CalibrationDataset.ParseUnsigned + schema v3/v3.1/v5/v6 reader");
 
     return counters;
 }

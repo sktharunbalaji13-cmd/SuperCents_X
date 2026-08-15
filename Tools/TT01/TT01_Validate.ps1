@@ -1,4 +1,4 @@
-﻿# TT01_Validate.ps1 - TT01 Platform Validation Harness (Sprint 20)
+# TT01_Validate.ps1 - TT01 Platform Validation Harness (Sprint 20)
 # Single command:  powershell -File TT01_Validate.ps1
 # Workflow: run TT01 -> all gates PASS -> commit. Answer to "did anything regress?".
 #
@@ -13,7 +13,7 @@
 #        admitted row must be byte-identical on all shared non-gate columns
 #        (the 58 -> 0 acceptance; RED on the unfixed build, GREEN after
 #        Design A: SettleDue hoisted to run on GATE-OUT bars too)
-#        INTEGRITY-CONTROL (Design A §8.3: the fresh tier-0 arm vs the frozen
+#        INTEGRITY-CONTROL (Design A ?8.3: the fresh tier-0 arm vs the frozen
 #        CONTROL_RLHYP01 batch artifact, byte-identical - determinism guard,
 #        criterion 6)
 #        PERFORMANCE (record + warn)  -> artifacts\TT01_<runId>\manifest.json
@@ -114,10 +114,11 @@ $RunDir     = Join-Path $ScriptDir "run"
 $ArtDir     = Join-Path $ScriptDir "artifacts"
 $BaseCsv    = Join-Path $BaseDir "telemetry_v4_20260130.csv"
 $BaseMan    = Join-Path $BaseDir "baseline.manifest.json"
-$OutCsv     = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry\telemetry_v5_20260130.csv"
+$OutCsv     = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry\telemetry_v6_20260130.csv"
 # Sprint 22 Design A: the isolation replay window emits MANY dated CSVs
 # (the collector rotates by buffer flush; the batch artifacts show the same
-# segmenting). The isolation arms capture every telemetry_v5_*.csv file.
+# segmenting). The isolation arms capture every telemetry_v*.csv file
+# (B25-01: fresh arms record schema v6; the frozen CONTROL dir stays v5).
 $TelemetryDir = Join-Path $env:APPDATA "MetaQuotes\Terminal\Common\Files\Telemetry"
 # Frozen Sprint-22 batch artifact (CONTROL arm, EURUSD M15 2026-04-05..07-05,
 # tier 0.0): the INTEGRITY-CONTROL determinism guard compares the fresh
@@ -147,8 +148,11 @@ $script:BuildIdentity = @{
                     terminalVersion = $null; metaeditorVersion = $null; canonicalEx5 = $CanonicalTestRunner }
     artifacts  = @{}
     runtime    = @{ buildLine = $null; suiteStartedLine = $null; grandTotalLine = $null;
-                    sliceFile = $null; sliceLines = 0; binaryArchiveDir = $null }
-    run        = @{ runId = $null; compileFinishedAt = $null; suiteRunAt = $null; suiteRunFinishedAt = $null }
+                    sliceFile = $null; sliceLines = 0; binaryArchiveDir = $null;
+                    prodBuildLine = $null }
+    run        = @{ runId = $null; compileFinishedAt = $null; suiteRunAt = $null; suiteRunFinishedAt = $null;
+                    prodCompileStartedAt = $null; prodCompileEndedAt = $null }
+    telemetry  = @{}
 }
 
 function Get-TT01ArtifactState {
@@ -418,6 +422,14 @@ function Invoke-TT01Compile {
             $script:BuildIdentity.run.suiteCompileStartedAt = $t0.ToString("yyyy-MM-ddTHH:mm:ss")
             $script:BuildIdentity.run.suiteCompileEndedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
         }
+        if ($t.Label -eq "SuperCents_X") {
+            #--- B25-01: production compile window (the CONTRACT gate checks
+            #    the CSV buildTag against it; the __DATETIME__ tag is captured
+            #    at parse time and must fall inside the harness-measured
+            #    compile interval).
+            $script:BuildIdentity.run.prodCompileStartedAt = $t0.ToString("yyyy-MM-ddTHH:mm:ss")
+            $script:BuildIdentity.run.prodCompileEndedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+        }
         $line = (Get-Content -LiteralPath $log -ErrorAction SilentlyContinue | Select-String "Result:" | Select-Object -Last 1).Line
         Write-Host ("    compile {0}: {1} ({2} s)" -f $t.Label, ($line -replace ".*Result: ", ""), [math]::Round(((Get-Date) - $t0).TotalSeconds)) -ForegroundColor DarkGray
         $post = Get-TT01ArtifactState $ex5Path
@@ -593,6 +605,9 @@ function Invoke-TT01Suite {
 function Invoke-TT01Replay {
     if ($Skip -contains "replay") { New-Gate "REPLAY" $true @("skipped; CSV from previous run reused"); return }
     Write-Step "REPLAY: real EURUSD H1 telemetry run"
+    #--- B25-02: start from a clean telemetry dir so the post-pass merge
+    #    captures ONLY this run's rows (suite rows share the dated names).
+    Clear-TT01Telemetry
     Remove-Item -LiteralPath $OutCsv -Force -ErrorAction SilentlyContinue
     $ini = Join-Path $RunDir "TT01_Replay.ini"
     Set-Content -LiteralPath $ini -Value $script:ReplayIni -Encoding ASCII
@@ -616,6 +631,15 @@ function Invoke-TT01Replay {
     $sw.Stop(); $script:Perf.replayMs = $sw.ElapsedMilliseconds
     $script:Perf.peakMemMB = [math]::Round([double]$peak / 1MB, 1)
 
+    #--- B25-02: the agent synced the dated files back at session end;
+    #    reassemble the full run into $OutCsv before the gates read it.
+    if (-not (Merge-TT01Telemetry -TargetPath $OutCsv)) {
+        New-Gate "REPLAY" $false @("no telemetry rows merged from $TelemetryDir")
+        return
+    }
+    Write-Host ("    merged " + (Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v6_*.csv").Count +
+                " dated file(s) into $OutCsv") -ForegroundColor DarkGray
+
     if (-not (Test-Path $AgentLog)) { New-Gate "REPLAY" $false @("agent log missing"); return }
     $all = @(Get-Content -LiteralPath $AgentLog -Tail 2000 -ErrorAction SilentlyContinue)
     $rows = [int](-1); $faults = [int](-1)
@@ -626,6 +650,12 @@ function Invoke-TT01Replay {
     $healthy = @($all | Where-Object { $_ -match "Overall Status\s+(\S+)" } | ForEach-Object { $Matches[1] } | Select-Object -Last 1)
     $crit = @($all | Where-Object { $_ -match "Critical\s+(\d+)" } | ForEach-Object { [int]$Matches[1] } | Select-Object -Last 1)
     $healthVerdict = (($healthy -join ",") -eq "HEALTHY") -and (([int]($crit -join ",")) -eq 0)
+
+    #--- B25-01: capture the production EA's self-reported build line (the
+    #    OnInit print; the tail above may not reach it, so stream-search the
+    #    journal like the suite block does).
+    $prodLines = @(Select-String -LiteralPath $AgentLog -Pattern '>>> BUILD 25B-PROD-01' -ErrorAction SilentlyContinue | Select-Object -Last 3)
+    $script:BuildIdentity.runtime.prodBuildLine = [string](@($prodLines | Select-Object -Last 1 | ForEach-Object { $_.Line }) | Select-Object -First 1)
 
     $ok = $false
     $deadline = (Get-Date).AddMinutes(10)
@@ -640,11 +670,51 @@ function Invoke-TT01Replay {
     }
     $pass = ($rows -eq $ExpectedRows) -and ($faults -eq 0) -and $healthVerdict -and $ok
     $script:Perf.csvBytes = (Get-Item -LiteralPath $OutCsv -ErrorAction SilentlyContinue).Length
-    New-Gate "REPLAY" $pass @("rows=$rows expected=$ExpectedRows faults=$faults health=$healthy critical=$crit csvCaptured=$ok")
+    $details = @("rows=$rows expected=$ExpectedRows faults=$faults health=$healthy critical=$crit csvCaptured=$ok")
+    if ($script:BuildIdentity.runtime.prodBuildLine) {
+        $details += ("prod build: " + ($script:BuildIdentity.runtime.prodBuildLine -replace "^.*>>> BUILD ", ">>> BUILD "))
+    } else {
+        $details += "prod build line NOT found in the journal (OnInit print absent or journal rotated)"
+    }
+    New-Gate "REPLAY" $pass @($details)
+}
+
+function Get-TT01ProdBuildWindow {
+    #--- B25-01: the CSV buildTag must fall inside the production compile
+    #    window (parse-time capture vs harness-measured compile interval).
+    #    Compile skipped -> fall back to the on-disk binary's mtime window.
+    #    Replay skipped -> $null (stale CSV from a previous run; the CONTRACT
+    #    gate then checks format/constancy only).
+    $w0 = $null; $w1 = $null
+    if ($Skip -contains "replay") { return @($w0, $w1) }
+    if ($script:BuildIdentity.run.prodCompileStartedAt) {
+        $w0 = [datetime]::ParseExact($script:BuildIdentity.run.prodCompileStartedAt, "yyyy-MM-ddTHH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture).AddSeconds(-15)
+        $w1 = [datetime]::ParseExact($script:BuildIdentity.run.prodCompileEndedAt, "yyyy-MM-ddTHH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture).AddSeconds(15)
+    } else {
+        $art = Get-TT01ArtifactState (Join-Path $SC "SuperCents_X.ex5")
+        if ($art.mtime) { $w0 = $art.mtime.AddMinutes(-10); $w1 = $art.mtime.AddMinutes(1) }
+    }
+    @($w0, $w1)
 }
 
 function Invoke-TT01Contract {
-    $res = Test-TT01Contract -Path $OutCsv
+    #--- B25-01: cross-check the CSV provenance against the harness facts
+    #    (gitHead from the run_identity.txt the harness wrote; buildTag
+    #    against the production compile window) and record the telemetry
+    #    identity block into the manifest.
+    $res = Test-TT01Contract -Path $OutCsv -ExpectedGitHead $gitHeadFull -ExpectedBuildTagWindow (Get-TT01ProdBuildWindow)
+    $script:BuildIdentity.telemetry = [ordered]@{
+        expectedGitHead = $gitHeadFull
+        compileWindowChecked = -not ($Skip -contains "replay")
+    }
+    if (Test-Path -LiteralPath $OutCsv) {
+        $row0 = Import-Csv -LiteralPath $OutCsv | Select-Object -First 1
+        if ($row0) {
+            $script:BuildIdentity.telemetry.runId = [string]$row0.runId
+            $script:BuildIdentity.telemetry.buildTag = [string]$row0.buildTag
+            $script:BuildIdentity.telemetry.gitHead = [string]$row0.gitHead
+        }
+    }
     $res | Add-Member -NotePropertyName Name -NotePropertyValue "TELEMETRY-CONTRACT" -Force
     Add-TT01Result $res
 }
@@ -664,6 +734,10 @@ function Invoke-TT01ActiveTier {
     param([string]$BasePath)
     if ($Skip -contains "activetier") { New-Gate "ACTIVE-TIER" $true @("skipped"); return }
     Write-Step "ACTIVE-TIER: replay with SwingSignificanceTier=1.0 (RL-HYP-01 11.3c/3b evidence)"
+    #--- B25-02: clean dir (drops the default run's dated files AND the
+    #    stale 20260130 tail) so the post-pass merge captures only the
+    #    tier-1.0 run's rows.
+    Clear-TT01Telemetry
     Remove-Item -LiteralPath $OutCsv -Force -ErrorAction SilentlyContinue
     $ini = Join-Path $RunDir "TT01_K1_Replay.ini"
     $k1Content = ($script:ReplayK1Ini -replace "`r?`n", "`r`n")
@@ -681,6 +755,14 @@ function Invoke-TT01ActiveTier {
     $crit = @($all | Where-Object { $_ -match "Critical\s+(\d+)" } | ForEach-Object { [int]$Matches[1] } | Select-Object -Last 1)
     $healthVerdict = (($healthy -join ",") -eq "HEALTHY") -and (([int]($crit -join ",")) -eq 0)
 
+    #--- B25-02: reassemble the tier-1.0 run into $OutCsv (see replay).
+    if (-not (Merge-TT01Telemetry -TargetPath $OutCsv)) {
+        New-Gate "ACTIVE-TIER" $false @("no telemetry rows merged from $TelemetryDir")
+        return
+    }
+    Write-Host ("    merged " + (Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v6_*.csv").Count +
+                " dated file(s) into $OutCsv") -ForegroundColor DarkGray
+
     $ok = $false
     $deadline = (Get-Date).AddMinutes(10)
     while (-not $ok -and (Get-Date) -lt $deadline) {
@@ -696,7 +778,7 @@ function Invoke-TT01ActiveTier {
         New-Gate "ACTIVE-TIER" $false @("replay unhealthy: rows=$rows faults=$faults health=$healthy critical=$crit csvCaptured=$ok")
         return
     }
-    $k1Csv = Join-Path $runArt "telemetry_v5_k1.csv"
+    $k1Csv = Join-Path $runArt "telemetry_v6_k1.csv"
     Copy-Item -LiteralPath $OutCsv -Destination $k1Csv -Force
     $res = Test-TT01ActiveTier -RunPath $k1Csv -BasePath $BasePath
     $res.Details += "K1 replay health: rows=$rows faults=$faults health=$healthy critical=$crit"
@@ -704,8 +786,42 @@ function Invoke-TT01ActiveTier {
 }
 
 function Clear-TT01Telemetry {
-    Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+    #--- B25-01: clear fresh v6 files AND legacy v5 residue so the daily
+    #    telemetry dir never accumulates stale files between runs.
+    Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v*.csv" -ErrorAction SilentlyContinue |
         Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
+function Merge-TT01Telemetry {
+    #--- B25-02: checkpoint flushes split one run across the per-day dated
+    #    files (BuildFilePath uses TimeCurrent() = simulated tester time),
+    #    so the harness's single $OutCsv capture only saw the run's tail
+    #    (2026-01-30: 64-row checkpoint + 52-row shutdown = 116 of 500).
+    #    Reassemble the run by concatenating every v6 dated file in the
+    #    clean telemetry dir (header once + all data rows, files sorted by
+    #    name = chronological = the pre-checkpoint single-flush order).
+    #    Callers MUST Clear-TT01Telemetry before the pass so the merge only
+    #    sees THIS run's rows.  Returns $true when rows were merged.
+    param([string]$TargetPath)
+    $files = @(Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v6_*.csv" -ErrorAction SilentlyContinue |
+        Sort-Object Name)
+    if ($files.Count -eq 0) { return $false }
+    $rows = New-Object System.Collections.Generic.List[string]
+    $header = $null
+    foreach ($f in $files) {
+        $lines = @(Get-Content -LiteralPath $f.FullName -ErrorAction SilentlyContinue)
+        if ($lines.Count -eq 0) { continue }
+        if ($header -eq $null) { $header = $lines[0] }
+        for ($i = 1; $i -lt $lines.Count; $i++) {
+            if ($lines[$i].Trim().Length -gt 0) { $rows.Add($lines[$i]) }
+        }
+    }
+    if ($header -eq $null) { return $false }
+    $out = New-Object System.Collections.Generic.List[string]
+    $out.Add($header)
+    foreach ($l in $rows) { $out.Add($l) }
+    [System.IO.File]::WriteAllLines($TargetPath, $out.ToArray(), (New-Object System.Text.UTF8Encoding($false)))
+    return $true
 }
 
 function Invoke-TT01ReplayArm {
@@ -749,8 +865,8 @@ function Invoke-TT01Isolation {
     #    (b) carry tier-0 OFF sentinels on every row, and (c) match the
     #    frozen row total. Anything else (suite telemetry, a K1-arm
     #    residue - segment names overlap across arms) is rejected.
-    $expected = @(Get-ChildItem -LiteralPath $IsolationControlDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-    $preserved = @(Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+    $expected = @(Get-ChildItem -LiteralPath $IsolationControlDir -Filter "telemetry_v*.csv" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $preserved = @(Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v*.csv" -ErrorAction SilentlyContinue |
         Where-Object { $expected -contains $_.Name })
     $reuseOk = ($OnlyIsolation -and $preserved.Count -gt 0)
     if ($reuseOk) {
@@ -775,19 +891,19 @@ function Invoke-TT01Isolation {
         Clear-TT01Telemetry
         $ctlHealth = Invoke-TT01ReplayArm -Name "IsolationControl" -IniContent $script:IsolationIni
         Write-Host ("    control arm health: rows=$($ctlHealth.rows) faults=$($ctlHealth.faults) health=$($ctlHealth.healthy) critical=$($ctlHealth.critical)") -ForegroundColor DarkGray
-        Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+        Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v*.csv" -ErrorAction SilentlyContinue |
             Copy-Item -Destination $ctlDir -Force
     }
-    $ctlFiles = @(Get-ChildItem -LiteralPath $ctlDir -Filter "telemetry_v5_*.csv").Count
+    $ctlFiles = @(Get-ChildItem -LiteralPath $ctlDir -Filter "telemetry_v*.csv").Count
 
     Clear-TT01Telemetry
     $k1Health = Invoke-TT01ReplayArm -Name "IsolationK1" -IniContent $script:IsolationK1Ini
     Write-Host ("    k1 arm health: rows=$($k1Health.rows) faults=$($k1Health.faults) health=$($k1Health.healthy) critical=$($k1Health.critical)") -ForegroundColor DarkGray
     $k1Dir = Join-Path $runArt "isolation_k1"
     New-Item -ItemType Directory -Path $k1Dir -Force | Out-Null
-    Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v5_*.csv" -ErrorAction SilentlyContinue |
+    Get-ChildItem -LiteralPath $TelemetryDir -Filter "telemetry_v*.csv" -ErrorAction SilentlyContinue |
         Copy-Item -Destination $k1Dir -Force
-    $k1Files = @(Get-ChildItem -LiteralPath $k1Dir -Filter "telemetry_v5_*.csv").Count
+    $k1Files = @(Get-ChildItem -LiteralPath $k1Dir -Filter "telemetry_v*.csv").Count
 
     if ($ctlFiles -eq 0 -or $k1Files -eq 0) {
         New-Gate "SETTLEMENT-ISOLATION" $false @("replay unhealthy: controlFiles=$ctlFiles k1Files=$k1Files",
@@ -856,6 +972,26 @@ $script:BuildIdentity.run.runId = $runId
 $runArt = Join-Path $ArtDir $runId
 New-Item -ItemType Directory -Path $runArt -Force | Out-Null
 
+#--- B25-01: publish the repo commit to the production EA.  The tester
+#    stages FILE_COMMON in an ephemeral agent sandbox (synced back to the
+#    real Common\Files ONLY at session end), so a runtime identity read
+#    can never see a pre-seeded file during the run (root-caused on
+#    2026-08-15).  The gitHead therefore travels into the binary at
+#    COMPILE time: the harness rewrites Telemetry\TelemetryGitHead.mqh
+#    here (before ANY target compiles) and restores the default
+#    "unknown" state in finalize.  The identity file below remains as
+#    the run's audit record (archived into the run artifact; the CONTRACT
+#    gate cross-validates CSV gitHead == $gitHeadFull).
+$TelemetryIdentityFile = Join-Path $TelemetryDir "run_identity.txt"
+New-Item -ItemType Directory -Path $TelemetryDir -Force | Out-Null
+Set-Content -LiteralPath $TelemetryIdentityFile -Value ("gitHead=" + $gitHeadFull) -Encoding ASCII
+Write-Host ("identity file published: $TelemetryIdentityFile (gitHead=" + $gitHeadFull + ")") -ForegroundColor DarkGray
+$script:GitHeadInclude = Join-Path $Root "Telemetry\TelemetryGitHead.mqh"
+Set-Content -LiteralPath $script:GitHeadInclude -Value (
+    "// generated by TT01 (B25-01): repo commit for the tranche binaries`r`n" +
+    "#define TELEMETRY_GIT_HEAD `"$gitHeadFull`"`r`n") -Encoding ASCII
+Write-Host ("gitHead include written: $($script:GitHeadInclude) ($gitHeadFull)") -ForegroundColor DarkGray
+
 Write-Host "=== TT01 Platform Validation Harness ===" -ForegroundColor Cyan
 Write-Host "runId=$runId git=$gitHead skip=$($Skip -join ',') allowDelta=$($AllowDelta -join ',') expectedRows=$ExpectedRows allowDecisionIds=$($AllowDecisionIds.Count)"
 
@@ -907,7 +1043,7 @@ if ($OnlyIsolation) {
         Invoke-TT01Contract
         Invoke-TT01Evidence
         Invoke-TT01Behavior
-        $defaultCsv = Join-Path $runArt "telemetry_v5_default.csv"
+        $defaultCsv = Join-Path $runArt "telemetry_v6_default.csv"
         Copy-Item -LiteralPath $OutCsv -Destination $defaultCsv -Force
         Copy-Item -LiteralPath $OutCsv -Destination (Join-Path $runArt "telemetry_v4_20260130.csv") -Force
         Invoke-TT01ActiveTier -BasePath $defaultCsv
@@ -916,6 +1052,26 @@ if ($OnlyIsolation) {
 }
 if (-not $OnlyIsolation) { Invoke-TT01Perf }
 Write-Step "FINALIZE: perf gate done (replayMs=$($script:Perf.replayMs))"
+
+#--- B25-01: retire the identity file now that every tester phase is done;
+#    archive the exact content into the run artifact for the audit trail.
+if (Test-Path -LiteralPath $TelemetryIdentityFile) {
+    Copy-Item -LiteralPath $TelemetryIdentityFile -Destination (Join-Path $runArt "run_identity.txt") -Force
+    Remove-Item -LiteralPath $TelemetryIdentityFile -Force -ErrorAction SilentlyContinue
+    Write-Host "identity file retired (archived to $runArt\run_identity.txt)" -ForegroundColor DarkGray
+}
+
+#--- B25-01: restore the compile-time gitHead include to its default
+#    "unknown" state so the repo is clean for manual/ED01 builds (the
+#    binaries themselves keep the embedded commit - correct provenance).
+if ($script:GitHeadInclude -and (Test-Path -LiteralPath $script:GitHeadInclude)) {
+    $c = @(Get-Content -LiteralPath $script:GitHeadInclude)
+    for ($i = 0; $i -lt $c.Count; $i++) {
+        if ($c[$i] -match '^\s*#define\s+TELEMETRY_GIT_HEAD') { $c[$i] = '#define TELEMETRY_GIT_HEAD "unknown"' }
+    }
+    Set-Content -LiteralPath $script:GitHeadInclude -Value $c -Encoding ASCII
+    Write-Host "gitHead include restored to default" -ForegroundColor DarkGray
+}
 
 #--- 25A-F/G8: the authoritative manifest is persisted IMMEDIATELY once the
 #    gate graph is complete (all gates recorded). gates.jsonl is durable at
