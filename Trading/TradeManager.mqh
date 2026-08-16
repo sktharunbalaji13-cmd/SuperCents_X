@@ -12,6 +12,7 @@
 #include "TradeRequestBuilder.mqh"
 #include "TradeValidation.mqh"
 #include "TradeManagerRetryPolicy.mqh"
+#include "CExecutionLedgerWriter.mqh"
 
 class CTradeManager
 {
@@ -49,6 +50,11 @@ private:
     int                     m_retryHoldCount;
     int                     m_totalHeld;
 
+    //--- B25-03C-B (integrity): durable execution ledger writer + recovery.
+    //    NULL when unwired (NEW/SHADOW dormancy); LEGACY wires them.
+    CExecutionLedgerWriter  *m_ledgerWriter;
+    CExecutionRecovery      *m_recovery;
+
     int     m_totalReceived;
     int     m_totalSubmitted;
     int     m_totalSucceeded;
@@ -82,6 +88,10 @@ public:
     void SetSymbol(string symbol);
     void SetDeviation(int deviation);
     void SetExecutionEnabled(bool enabled) { m_executionEnabled = enabled; }
+    //--- B25-03C-B wiring (LEGACY only; NULL under NEW/SHADOW).
+    void SetLedgerWriter(CExecutionLedgerWriter *writer) { m_ledgerWriter = writer; }
+    void SetRecovery(CExecutionRecovery *recovery) { m_recovery = recovery; }
+    CExecutionLedgerWriter *GetLedgerWriter(void) const { return m_ledgerWriter; }
     //--- C2/C3 (integrity) configuration entry points.
     void SetPositionSizer(CPositionSizer *sizer) { m_positionSizer = sizer; }
     void SetRiskPercent(double pct) { m_riskPercent = fmax(pct, 0.0); }
@@ -111,6 +121,8 @@ CTradeManager::CTradeManager(void)
     , m_submittedCount(0)
     , m_retryHoldCount(0)
     , m_totalHeld(0)
+    , m_ledgerWriter(NULL)
+    , m_recovery(NULL)
     , m_totalReceived(0)
     , m_totalSubmitted(0)
     , m_totalSucceeded(0)
@@ -182,6 +194,10 @@ void CTradeManager::Update(void)
     //    entry-mode contract.  Only ENTRY_MODE_LEGACY may send orders;
     //    SHADOW/NEW collection runs are shadow-only ("execution reserved").
     if(!m_executionEnabled)
+        return;
+
+    //--- B25-03C-B: a corrupt ledger blocks all sends (CORRUPT_LOCAL_STATE).
+    if(m_recovery != NULL && m_recovery.IsExecutionBlocked())
         return;
 
     int planCount = m_planner.GetPlanCount();
@@ -324,6 +340,23 @@ void CTradeManager::Update(void)
             continue;
         }
 
+        //--- B25-03C-B: INTENT-before-send (write-ahead; fail closed before
+        //    OrderSend).  Allocates a fresh executionId (never reused).
+        string execExecutionId = "";
+        if(m_ledgerWriter != NULL)
+        {
+            string execSide = (plan.orderType == ORDER_TYPE_BUY) ? "BUY" : "SELL";
+            if(!m_ledgerWriter.BeginExecution((long)planId, m_symbol, execSide,
+                                              request.price, volume, request.sl, request.tp,
+                                              m_magicNumber, execExecutionId))
+            {
+                m_totalFailed++;
+                m_logger.LogInfo(StringFormat(
+                    "ORDER-BLOCKED-INTENT-FAIL Plan=%lld (ledger write-ahead failed; no send)", planId));
+                continue;
+            }
+        }
+
         MqlTradeResult tradeResult;
         bool sent = OrderSend(request, tradeResult);
 
@@ -347,6 +380,12 @@ void CTradeManager::Update(void)
         //    and NEVER rejected - only B25-03C durable reconciliation may
         //    resolve it.  Absence of broker evidence never grants retry.
         ENUM_H6_RETRY_POLICY policy = H6ClassifyPolicy(truth.retcode, truth.dealTicket);
+
+        //--- B25-03C-B: post-send event driven by the committed H6 policy
+        //    (RECORD->SENT, REJECT_PERMANENT/RETRY_ELIGIBLE->REJECTED,
+        //    RETRY_HOLD->UNKNOWN).  Non-atomic with OrderSend (R3 window).
+        if(m_ledgerWriter != NULL && execExecutionId != "")
+            m_ledgerWriter.RecordResult(execExecutionId, truth, policy);
 
         switch(policy)
         {

@@ -35,6 +35,7 @@
 #include "../Trading/TradeRequestBuilder.mqh"
 #include "../Trading/TradeValidation.mqh"
 #include "../Trading/TradeManager.mqh"
+#include "../Trading/CExecutionReconciler.mqh"
 #include "../Monitoring/MonitoringTypes.mqh"
 #include "../Monitoring/EventBusAdapter.mqh"
 #include "../Monitoring/MetricsCollector.mqh"
@@ -98,6 +99,13 @@ private:
     CPositionManager           *m_positionManager;
     CPositionLifecycleManager  *m_positionLifecycleManager;
     CTradeManager              *m_tradeExecutionManager;
+
+    //--- B25-03C-B: durable execution recovery/reconciliation modules.
+    //    Created ONLY in ENTRY_MODE_LEGACY; NULL under NEW/SHADOW (dormant).
+    CExecutionIdentity         *m_execIdentity;
+    CExecutionLedgerWriter     *m_execWriter;
+    CExecutionRecovery         *m_execRecovery;
+    CExecutionReconciler       *m_execReconciler;
 
     CMetricsCollector          *m_metricsCollector;
     CHealthMonitor             *m_healthMonitor;
@@ -233,6 +241,11 @@ public:
     }
     double GetSwingSignificanceTier(void) const { return m_swingSignificanceTier; }
     void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
+    //--- B25-03C-B accessors (LEGACY only; NULL under NEW/SHADOW).
+    CExecutionLedgerWriter *GetExecutionLedgerWriter(void) const { return m_execWriter; }
+    CExecutionRecovery     *GetExecutionRecovery(void) const { return m_execRecovery; }
+    CExecutionReconciler   *GetExecutionReconciler(void) const { return m_execReconciler; }
+    CExecutionIdentity     *GetExecutionIdentity(void) const { return m_execIdentity; }
     //--- C2/C3 (integrity): risk % and per-symbol cap for the TradeManager.
     //    Applied at execution time; safe to set after Init.
     void SetRiskPercent(double pct)
@@ -298,6 +311,10 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_positionManager(NULL)
     , m_positionLifecycleManager(NULL)
     , m_tradeExecutionManager(NULL)
+    , m_execIdentity(NULL)
+    , m_execWriter(NULL)
+    , m_execRecovery(NULL)
+    , m_execReconciler(NULL)
     , m_metricsCollector(NULL)
     , m_healthMonitor(NULL)
     , m_statisticsReporter(NULL)
@@ -626,6 +643,48 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     {
         m_tradeExecutionManager.SetPlanner(m_confluenceEngine.GetExecutionPlanner());
         m_tradeExecutionManager.SetMagicNumber(m_magicNumber);
+    }
+
+    //--- B25-03C-B (integrity): durable execution recovery/reconciliation
+    //    modules, wired ONLY in ENTRY_MODE_LEGACY (dormant under NEW/SHADOW).
+    if(m_entryMode == ENTRY_MODE_LEGACY)
+    {
+        string runId = "RUN-" + IntegerToString(TerminalInfoInteger(TERMINAL_BUILD)) + "-" + IntegerToString(GetTickCount());
+        string buildTag = "25B-PROD-01";
+        m_execIdentity = new CExecutionIdentity();
+        if(m_execIdentity != NULL && m_execIdentity.Init(runId, buildTag, "Execution\\execution_seq.dat"))
+        {
+            m_execWriter = new CExecutionLedgerWriter();
+            if(m_execWriter != NULL && m_execWriter.Init("Execution\\execution_ledger.dat", m_execIdentity, runId, buildTag))
+            {
+                m_execRecovery = new CExecutionRecovery();
+                if(m_execRecovery != NULL)
+                {
+                    m_execRecovery.Init("Execution\\execution_ledger.dat");
+                    m_execIdentity.SetMonotonicFloor(m_execRecovery.HighWaterSeq());
+                    m_execReconciler = new CExecutionReconciler();
+
+                    if(!m_execRecovery.IsExecutionBlocked() && m_execReconciler != NULL)
+                    {
+                        ExecutionReconState pending[];
+                        m_execRecovery.GetPendingExecutions(pending);
+                        for(int r = 0; r < ArraySize(pending); r++)
+                        {
+                            string verdict = m_execReconciler.Reconcile(pending[r]);
+                            if(verdict == EXEC_VERDICT_RESOLVED || verdict == EXEC_VERDICT_NOT_FOUND)
+                                m_execWriter.RecordReconciled(pending[r].executionId, verdict, "init-reconciliation");
+                            else if(verdict == EXEC_VERDICT_AMBIGUOUS)
+                                m_execWriter.RecordBlocked(pending[r].executionId, "AMBIGUOUS", "init-reconciliation: legacy correlation");
+                        }
+                    }
+                }
+            }
+        }
+        if(m_tradeExecutionManager != NULL)
+        {
+            m_tradeExecutionManager.SetLedgerWriter(m_execWriter);
+            m_tradeExecutionManager.SetRecovery(m_execRecovery);
+        }
     }
 
     m_metricsCollector = new CMetricsCollector();
@@ -1384,6 +1443,28 @@ void CSymbolContext::Shutdown(void)
         m_entryOrchestrator.Shutdown();
         delete m_entryOrchestrator;
         m_entryOrchestrator = NULL;
+    }
+
+    if(m_execWriter != NULL)
+    {
+        m_execWriter.RecordRunEnd();
+        delete m_execWriter;
+        m_execWriter = NULL;
+    }
+    if(m_execRecovery != NULL)
+    {
+        delete m_execRecovery;
+        m_execRecovery = NULL;
+    }
+    if(m_execReconciler != NULL)
+    {
+        delete m_execReconciler;
+        m_execReconciler = NULL;
+    }
+    if(m_execIdentity != NULL)
+    {
+        delete m_execIdentity;
+        m_execIdentity = NULL;
     }
 
     m_portfolioRiskManager = NULL;

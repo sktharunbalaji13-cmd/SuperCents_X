@@ -191,3 +191,35 @@ void OnTimer()
 {
     // Sprint 1: No timer events handled yet
 }
+
+//+------------------------------------------------------------------+
+//| B25-03C-B: OnTradeTransaction - record-only DEAL_IN source.      |
+//| Correlates a broker deal to a pending execution by legacy comment |
+//| "SCX-<side>-P<decisionId>"; never fabricates an execution.        |
+//+------------------------------------------------------------------+
+void OnTradeTransaction(const MqlTradeTransaction &trans,
+                        const MqlTradeRequest &request,
+                        const MqlTradeResult &result)
+{
+    if(trans.type != TRADE_TRANSACTION_DEAL_ADD)
+        return;
+
+    CTradeManager *tm = g_engine.GetTradeExecutionManager();
+    if(tm == NULL)
+        return;
+    CExecutionLedgerWriter *writer = tm.GetLedgerWriter();
+    if(writer == NULL)
+        return;
+
+    string comment = "";
+    if(HistoryDealSelect(trans.deal))
+        comment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
+
+    int ppos = StringFind(comment, "-P");
+    if(ppos < 0)
+        return;
+    long decisionId = StringToInteger(StringSubstr(comment, ppos + 2));
+
+    writer.RecordDealByDecisionId(decisionId, trans.deal, trans.order, trans.position,
+                                  trans.price, trans.volume, TimeCurrent(), (int)trans.type);
+}
