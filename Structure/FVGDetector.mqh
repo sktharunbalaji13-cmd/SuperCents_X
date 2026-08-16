@@ -148,13 +148,13 @@ void CFVGDetector::DetectFVG(const double &open[], const double &high[],
                               const datetime &time[], int rates_total,
                               Trend currentTrend)
 {
-    if(rates_total < 3)
-        return;
-
     const double EPS = _Point * 0.1;
 
     int start_i;
-    int end_i = 2;
+    //--- C4 (integrity): the newest triple evaluated is (3,2,1); idxC = 1
+    //    is the last CLOSED bar.  Index 0 (the forming bar) never enters
+    //    the scan, removing the forming-candle lookahead.
+    int end_i = 3;
 
     if(m_lastProcessedTime == 0)
     {
@@ -176,6 +176,11 @@ void CFVGDetector::DetectFVG(const double &open[], const double &high[],
         }
         else
         {
+            //--- C4 (integrity): the cursor tracks the last CLOSED bar
+            //    (time[1]).  Each new closed bar yields exactly one new
+            //    closed triple: time[0] (forming) and time[1] (new
+            //    closed) both exceed the old cursor, so start_i =
+            //    newBars + 1 lands on the newest fully closed triple.
             int newBars = 0;
             for(int k = 0; k < rates_total; k++)
             {
@@ -184,8 +189,21 @@ void CFVGDetector::DetectFVG(const double &open[], const double &high[],
                 else
                     break;
             }
-            start_i = MathMin(newBars + 2, rates_total - 1);
+            start_i = MathMin(newBars + 1, rates_total - 1);
         }
+    }
+
+    //--- C4 (integrity): a scanned triple needs at least 4 bars so the
+    //    newest evaluated triple (3,2,1) is fully closed.  With fewer
+    //    bars nothing is scanable, but the discontinuity path above must
+    //    ALREADY have rebuilt/cleared the pool — the guard therefore
+    //    sits after that handling and only skips the scan (advancing the
+    //    cursor) so small histories cannot leave stale FVGs behind.
+    if(rates_total < 4)
+    {
+        if(rates_total >= 2)
+            m_lastProcessedTime = time[1];
+        return;
     }
 
     for(int i = start_i; i >= end_i; i--)
@@ -353,7 +371,10 @@ void CFVGDetector::DetectFVG(const double &open[], const double &high[],
             TimeToString(fvg.time, TIME_DATE | TIME_MINUTES)));
     }
 
-    m_lastProcessedTime = time[0];
+    //--- C4 (integrity): advance the cursor to the last CLOSED bar.
+    //    The previous time[0] (forming bar) cursor made the same bar
+    //    re-scan when it closed (plus the forming triple (2,1,0)).
+    m_lastProcessedTime = time[1];
 }
 
 void CFVGDetector::Update(const double &open[], const double &high[],

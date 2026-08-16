@@ -106,7 +106,14 @@ double CCapitalAllocator::CalculateSize(const AllocationRequest &request, const 
             if(tickSize <= 0.0)
                 return 0.0;
 
-            double riskPerLot = (stopDistPoints * tickValue) / (tickSize > 0.0 ? 1.0 : 1.0);
+            //--- H7 (integrity): risk per lot must be scaled by the real
+            //    tick size relative to point.  The previous literal 1.0
+            //    denominator silently divided by the wrong quantity
+            //    whenever tickSize != point (e.g. US30/indices), which
+            //    distorted the lot size.  Mirrors the PositionSizer
+            //    formula: riskPerLot = stopDistPoints * tickValue /
+            //    (tickSize / point).
+            double riskPerLot = (stopDistPoints * tickValue) / (tickSize / _Point);
             if(riskPerLot <= 0.0)
                 return 0.0;
 

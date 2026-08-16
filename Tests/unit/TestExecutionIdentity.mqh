@@ -135,7 +135,7 @@ TestCounters RunExecutionIdentityTests(void)
       ExecutionIdResetCounterFile(path);
       CExecutionIdentity a;
       a.Init("RUN-TEST-1", "2026.08.15 00:00:00", path);
-      ulong s1;
+      ulong s1 = 0;
       for(int i = 0; i < 5; i++)
          a.AllocateSeq(s1);
       TEST_TRUE(s1 == 5, "B2a: allocator reached 5 (monotonic within run)");
@@ -155,7 +155,7 @@ TestCounters RunExecutionIdentityTests(void)
       ExecutionIdResetCounterFile(path);
       CExecutionIdentity a;
       a.Init("RUN-TEST-1", "2026.08.15 00:00:00", path);
-      ulong s;
+      ulong s = 0;
       for(int i = 0; i < 7; i++)
          a.AllocateSeq(s);
       TEST_TRUE(s == 7, "B3a: allocation 7 durable");

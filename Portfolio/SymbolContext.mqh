@@ -112,6 +112,10 @@ private:
     CEntryOrchestrator       *m_entryOrchestrator;
     ENUM_ENTRY_MODE           m_entryMode;
     CTelemetryCollector      *m_telemetry;
+    //--- C2/C3 (integrity): risk % per trade and per-symbol position cap,
+    //    forwarded to the TradeManager once it is created in Init.
+    double                    m_riskPercent;
+    int                       m_maxPositionsPerSymbol;
 
     //--- GR02A (Sprint 20): live-stage observability. The settler links
     //    telemetry decisionIds to candidateIds (parsed back from order
@@ -229,6 +233,20 @@ public:
     }
     double GetSwingSignificanceTier(void) const { return m_swingSignificanceTier; }
     void SetTelemetryCollector(CTelemetryCollector *collector) { m_telemetry = collector; }
+    //--- C2/C3 (integrity): risk % and per-symbol cap for the TradeManager.
+    //    Applied at execution time; safe to set after Init.
+    void SetRiskPercent(double pct)
+    {
+        m_riskPercent = fmax(pct, 0.0);
+        if(m_tradeExecutionManager != NULL)
+            m_tradeExecutionManager.SetRiskPercent(m_riskPercent);
+    }
+    void SetMaxPositionsPerSymbol(int max)
+    {
+        m_maxPositionsPerSymbol = MathMax(max, 1);
+        if(m_tradeExecutionManager != NULL)
+            m_tradeExecutionManager.SetMaxPositionsPerSymbol(m_maxPositionsPerSymbol);
+    }
     void SetWeights(const ConfluenceWeights &weights) { m_weights = weights; }
 
     CSwingDetector             *GetSwingDetector(void) const { return m_swingDetector; }
@@ -290,6 +308,8 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_entryOrchestrator(NULL)
     , m_entryMode(entryMode)
     , m_telemetry(NULL)
+    , m_riskPercent(1.0)
+    , m_maxPositionsPerSymbol(1)
     , m_settler(NULL)
     , m_outcomePolicy()
     , m_opposingOutcomePolicy()
@@ -673,6 +693,17 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
             delete m_positionSizer;
             m_positionSizer = NULL;
         }
+    }
+
+    //--- C2/C3 (integrity): wire the live position sizer and the risk/cap
+    //    settings into the TradeManager.  Previously SetLotSize was never
+    //    called, so every order used the fixed 0.01-lot default, and no
+    //    per-symbol position limit existed.
+    if(m_tradeExecutionManager != NULL)
+    {
+        m_tradeExecutionManager.SetPositionSizer(m_positionSizer);
+        m_tradeExecutionManager.SetRiskPercent(m_riskPercent);
+        m_tradeExecutionManager.SetMaxPositionsPerSymbol(m_maxPositionsPerSymbol);
     }
 
     m_exposureTracker = new CExposureTracker();

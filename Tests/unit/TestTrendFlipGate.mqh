@@ -170,10 +170,10 @@ void TestEN03F1_FM2SameTickSuppression(TestCounters &counters)
 
         if(W == 19)
         {
-            TEST_INT_EQ(trend, (int)TREND_BEARISH, "F1: W=19 first transition BEARISH (BOS#1)");
-            TEST_INT_EQ(bos, 1, "F1: W=19 BOS#1 bearish");
+            TEST_INT_EQ(trend, (int)TREND_UNKNOWN, "F1: W=19 trend UNKNOWN (C4: first BOS shifted to the closed-edge window)");
+            TEST_INT_EQ(bos, 0, "F1: W=19 no BOS yet (C4)");
             TEST_INT_EQ(choch, 0, "F1: W=19 no choch yet");
-            TEST_INT_EQ(pp, 1, "F1: W=19 PP HIGH H2 activated");
+            TEST_INT_EQ(pp, 0, "F1: W=19 no PP activation yet (C4)");
         }
         else if(W == 22)
         {
@@ -181,11 +181,11 @@ void TestEN03F1_FM2SameTickSuppression(TestCounters &counters)
         }
         else if(W == 23)
         {
-            TEST_INT_EQ(trend, (int)TREND_BULLISH, "F1: W=23 single transition BULLISH (FM-2 tick; legacy RED: BEARISH)");
-            TEST_INT_EQ(bos, 2, "F1: W=23 BOS#2 bullish");
-            TEST_INT_EQ(choch, 1, "F1: W=23 bearish choch fires on activated LOW");
-            TEST_INT_EQ(pp, 2, "F1: W=23 PP LOW L2 activated");
-            TEST_INT_EQ(flips - prevFlips, 1, "F1: W=23 exactly ONE flip this tick (BOS only; legacy RED: 2)");
+            TEST_INT_EQ(trend, (int)TREND_BEARISH, "F1: W=23 first transition BEARISH (BOS#1, C4-delayed from W19)");
+            TEST_INT_EQ(bos, 1, "F1: W=23 BOS#1 bearish (C4)");
+            TEST_INT_EQ(choch, 0, "F1: W=23 no choch (C4)");
+            TEST_INT_EQ(pp, 1, "F1: W=23 PP HIGH H2 activated (C4, one PP active so far)");
+            TEST_INT_EQ(flips - prevFlips, 0, "F1: W=23 no gate flip yet (C4; first-set BOS is not a flip)");
             prevFlips = flips;
         }
         else if(W == 24)
@@ -195,21 +195,21 @@ void TestEN03F1_FM2SameTickSuppression(TestCounters &counters)
         }
         else if(W == 30)
         {
-            TEST_INT_EQ(choch, 1, "F1: W=30 no second choch (legacy RED: bullish choch -> 2)");
+            TEST_INT_EQ(choch, 0, "F1: W=30 still no choch (C4 - suppressed arm unchanged)");
             TEST_INT_EQ(trend, (int)TREND_BULLISH, "F1: W=30 trend stays BULLISH");
-            TEST_INT_EQ(flips - prevFlips, 0, "F1: W=30 no gate flip (legacy RED: 1)");
+            TEST_INT_EQ(flips - prevFlips, 1, "F1: W=30 ONE gate flip (BULLISH, C4-delayed)");
             prevFlips = flips;
         }
         else if(W == 31)
         {
-            TEST_INT_EQ(bos, 3, "F1: W=31 BOS#3 bullish (H4 cross)");
+            TEST_INT_EQ(bos, 2, "F1: W=31 BOS#2 bullish (H4 cross; #3 arrives later)");
             TEST_INT_EQ(trend, (int)TREND_BULLISH, "F1: W=31 no flip (already BULLISH)");
             TEST_INT_EQ(pp, 2, "F1: W=31 no PP activation (legacy RED: L3 -> 4)");
         }
         else if(W == EN03FM2_BARS)
         {
             TEST_INT_EQ(bos, 3, "F1: final BOS count 3");
-            TEST_INT_EQ(choch, 1, "F1: final choch count 1 (legacy RED: 2)");
+            TEST_INT_EQ(choch, 0, "F1: final choch count 0 (C4 - no choch under closed-bar scan)");
             TEST_INT_EQ(pp, 2, "F1: final PP count 2 (legacy RED: 4)");
             TEST_INT_EQ(flips, 1, "F1: final flip count 1 (legacy RED: 4)");
         }
@@ -238,10 +238,10 @@ void TestEN03F2_LegitFlipDirection(TestCounters &counters)
 
         if(W == 23)
         {
-            TEST_INT_EQ(trend, (int)TREND_BULLISH, "F2: W=23 BOS#2 flip only (no choch this window)");
-            TEST_INT_EQ(bos, 2, "F2: W=23 BOS#2");
+            TEST_INT_EQ(trend, (int)TREND_BEARISH, "F2: W=23 BOS-driven BEARISH (C4-delayed BOS#1)");
+            TEST_INT_EQ(bos, 1, "F2: W=23 BOS#1 (C4)");
             TEST_INT_EQ(choch, 0, "F2: W=23 no choch (bar 21 close does not break L2)");
-            TEST_INT_EQ(flips, 1, "F2: W=23 flip count 1 (BOS only)");
+            TEST_INT_EQ(flips, 0, "F2: W=23 flip count 0 (first-set BOS is not a gate flip)");
         }
         else if(W == 25)
         {
@@ -279,7 +279,7 @@ void TestEN03F2_LegitFlipDirection(TestCounters &counters)
         }
         else if(W == 31)
         {
-            TEST_INT_EQ(bos, 3, "F2: W=31 BOS#3 (H4 cross)");
+            TEST_INT_EQ(bos, 2, "F2: W=31 BOS#2 (C4: H4 cross is now #2)");
             TEST_INT_EQ(trend, (int)TREND_BULLISH, "F2: W=31 no flip (already BULLISH)");
             TEST_INT_EQ(pp, 4, "F2: W=31 PP LOW L4 activated (trend-change pickup, 1-tick lag)");
         }
@@ -321,8 +321,8 @@ void TestEN03F3_UNKNOWNNoFlip(TestCounters &counters)
         }
         else if(W == 19)
         {
-            TEST_INT_EQ(bos, 1, "F3: W=19 first BOS");
-            TEST_INT_EQ(trend, (int)TREND_BEARISH, "F3: W=19 first transition is BOS-driven (BEARISH)");
+            TEST_INT_EQ(bos, 0, "F3: W=19 no BOS yet (C4)");
+            TEST_INT_EQ(trend, (int)TREND_UNKNOWN, "F3: W=19 trend UNKNOWN (C4: first transition shifted past W19)");
             TEST_INT_EQ(flips, 0, "F3: W=19 first-set does not count as a forced flip (BOS path, not gate)");
         }
     }
@@ -348,8 +348,8 @@ void TestEN03F4_ResetContract(TestCounters &counters)
         EN03ReadState(ctx, trend, bos, choch, pp, flips);
         if(W == 19)
         {
-            TEST_INT_EQ(bos, 1, "F4: pre-reset W=19 BOS#1 present");
-            TEST_INT_EQ(trend, (int)TREND_BEARISH, "F4: pre-reset W=19 trend BEARISH");
+            TEST_INT_EQ(bos, 0, "F4: pre-reset W=19 no BOS (C4)");
+            TEST_INT_EQ(trend, (int)TREND_UNKNOWN, "F4: pre-reset W=19 trend UNKNOWN (C4)");
         }
     }
 
@@ -393,8 +393,8 @@ void TestEN03F4_ResetContract(TestCounters &counters)
         EN03ReadState(ctx, trend, bos, choch, pp, flips);
         if(W == 19)
         {
-            TEST_INT_EQ(bos, 1, "F4: post-reset W=19 BOS#1 rebuilt identically");
-            TEST_INT_EQ(trend, (int)TREND_BEARISH, "F4: post-reset W=19 trend BEARISH rebuilt identically");
+            TEST_INT_EQ(bos, 0, "F4: post-reset W=19 no BOS (C4; rebuild identical)");
+            TEST_INT_EQ(trend, (int)TREND_UNKNOWN, "F4: post-reset W=19 trend UNKNOWN (C4; rebuilt identically)");
         }
     }
 
@@ -423,8 +423,8 @@ void TestEN03F5_CallSiteFlipCount(TestCounters &counters)
             prevFlips = flips;
         else if(W == 23)
         {
-            TEST_INT_EQ(flips - prevFlips, 1,
-                "F5: W=23 TrendFlipCount delta == 1 (BOS only; legacy RED: gate forces a 2nd flip)");
+            TEST_INT_EQ(flips - prevFlips, 0,
+                "F5: W=23 TrendFlipCount delta == 0 (C4: first BOS here, not a gate flip)");
             prevFlips = flips;
         }
         else if(W == 29)

@@ -16,6 +16,12 @@ public:
 
     void SetSymbol(string symbol);
 
+    //--- C7 (integrity): the price a market deal will actually execute at
+    //    (Ask for BUY, Bid for SELL).  All stop/margin/risk checks use
+    //    this price instead of the plan's resolved entry price, which can
+    //    lag the market at deal time.
+    double GetFillPrice(ENUM_ORDER_TYPE orderType) const;
+
     bool IsTradingAllowed(string &outReason);
     bool IsVolumeValid(double volume, string &outReason);
     bool AreStopsValid(const ExecutionPlan &plan, string &outReason);
@@ -36,6 +42,15 @@ CTradeValidation::~CTradeValidation(void)
 }
 
 void CTradeValidation::SetSymbol(string symbol) { m_symbol = symbol; }
+
+double CTradeValidation::GetFillPrice(ENUM_ORDER_TYPE orderType) const
+{
+    if(orderType == ORDER_TYPE_BUY)
+        return SymbolInfoDouble(m_symbol, SYMBOL_ASK);
+    if(orderType == ORDER_TYPE_SELL)
+        return SymbolInfoDouble(m_symbol, SYMBOL_BID);
+    return 0.0;
+}
 
 bool CTradeValidation::IsTradingAllowed(string &outReason)
 {
@@ -85,9 +100,59 @@ bool CTradeValidation::IsVolumeValid(double volume, string &outReason)
 
 bool CTradeValidation::AreStopsValid(const ExecutionPlan &plan, string &outReason)
 {
+    double fillPrice = GetFillPrice(plan.orderType);
+    if(fillPrice <= 0.0)
+    {
+        outReason = "Cannot resolve fill price for order type";
+        return false;
+    }
+
+    if(!MathIsValidNumber(plan.stopLoss) || !MathIsValidNumber(plan.takeProfit) ||
+       !MathIsValidNumber(plan.entryPrice) || !MathIsValidNumber(fillPrice))
+    {
+        outReason = "Non-finite price in plan";
+        return false;
+    }
+
+    //--- C6 (integrity): directional stop validation vs the FILL price.
+    //    A BUY must stop below the fill and target above it; a SELL the
+    //    mirror.  Inverted combos (e.g. a stop above entry) were
+    //    previously accepted because only MathAbs distances were checked.
+    if(plan.orderType == ORDER_TYPE_BUY)
+    {
+        if(plan.stopLoss >= fillPrice)
+        {
+            outReason = StringFormat("BUY stop loss %.5f not below fill price %.5f", plan.stopLoss, fillPrice);
+            return false;
+        }
+        if(plan.takeProfit <= fillPrice)
+        {
+            outReason = StringFormat("BUY take profit %.5f not above fill price %.5f", plan.takeProfit, fillPrice);
+            return false;
+        }
+    }
+    else if(plan.orderType == ORDER_TYPE_SELL)
+    {
+        if(plan.stopLoss <= fillPrice)
+        {
+            outReason = StringFormat("SELL stop loss %.5f not above fill price %.5f", plan.stopLoss, fillPrice);
+            return false;
+        }
+        if(plan.takeProfit >= fillPrice)
+        {
+            outReason = StringFormat("SELL take profit %.5f not below fill price %.5f", plan.takeProfit, fillPrice);
+            return false;
+        }
+    }
+    else
+    {
+        outReason = "Unsupported order type";
+        return false;
+    }
+
     double stopLevel = SymbolInfoInteger(m_symbol, SYMBOL_TRADE_STOPS_LEVEL) * m_point;
-    double slDist    = MathAbs(plan.entryPrice - plan.stopLoss);
-    double tpDist    = MathAbs(plan.takeProfit - plan.entryPrice);
+    double slDist    = MathAbs(fillPrice - plan.stopLoss);
+    double tpDist    = MathAbs(plan.takeProfit - fillPrice);
 
     if(slDist < stopLevel)
     {
@@ -108,8 +173,17 @@ bool CTradeValidation::IsMarginSufficient(const ExecutionPlan &plan, double volu
 {
     ENUM_ORDER_TYPE orderType = plan.orderType;
 
+    //--- C7 (integrity): margin is calculated at the price the deal will
+    //    actually fill at, not the plan's resolved entry price.
+    double fillPrice = GetFillPrice(orderType);
+    if(fillPrice <= 0.0)
+    {
+        outReason = "Cannot resolve fill price for margin calculation";
+        return false;
+    }
+
     double margin = 0.0;
-    if(!OrderCalcMargin(orderType, m_symbol, volume, plan.entryPrice, margin))
+    if(!OrderCalcMargin(orderType, m_symbol, volume, fillPrice, margin))
     {
         outReason = "Failed to calculate margin requirement";
         return false;

@@ -686,8 +686,8 @@ void TestRowFingerprint_ED01DefaultParity(TestCounters &counters)
                                 w, "EURUSD", (int)PERIOD_H1, "", "tick", 5,
                                 BuildED01ConfigFromInputs());
 
-    TEST_STR_EQ(rowA.configFingerprint, rowB.configFingerprint,
-                "ED01: default inputs produce the B8 fingerprint (byte-identical)");
+    TEST_TRUE(rowA.configFingerprint == rowB.configFingerprint,
+              "ED01: default inputs produce the B8 fingerprint (byte-identical)");
 }
 
 // ─── GR02A: actual-outcome instrumentation (settlement) ────────────

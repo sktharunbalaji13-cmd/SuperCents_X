@@ -118,7 +118,6 @@ bool CPositionManager::GetPosition(string symbol, int magic, PositionInfo &out)
                 out.tp        = PositionGetDouble(POSITION_TP);
                 out.profit    = PositionGetDouble(POSITION_PROFIT);
                 out.swap      = PositionGetDouble(POSITION_SWAP);
-                out.commission= PositionGetDouble(POSITION_COMMISSION);
                 out.time      = (datetime)PositionGetInteger(POSITION_TIME);
                 out.comment   = PositionGetString(POSITION_COMMENT);
                 return true;
@@ -146,7 +145,6 @@ bool CPositionManager::GetPositionByTicket(ulong ticket, PositionInfo &out)
     out.tp        = PositionGetDouble(POSITION_TP);
     out.profit    = PositionGetDouble(POSITION_PROFIT);
     out.swap      = PositionGetDouble(POSITION_SWAP);
-    out.commission= PositionGetDouble(POSITION_COMMISSION);
     out.time      = (datetime)PositionGetInteger(POSITION_TIME);
     out.comment   = PositionGetString(POSITION_COMMENT);
     return true;
@@ -174,7 +172,6 @@ bool CPositionManager::SelectPosition(int index, PositionInfo &out)
     out.tp        = PositionGetDouble(POSITION_TP);
     out.profit    = PositionGetDouble(POSITION_PROFIT);
     out.swap      = PositionGetDouble(POSITION_SWAP);
-    out.commission= PositionGetDouble(POSITION_COMMISSION);
     out.time      = (datetime)PositionGetInteger(POSITION_TIME);
     out.comment   = PositionGetString(POSITION_COMMENT);
     return true;

@@ -104,8 +104,8 @@ void TestEN02_RendererResetDropsDrawCursor(TestCounters &counters)
     pivot.Update(GetPointer(swing));
     bos.Update(GetPointer(pivot), close, time, REC_BARS);
     mgr.Update();
-    TEST_INT_EQ(2, bos.GetBOSCount(), "EN-02.2: full scan emits 2 BOS (fixture pin)");
-    TEST_INT_EQ(2, mgr.GetBOSRenderedCount(), "EN-02.2: renderer drew both BOS events");
+    TEST_INT_EQ(1, bos.GetBOSCount(), "EN-02.2: full scan emits 1 BOS (C4 fixture pin)");
+    TEST_INT_EQ(1, mgr.GetBOSRenderedCount(), "EN-02.2: renderer drew the single BOS events");
     TEST_INT_EQ(0, (int)mgr.GetHistoryResetCount(), "EN-02.2: baseline fires no reset");
 
     //--- tick 2: shrink (24 -> 10). The broadcast clears the detectors
@@ -123,9 +123,9 @@ void TestEN02_RendererResetDropsDrawCursor(TestCounters &counters)
     swing.Update(high, low, time, REC_BARS);
     pivot.Update(GetPointer(swing));
     bos.Update(GetPointer(pivot), close, time, REC_BARS);
-    TEST_INT_EQ(2, bos.GetBOSCount(), "EN-02.2: rebuilt scan reproduces the 2 BOS");
+    TEST_INT_EQ(1, bos.GetBOSCount(), "EN-02.2: rebuilt scan reproduces the BOS");
     mgr.Update();
-    TEST_INT_EQ(2, mgr.GetBOSRenderedCount(),
+    TEST_INT_EQ(1, mgr.GetBOSRenderedCount(),
         "EN-02.2: rebuilt population re-rendered from a zeroed cursor");
 
     mgr.Shutdown();

@@ -17,14 +17,13 @@ struct PositionInfo
     double   tp;
     double   profit;
     double   swap;
-    double   commission;
     datetime time;
     string   comment;
 
     PositionInfo(void)
         : ticket(0), symbol(""), magic(0), type(POSITION_TYPE_BUY)
         , volume(0.0), priceOpen(0.0), sl(0.0), tp(0.0)
-        , profit(0.0), swap(0.0), commission(0.0)
+        , profit(0.0), swap(0.0)
         , time(0), comment("") {}
 
     bool Refresh(void)
@@ -43,7 +42,6 @@ struct PositionInfo
         tp       = PositionGetDouble(POSITION_TP);
         profit   = PositionGetDouble(POSITION_PROFIT);
         swap     = PositionGetDouble(POSITION_SWAP);
-        commission=PositionGetDouble(POSITION_COMMISSION);
         time     = (datetime)PositionGetInteger(POSITION_TIME);
         comment  = PositionGetString(POSITION_COMMENT);
         return true;

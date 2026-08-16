@@ -325,7 +325,11 @@ void TestSwingGate_TrailingWindowBounds(TestCounters &counters)
         RunSwingGate(open, high, low, close, time, n, 1.0, out, detector, pivots);
 
         string tag = StringFormat("e=%d (d=%d)", e, n - 1);
-        TEST_INT_EQ(2, pivots.GetPivotCount(), tag + ": chain [L(30), H(e)]");
+        // C4 (closed-bar): e=37's high is confirmed only by bars 38/39 on the
+        // newest edge, so its swing (and pivot) is no longer scanned; the
+        // chain then holds only the L(30) pivot.
+        int expPivots = (e == 37) ? 1 : 2;
+        TEST_INT_EQ(expPivots, pivots.GetPivotCount(), tag + ": chain [L(30), H(e)]");
         if(e == 36 || e == 35)
         {
             TEST_TRUE(out.admitted, tag + ": qualifying swing in window -> ADMIT");

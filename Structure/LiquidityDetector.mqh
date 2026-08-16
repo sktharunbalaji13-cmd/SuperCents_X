@@ -503,12 +503,17 @@ void CLiquidityDetector::DetectSweeps(const double &high[], const double &low[],
 void CLiquidityDetector::DetectMitigations(const double &high[], const double &low[],
                                              const datetime &time[], int rates_total)
 {
-    if(rates_total < 1)
+    //--- C4 (integrity): evaluate only the last CLOSED bar (series index
+    //    1), mirroring the closed-bar discipline of DetectSweeps (DD03).
+    //    The previous high[0]/low[0]/time[0] reads resolved the still-
+    //    forming candle, letting a retrace into a swept level be seen
+    //    before the bar closed.
+    if(rates_total < 2)
         return;
 
     int curBar = rates_total - 1;
-    double curHigh = high[0];
-    double curLow  = low[0];
+    double curHigh = high[1];
+    double curLow  = low[1];
 
     for(int i = 0; i < m_levelCount; i++)
     {
@@ -536,7 +541,7 @@ void CLiquidityDetector::DetectMitigations(const double &high[], const double &l
 
         if(mitigated)
         {
-            if(MitigateLevel(m_levels[i].id, curBar, (curHigh + curLow) / 2.0, time[0]))
+            if(MitigateLevel(m_levels[i].id, curBar, (curHigh + curLow) / 2.0, time[1]))
             {
                 switch(m_levels[i].type)
                 {

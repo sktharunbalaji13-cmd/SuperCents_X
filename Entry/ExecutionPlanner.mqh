@@ -287,6 +287,19 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
             rejectReason = "Invalid Prices";
             m_rejectionCounts[4]++;
         }
+        //--- C6 (integrity): the stop and target must bracket the entry in
+        //    the trade's direction.  Inverted combos (BUY with SL above
+        //    entry, SELL with TP above entry, ...) previously passed the
+        //    MathAbs distance checks and reached the broker as garbage.
+        else if((plan.orderType == ORDER_TYPE_BUY &&
+                 (plan.stopLoss >= plan.entryPrice || plan.takeProfit <= plan.entryPrice)) ||
+                (plan.orderType == ORDER_TYPE_SELL &&
+                 (plan.stopLoss <= plan.entryPrice || plan.takeProfit >= plan.entryPrice)))
+        {
+            valid = false;
+            rejectReason = "Invalid Prices";
+            m_rejectionCounts[4]++;
+        }
         else if(plan.stopDistance < spread * 2)
         {
             valid = false;
@@ -414,7 +427,17 @@ void CExecutionPlanner::EvaluateSingleCombo(int idx, const ExecutionPlanConfig &
         double minStopDist = cfg.minStopDistancePips * 10.0 * m_point;
         bool valid = true;
 
+        //--- C6 (integrity): directional bracket check, mirror of BuildPlan.
+        ENUM_ORDER_TYPE ot = (candidate.direction == CONFLUENCE_BULLISH) ?
+                             ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+
         if(entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0)
+        {
+            result.rejected++;
+            result.rejectionDetails[4]++;
+        }
+        else if((ot == ORDER_TYPE_BUY && (stopLoss >= entryPrice || takeProfit <= entryPrice)) ||
+                (ot == ORDER_TYPE_SELL && (stopLoss <= entryPrice || takeProfit >= entryPrice)))
         {
             result.rejected++;
             result.rejectionDetails[4]++;

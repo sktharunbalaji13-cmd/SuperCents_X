@@ -305,10 +305,18 @@ void TestEN01_CallSiteOrientationContract(TestCounters &counters)
     high[R3 - 1]  = 1.10000 + 0.00020;
     low[R3 - 1]   = 1.09980;
     ctx.Update(open, high, low, close, time, R3);
-    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingHighCount(), baseHigh,
-        "EN-01: post-rebuild swing-high population restored (no spurious reset)");
-    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingLowCount(), baseLow,
-        "EN-01: post-rebuild swing-low population restored (no spurious reset)");
+    //--- C4 (closed-bar): with the forming bar excluded, an incrementally
+    //    built baseline and a fresh full rescan can differ by one bar at
+    //    the newest edge (documented LC03 order-dependence). The contract
+    //    that MUST hold is deterministic reconstruction: a fresh scan of
+    //    the SAME range reproduces the rebuilt state exactly.
+    CSwingDetector fresh;
+    TEST_TRUE(fresh.Init(), "EN-01: fresh reference init");
+    fresh.Update(high, low, time, R3);
+    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingHighCount(), fresh.GetSwingHighCount(),
+        "EN-01: post-rebuild swing-high == fresh full scan (deterministic rebuild)");
+    TEST_INT_EQ(ctx.GetSwingDetector().GetSwingLowCount(), fresh.GetSwingLowCount(),
+        "EN-01: post-rebuild swing-low == fresh full scan (deterministic rebuild)");
 
     ctx.Shutdown();
 }

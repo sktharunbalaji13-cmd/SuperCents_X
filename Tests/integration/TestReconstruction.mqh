@@ -28,11 +28,10 @@
 //|                                                                  |
 //| Fixture: 24 hourly bars (B0 oldest .. B23 newest), DD02-derived  |
 //| with opens and a 3-bar crash tail. Full-scan expectation (pins   |
-//| the fixture): 5 swings (3H/2L), 5 pivots (4 locked), 2 BOS       |
-//| (bearish @B13 first, bullish @B17 second), BULLISH trend, 1      |
-//| protected low (8.00 @B6), 1 bearish CHOCH (bar 1), 1 order block |
-//| (@B19), 3 FVGs (@B20, @B16, @B3), 2 external liquidity levels    |
-//| (10.00 / 8.00).                                                  |
+//| the fixture) AFTER the C4 closed-bar fixes: 4 swings (2H/2L),    |
+//| 4 pivots, 1 BOS (bearish @B13), BULLISH trend, 1 protected low   |
+//| (8.00 @B6), 0 CHOCH, 0 order blocks, 3 FVGs and 1 external       |
+//| liquidity level (10.00).                                         |
 //+------------------------------------------------------------------+
 #ifndef __TEST_RECONSTRUCTION_MQH__
 #define __TEST_RECONSTRUCTION_MQH__
@@ -457,16 +456,16 @@ void TestREC_FixtureFiresAllLayers(TestCounters &counters)
 
     RECEpochTick(a, epochA, open, high, low, close, time, REC_BARS);
 
-    TEST_INT_EQ(3, a.swing.GetSwingHighCount(), "fixture: swing high count (10.20/10.00/9.90)");
+    TEST_INT_EQ(2, a.swing.GetSwingHighCount(), "fixture: swing high count (10.20/10.00/9.90) [C4: 2 of 3, newest-edge swing no longer read-ahead into the forming bar]");
     TEST_INT_EQ(2, a.swing.GetSwingLowCount(), "fixture: swing low count (7.50/8.00)");
-    TEST_INT_EQ(5, a.pivot.GetPivotCount(), "fixture: pivot count");
-    TEST_INT_EQ(2, a.bos.GetBOSCount(), "fixture: BOS count (bearish @B13, bullish @B17)");
+    TEST_INT_EQ(4, a.pivot.GetPivotCount(), "fixture: pivot count [C4]");
+    TEST_INT_EQ(1, a.bos.GetBOSCount(), "fixture: BOS count (bearish @B13) [C4: bullish @B17 removed]");
     TEST_INT_EQ((int)TREND_BULLISH, (int)a.trend.GetCurrentTrend(), "fixture: trend BULLISH");
     TEST_INT_EQ(1, a.pp.GetProtectedPointCount(), "fixture: protected point count (active low 8.00)");
-    TEST_INT_EQ(1, a.choch.GetCHOCHCount(), "fixture: CHOCH count (bearish at bar 1)");
-    TEST_INT_EQ(1, a.ob.GetOrderBlockCount(), "fixture: order block count (@B19)");
+    TEST_INT_EQ(0, a.choch.GetCHOCHCount(), "fixture: CHOCH count (none: the low-PP consuming BOS left no trend flip) [C4]");
+    TEST_INT_EQ(0, a.ob.GetOrderBlockCount(), "fixture: order block count (none w/o bullish BOS anchor) [C4]");
     TEST_INT_EQ(3, a.fvg.GetFVGCount(), "fixture: FVG count (@B20/@B16/@B3)");
-    TEST_INT_EQ(2, a.liq.GetLevelCount(), "fixture: liquidity level count (10.00/8.00 external)");
+    TEST_INT_EQ(1, a.liq.GetLevelCount(), "fixture: liquidity level count [C4: 1 of 2 external levels still formed]");
 }
 
 //+------------------------------------------------------------------+

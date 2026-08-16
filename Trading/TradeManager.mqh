@@ -6,6 +6,7 @@
 #include "../Utils/Constants.mqh"
 #include "../Entry/ExecutionPlanTypes.mqh"
 #include "../Entry/ExecutionPlanner.mqh"
+#include "../Risk/PositionSizer.mqh"
 #include "TradeExecutionResult.mqh"
 #include "ExecutionTruth.mqh"
 #include "TradeRequestBuilder.mqh"
@@ -25,6 +26,15 @@ private:
     string                  m_symbol;
     double                  m_lotSize;
     int                     m_maxSlippage;
+    int                     m_magicNumber;
+
+    //--- C2 (integrity): live position sizing.  When a sizer and a
+    //    positive risk % are configured, the volume is derived from the
+    //    stop distance at the FILL price; otherwise m_lotSize is a fallback.
+    CPositionSizer          *m_positionSizer;
+    double                  m_riskPercent;
+    //--- C3 (integrity): max open positions for this symbol + magic.
+    int                     m_maxPositionsPerSymbol;
 
     ulong                   m_submittedIds[];
     int                     m_submittedCount;
@@ -34,6 +44,7 @@ private:
     int     m_totalSucceeded;
     int     m_totalFailed;
     int     m_totalDuplicates;
+    int     m_totalBlocked;
     double  m_totalFilledPrice;
 
     bool    IsAlreadySubmitted(ulong planId);
@@ -41,6 +52,9 @@ private:
     void    LogOrderSent(const TradeExecutionResult &result);
     void    LogOrderFailed(const TradeExecutionResult &result);
     string  RetcodeToString(uint retcode);
+    //--- C3 (integrity): count of open positions owned by this EA
+    //    (symbol + magic match) used by the position gate.
+    int     CountOpenPositions(void) const;
 
 public:
     CTradeManager(void);
@@ -56,6 +70,13 @@ public:
     void SetSymbol(string symbol);
     void SetDeviation(int deviation);
     void SetExecutionEnabled(bool enabled) { m_executionEnabled = enabled; }
+    //--- C2/C3 (integrity) configuration entry points.
+    void SetPositionSizer(CPositionSizer *sizer) { m_positionSizer = sizer; }
+    void SetRiskPercent(double pct) { m_riskPercent = fmax(pct, 0.0); }
+    void SetMaxPositionsPerSymbol(int max) { m_maxPositionsPerSymbol = MathMax(max, 1); }
+    int  GetOpenPositionCount(void) const { return CountOpenPositions(); }
+    double GetRiskPercent(void) const { return m_riskPercent; }
+    int  GetMaxPositionsPerSymbol(void) const { return m_maxPositionsPerSymbol; }
 };
 
 CTradeManager::CTradeManager(void)
@@ -66,12 +87,17 @@ CTradeManager::CTradeManager(void)
     , m_symbol(_Symbol)
     , m_lotSize(0.01)
     , m_maxSlippage(3)
+    , m_magicNumber(0)
+    , m_positionSizer(NULL)
+    , m_riskPercent(0.0)
+    , m_maxPositionsPerSymbol(1)
     , m_submittedCount(0)
     , m_totalReceived(0)
     , m_totalSubmitted(0)
     , m_totalSucceeded(0)
     , m_totalFailed(0)
     , m_totalDuplicates(0)
+    , m_totalBlocked(0)
     , m_totalFilledPrice(0.0)
 {
 }
@@ -105,9 +131,26 @@ bool CTradeManager::Init(void)
 
 void CTradeManager::SetPlanner(CExecutionPlanner *planner) { m_planner = planner; }
 void CTradeManager::SetLotSize(double lotSize) { m_lotSize = fmax(lotSize, SymbolInfoDouble(m_symbol, SYMBOL_VOLUME_MIN)); }
-void CTradeManager::SetMagicNumber(int magic) { m_requestBuilder.SetMagicNumber(magic); m_trade.SetExpertMagicNumber(magic); }
+void CTradeManager::SetMagicNumber(int magic) { m_magicNumber = magic; m_requestBuilder.SetMagicNumber(magic); m_trade.SetExpertMagicNumber(magic); }
 void CTradeManager::SetSymbol(string symbol) { m_symbol = symbol; m_requestBuilder.SetSymbol(symbol); m_validation.SetSymbol(symbol); }
 void CTradeManager::SetDeviation(int deviation) { m_maxSlippage = deviation; m_requestBuilder.SetDeviation(deviation); }
+
+int CTradeManager::CountOpenPositions(void) const
+{
+    int count = 0;
+    for(int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        string sym = PositionGetSymbol(i);
+        if(sym == "" || sym != m_symbol)
+            continue;
+        if(!PositionSelect(sym))
+            continue;
+        if((int)PositionGetInteger(POSITION_MAGIC) != m_magicNumber)
+            continue;
+        count++;
+    }
+    return count;
+}
 
 void CTradeManager::Update(void)
 {
@@ -144,8 +187,85 @@ void CTradeManager::Update(void)
             continue;
         }
 
+        //--- C3 (integrity): position gate.  Once the per-symbol cap is
+        //    reached (live positions with this magic+symbol), no further
+        //    plans are executed.  The cap is checked against the live
+        //    account so a plan is only skipped while a position is open.
+        if(CountOpenPositions() >= m_maxPositionsPerSymbol)
+        {
+            m_totalBlocked++;
+            m_logger.LogInfo(StringFormat(
+                "ORDER-BLOCKED-POSITION-GATE Plan=%lld Symbol=%s Open=%d Max=%d",
+                planId, m_symbol, CountOpenPositions(), m_maxPositionsPerSymbol));
+            continue;
+        }
+
+        //--- C7 (integrity): resolve the execution (fill) price first.
+        //    All downstream risk math (stop distance, sizing, margin,
+        //    directional stop checks) uses this price, not the plan's
+        //    resolved entry price (which can lag the market at deal time).
+        double fillPrice = m_validation.GetFillPrice(plan.orderType);
+        if(fillPrice <= 0.0)
+        {
+            m_logger.LogInfo(StringFormat(
+                "ORDER-REJECTED-FILL Plan=%lld Symbol=%s orderType=%d",
+                planId, m_symbol, (int)plan.orderType));
+            if(m_planner != NULL)
+                m_planner.SetPlanStatus(i, PLAN_REJECTED);
+            m_totalFailed++;
+            continue;
+        }
+
         string validationReason = "";
         if(!m_validation.ValidateAll(plan, m_lotSize, validationReason))
+        {
+            //--- H6 (integrity): a permanent validation failure rejects the
+            //    plan itself (it is not recorded as submitted, so no dedup
+            //    pollution; the rejected status makes it non-retryable).
+            TradeExecutionResult failResult;
+            failResult.executionPlanId = planId;
+            failResult.submitted = false;
+            failResult.retcode = 0;
+            failResult.retcodeDescription = validationReason;
+            failResult.rationale = validationReason;
+            failResult.executionTime = TimeCurrent();
+            LogOrderFailed(failResult);
+            if(m_planner != NULL)
+                m_planner.SetPlanStatus(i, PLAN_REJECTED);
+            m_totalFailed++;
+            continue;
+        }
+
+        //--- C2 (integrity): position sizing from the stop distance at the
+        //    FILL price and the configured risk % of account equity.
+        double volume = m_lotSize;
+        double stopDistancePoints = 0.0;
+        {
+            double point = SymbolInfoDouble(m_symbol, SYMBOL_POINT);
+            if(point > 0.0)
+                stopDistancePoints = MathAbs(fillPrice - plan.stopLoss) / point;
+        }
+        if(m_positionSizer != NULL && m_riskPercent > 0.0 && stopDistancePoints > 0.0)
+        {
+            PositionSizingResult sizing = m_positionSizer.CalculateCached(
+                m_riskPercent, stopDistancePoints, AccountInfoDouble(ACCOUNT_EQUITY));
+            if(sizing.valid && sizing.lots > 0.0)
+            {
+                volume = sizing.lots;
+                m_logger.LogInfo(StringFormat(
+                    "POSITION-SIZING Plan=%lld risk=%.2f%% stop=%.0fpts equity=%.2f lots=%.2f risk$=%.2f",
+                    planId, m_riskPercent, stopDistancePoints,
+                    AccountInfoDouble(ACCOUNT_EQUITY), sizing.lots, sizing.dollarRisk));
+            }
+            else
+            {
+                m_logger.LogInfo(StringFormat(
+                    "POSITION-SIZING-FALLBACK Plan=%lld reason=%s lots=%.2f",
+                    planId, sizing.validationMessage, m_lotSize));
+            }
+        }
+
+        if(!m_validation.IsVolumeValid(volume, validationReason))
         {
             TradeExecutionResult failResult;
             failResult.executionPlanId = planId;
@@ -155,13 +275,14 @@ void CTradeManager::Update(void)
             failResult.rationale = validationReason;
             failResult.executionTime = TimeCurrent();
             LogOrderFailed(failResult);
-            RecordSubmitted(planId);
+            if(m_planner != NULL)
+                m_planner.SetPlanStatus(i, PLAN_REJECTED);
             m_totalFailed++;
             continue;
         }
 
         MqlTradeRequest request;
-        if(!m_requestBuilder.Build(plan, m_lotSize, request))
+        if(!m_requestBuilder.Build(plan, volume, request))
         {
             TradeExecutionResult failResult;
             failResult.executionPlanId = planId;
@@ -171,7 +292,8 @@ void CTradeManager::Update(void)
             failResult.rationale = "RequestBuilder rejected plan";
             failResult.executionTime = TimeCurrent();
             LogOrderFailed(failResult);
-            RecordSubmitted(planId);
+            if(m_planner != NULL)
+                m_planner.SetPlanStatus(i, PLAN_REJECTED);
             m_totalFailed++;
             continue;
         }
@@ -211,6 +333,10 @@ void CTradeManager::Update(void)
             LogOrderFailed(result);
         }
 
+        //--- H6 (integrity): an order is recorded as submitted ONLY after
+        //    OrderSend was actually attempted.  Failed sends stay
+        //    retryable on the next bar; the same-tick dedup ledger is not
+        //    polluted by failed attempts.
         RecordSubmitted(planId);
         m_totalSubmitted++;
     }
@@ -228,6 +354,7 @@ void CTradeManager::Shutdown(void)
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Succeeded",                 m_totalSucceeded));
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Failed",                    m_totalFailed));
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Duplicate Prevented",       m_totalDuplicates));
+    m_logger.LogInfo(StringFormat("  %-30s %5d", "Blocked by Position Gate",  m_totalBlocked));
     if(m_totalSucceeded > 0)
     {
         m_logger.LogInfo(StringFormat("  %-30s %.5f", "Avg Fill Price",       m_totalFilledPrice / m_totalSucceeded));

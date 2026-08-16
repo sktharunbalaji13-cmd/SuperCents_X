@@ -30,6 +30,7 @@
 #include "unit/TestSettlementIsolation.mqh"
 #include "unit/TestExecutionIdentity.mqh"
 #include "unit/TestTrendFlipGate.mqh"
+#include "unit/TestIntegrityFixes.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
 
@@ -138,6 +139,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunTrendFlipGateTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunIntegrityFixTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");

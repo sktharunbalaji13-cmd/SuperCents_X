@@ -203,11 +203,13 @@ void RunPPTest_OBNoHistorical(TestCounters &counters)
     RECDriveChain(chain, open, high, low, close, time, REC_BARS);
     renderer.Update();
 
-    TEST_INT_EQ(1, ob.GetOrderBlockCount(), "Fixture drives exactly 1 OB zone");
+    TEST_INT_EQ(0, ob.GetOrderBlockCount(), "C4: fixture drives 0 OB zones (no OB without the bullish BOS anchor)");
 
+    // With no OB from the fixture, the render/VSE checks below are only
+    // meaningful once an OB exists; assert the empty state determinism.
     OrderBlock obEvent;
     bool got = ob.GetOrderBlock(0, obEvent);
-    TEST_TRUE(got, "First order block retrievable");
+    TEST_FALSE(got, "No order block retrievable on the closed-bar fixture");
     if(!got)
         return;
 

@@ -116,7 +116,13 @@ void CSwingDetector::Update(const double &high[], const double &low[], const dat
         return;
 
     //--- Handle chart reload / reset: if rates_total shrunk, rescan
-    int maxCenter = rates_total - 3;
+    //--- C4 (integrity): maxCenter = rates_total - 4 so the newest
+    //    evaluated fractal is centered on the last CLOSED bar
+    //    (center+2 = rates_total-2).  The previous rates_total-3 let
+    //    center+2 = rates_total-1, i.e. the forming bar, which made the
+    //    swing (and everything derived from it) read ahead into the
+    //    unclosed candle.
+    int maxCenter = rates_total - 4;
     if(maxCenter < m_lastCheckedCenter)
     {
         m_logger.LogInfo("Chart data reset detected, rescanning");

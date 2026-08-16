@@ -55,23 +55,32 @@ void LCBuildFVGHistoryA(double &open[], double &high[], double &low[],
     open[5] = 1.0900; high[5] = 1.0910; low[5] = 1.0900; close[5] = 1.0900; time[5] = D'2024.01.01 00:00';
 }
 
-//--- History B: 3 bars of an OLDER epoch (2023.12.01), newest first.
+//--- History B: 5 bars of an OLDER epoch (2023.12.01), newest first.
 //--- time[0] is older than A's newest bar -> forces the rescan path.
-//--- Produces ONE bearish FVG at 04:00: triplet A=bar2 (bull) C=bar0 (bear),
-//--- gap low[2]=1.1020 > high[0]=1.1000.
+//--- C4 (closed-bar): the gap must live in a fully closed triple.
+//---   triple i=3: A=idx3 (bull 02:00, low=1.1020) / B=idx2 (03:00
+//---   displacement, fvg.data slot) / C=idx1 (04:00 bear, high=1.1000)
+//---   -> ONE bearish FVG at 03:00 (displacement = 03:00 bar).
 void LCBuildFVGHistoryB(double &open[], double &high[], double &low[],
                         double &close[], datetime &time[], int &rates)
 {
-    rates = 3;
+    rates = 5;
     ArrayResize(open, rates);
     ArrayResize(high, rates);
     ArrayResize(low, rates);
     ArrayResize(close, rates);
     ArrayResize(time, rates);
 
-    open[0] = 1.1000; high[0] = 1.1000; low[0] = 1.0980; close[0] = 1.0980; time[0] = D'2023.12.01 05:00';
-    open[1] = 1.1020; high[1] = 1.1020; low[1] = 1.1000; close[1] = 1.1000; time[1] = D'2023.12.01 04:00';
-    open[2] = 1.1020; high[2] = 1.1040; low[2] = 1.1020; close[2] = 1.1040; time[2] = D'2023.12.01 03:00';
+    //    05:00 bear (newest, filler)
+    open[0] = 1.1000; high[0] = 1.0990; low[0] = 1.0970; close[0] = 1.0970; time[0] = D'2023.12.01 05:00';
+    //    04:00 bear (C of the gap, high = 1.1000 = gapHigh)
+    open[1] = 1.1010; high[1] = 1.1000; low[1] = 1.0980; close[1] = 1.0980; time[1] = D'2023.12.01 04:00';
+    //    03:00 flat (B / displacement)
+    open[2] = 1.1010; high[2] = 1.1015; low[2] = 1.1005; close[2] = 1.1010; time[2] = D'2023.12.01 03:00';
+    //    02:00 bull (A of the gap, low = 1.1020 = gapLow)
+    open[3] = 1.1000; high[3] = 1.1040; low[3] = 1.1020; close[3] = 1.1020; time[3] = D'2023.12.01 02:00';
+    //    01:00 bear (oldest filler)
+    open[4] = 1.1000; high[4] = 1.0990; low[4] = 1.0970; close[4] = 1.0970; time[4] = D'2023.12.01 01:00';
 }
 
 //--- History C: 8 bars = A shifted by +2 plus 2 newer bars (07:00, 06:00),
@@ -104,6 +113,40 @@ void LCBuildFVGHistoryC(double &open[], double &high[], double &low[],
     open[6] = 1.0900; high[6] = 1.0940; low[6] = 1.0920; close[6] = 1.0920; time[6] = D'2024.01.01 01:00';
     //    00:00 flat (A[5])
     open[7] = 1.0900; high[7] = 1.0910; low[7] = 1.0900; close[7] = 1.0900; time[7] = D'2024.01.01 00:00';
+}
+
+//--- History D: 9 bars = History C + ONE new forming bar (08:00), so now
+//--- the 07:00 bar (previously the forming anchor in C) is CLOSED.
+//--- C4 (closed-bar): the bullish FVG (A=04:00/05:00 bear, C=07:00 bull)
+//--- can finally be detected in triple i=3, displacement = 06:00.
+void LCBuildFVGHistoryD(double &open[], double &high[], double &low[],
+                        double &close[], datetime &time[], int &rates)
+{
+    rates = 9;
+    ArrayResize(open, rates);
+    ArrayResize(high, rates);
+    ArrayResize(low, rates);
+    ArrayResize(close, rates);
+    ArrayResize(time, rates);
+
+    //    08:00 bull (new forming)
+    open[0] = 1.0890; high[0] = 1.0950; low[0] = 1.0890; close[0] = 1.0950; time[0] = D'2024.01.01 08:00';
+    //    07:00 bull (C of the new gap, low = 1.0880 = gapHigh)
+    open[1] = 1.0880; high[1] = 1.0940; low[1] = 1.0880; close[1] = 1.0940; time[1] = D'2024.01.01 07:00';
+    //    06:00 flat (B / displacement)
+    open[2] = 1.0870; high[2] = 1.0880; low[2] = 1.0860; close[2] = 1.0870; time[2] = D'2024.01.01 06:00';
+    //    05:00 bear (A of the new gap, high = 1.0860 = gapLow)
+    open[3] = 1.0860; high[3] = 1.0860; low[3] = 1.0840; close[3] = 1.0840; time[3] = D'2024.01.01 05:00';
+    //    04:00 bear (A[1])
+    open[4] = 1.0880; high[4] = 1.0880; low[4] = 1.0860; close[4] = 1.0860; time[4] = D'2024.01.01 04:00';
+    //    03:00 bear (A[2])
+    open[5] = 1.0900; high[5] = 1.0900; low[5] = 1.0880; close[5] = 1.0880; time[5] = D'2024.01.01 03:00';
+    //    02:00 bear (A[3])
+    open[6] = 1.0920; high[6] = 1.0920; low[6] = 1.0900; close[6] = 1.0900; time[6] = D'2024.01.01 02:00';
+    //    01:00 bull (A[4])
+    open[7] = 1.0900; high[7] = 1.0940; low[7] = 1.0920; close[7] = 1.0920; time[7] = D'2024.01.01 01:00';
+    //    00:00 flat (A[5])
+    open[8] = 1.0900; high[8] = 1.0910; low[8] = 1.0900; close[8] = 1.0900; time[8] = D'2024.01.01 00:00';
 }
 
 //--- Shared swing series builder (chronological, index 0 = oldest).
@@ -167,7 +210,9 @@ void TestLC01_FVG_RescanRebuildsAndIdsMonotonic(TestCounters &counters)
     TEST_TRUE(detector.GetFVG(0, fvg0), "LC01.1: fvg0 still readable after re-feed");
     TEST_INT_EQ(fvg0.id, 0, "LC01.1: re-feed keeps id 0");
 
-    //--- History B (older epoch): time[0] < cursor -> rescan from scratch
+    //--- History B (older epoch): time[0] < cursor -> rescan from scratch.
+    //    C4 (closed-bar): the B gap lives in the fully closed triple
+    //    (A=02:00 bull, B=03:00, C=04:00 bear) -> ONE FVG id=1 (no reuse).
     LCBuildFVGHistoryB(open, high, low, close, time, rates);
     detector.Update(open, high, low, close, time, rates);
     TEST_INT_EQ(detector.GetFVGCount(), 1, "LC01.1: rescan rebuilds from B only (no A leftovers)");
@@ -175,9 +220,9 @@ void TestLC01_FVG_RescanRebuildsAndIdsMonotonic(TestCounters &counters)
     FairValueGap fvgB;
     TEST_TRUE(detector.GetFVG(0, fvgB), "LC01.1: B fvg readable");
     TEST_INT_EQ(fvgB.id, 1, "LC01.1: id monotonic across rescan (no reuse - LC3)");
-    TEST_DATETIME_EQ(fvgB.time, D'2023.12.01 04:00', "LC01.1: B fvg time = 2023.12.01 04:00");
-    TEST_DBL_NEAR(fvgB.upper, 1.1020, 1e-9, "LC01.1: B fvg upper = 1.1020");
-    TEST_DBL_NEAR(fvgB.lower, 1.1000, 1e-9, "LC01.1: B fvg lower = 1.1000");
+    TEST_DATETIME_EQ(fvgB.time, D'2023.12.01 03:00', "LC01.1: B fvg time = 2023.12.01 03:00 (middle of closed triple)");
+    TEST_DBL_NEAR(fvgB.upper, 1.1020, 1e-9, "LC01.1: B fvg upper = 1.1020 (gapLow)");
+    TEST_DBL_NEAR(fvgB.lower, 1.1000, 1e-9, "LC01.1: B fvg lower = 1.1000 (gapHigh)");
 
     //--- Re-feed B: no-op
     detector.Update(open, high, low, close, time, rates);
@@ -201,10 +246,12 @@ void TestLC01_FVG_IncrementalDeltaOnly(TestCounters &counters)
     detector.Update(open, high, low, close, time, rates);
     TEST_INT_EQ(detector.GetFVGCount(), 1, "LC01.2: history A -> 1 FVG");
 
-    //--- History C = A + 2 newer bars: delta scan only
+    //--- History C = A + 2 newer bars: delta scan only.  C4 (closed-bar):
+    //    the would-be bullish FVG (A=04:00/05:00 bear, C=07:00 bull) still
+    //    has its anchor (07:00) on the newest/forming bar -> NOT detected.
     LCBuildFVGHistoryC(open, high, low, close, time, rates);
     detector.Update(open, high, low, close, time, rates);
-    TEST_INT_EQ(detector.GetFVGCount(), 2, "LC01.2: delta adds exactly 1 FVG");
+    TEST_INT_EQ(detector.GetFVGCount(), 1, "LC01.2: forming-anchored delta detected nothing new");
 
     //--- Old FVG untouched (id, geometry, position in pool)
     FairValueGap fvgOld;
@@ -214,7 +261,13 @@ void TestLC01_FVG_IncrementalDeltaOnly(TestCounters &counters)
     TEST_DBL_NEAR(fvgOld.upper, 1.0920, 1e-9, "LC01.2: old FVG keeps upper 1.0920");
     TEST_DBL_NEAR(fvgOld.lower, 1.0900, 1e-9, "LC01.2: old FVG keeps lower 1.0900");
 
-    //--- New FVG detected in the delta window only
+    //--- History D = C + new forming bar (08:00): now 07:00 is CLOSED and
+    //    the bullish gap can be detected in the fully-closed triple i=3.
+    LCBuildFVGHistoryD(open, high, low, close, time, rates);
+    detector.Update(open, high, low, close, time, rates);
+    TEST_INT_EQ(detector.GetFVGCount(), 2, "LC01.2: delta after closure adds exactly 1 FVG");
+
+    //--- New FVG detected in the delta window only (id monotonic)
     FairValueGap fvgNew;
     TEST_TRUE(detector.GetFVG(1, fvgNew), "LC01.2: new FVG readable");
     TEST_INT_EQ(fvgNew.id, 1, "LC01.2: new FVG id = 1 (monotonic)");

@@ -24,6 +24,9 @@
 #include "Evaluators/IConfluenceEvaluator.mqh"
 
 #define EXPIRY_REASON_COUNT 7
+//--- C5 (integrity): when the signal pool exceeds this size the expired
+//    entries are compacted out, keeping the lifecycle scan bounded.
+#define MAX_SIGNAL_POOL_SIZE 4096
 
 class CConfluenceEngine
 {
@@ -51,6 +54,7 @@ private:
 
     int     m_totalSignalsCreated;
     int     m_totalSignalsExpired;
+    int     m_totalSignalsPruned;
     int     m_bullishCount;
     int     m_bearishCount;
     int     m_expiryCounts[EXPIRY_REASON_COUNT];
@@ -67,6 +71,7 @@ private:
 
     void    CheckSignalLifecycles(void);
     void    ExpireSignal(int index, ExpiryReason reason);
+    void    PruneExpiredSignals(void);
     bool    EvaluateViaEvaluators(ConfluenceDirection dir, ConfluenceResult &result);
     void    BridgeConfluenceToSignal(const ConfluenceResult &cr, RuleResult &bestRule, ScoreLayer &score);
 
@@ -113,6 +118,7 @@ CConfluenceEngine::CConfluenceEngine(void)
     , m_hasLatest(false)
     , m_totalSignalsCreated(0)
     , m_totalSignalsExpired(0)
+    , m_totalSignalsPruned(0)
     , m_bullishCount(0)
     , m_bearishCount(0)
     , m_evaluatorCount(0)
@@ -155,6 +161,7 @@ bool CConfluenceEngine::Init(void)
     m_hasLatest = false;
     m_totalSignalsCreated = 0;
     m_totalSignalsExpired = 0;
+    m_totalSignalsPruned = 0;
     m_bullishCount = 0;
     m_bearishCount = 0;
 
@@ -322,6 +329,13 @@ void CConfluenceEngine::Update(void)
 
     if(dir == CONFLUENCE_BULLISH) m_bullishCount++;
     if(dir == CONFLUENCE_BEARISH) m_bearishCount++;
+
+    //--- C5 (integrity): only MEANINGFUL (directional) signals enter the
+    //    persistent lifecycle pool.  Previously a signal was created on
+    //    EVERY bar — including CONFLUENCE_NONE bars — so the pool grew
+    //    unboundedly and CheckSignalLifecycles re-scanned it all each bar.
+    if(dir == CONFLUENCE_NONE)
+        return;
 
     ConfluenceSignal sig;
     sig.id               = m_nextSignalId++;
@@ -519,6 +533,34 @@ void CConfluenceEngine::CheckSignalLifecycles(void)
             m_totalSignalsExpired++;
         }
     }
+
+    //--- C5 (integrity): compact terminal signals out of the pool so the
+    //    lifecycle scan and memory stay bounded over long runs.
+    if(m_signalCount > MAX_SIGNAL_POOL_SIZE)
+        PruneExpiredSignals();
+}
+
+void CConfluenceEngine::PruneExpiredSignals(void)
+{
+    int write = 0;
+    for(int read = 0; read < m_signalCount; read++)
+    {
+        if(m_signals[read].lifecycle == SIGNAL_EXPIRED)
+            continue;
+        if(write != read)
+            m_signals[write] = m_signals[read];
+        write++;
+    }
+    int pruned = m_signalCount - write;
+    if(pruned > 0)
+    {
+        m_signalCount = write;
+        ArrayResize(m_signals, m_signalCount);
+        m_totalSignalsPruned += pruned;
+        m_logger.LogInfo(StringFormat(
+            "SIGNAL-PRUNE removed=%d pool=%d prunedTotal=%d",
+            pruned, m_signalCount, m_totalSignalsPruned));
+    }
 }
 
 void CConfluenceEngine::ExpireSignal(int index, ExpiryReason reason)
@@ -702,7 +744,8 @@ void CConfluenceEngine::Shutdown(void)
     m_logger.LogInfo("========================= CONFLUENCE SUMMARY =========================");
     m_logger.LogInfo(StringFormat("Total Signals Created    : %d", m_totalSignalsCreated));
     m_logger.LogInfo(StringFormat("Total Signals Expired    : %d", m_totalSignalsExpired));
-    m_logger.LogInfo(StringFormat("Active Signals Remaining : %d", m_signalCount - m_totalSignalsExpired));
+    m_logger.LogInfo(StringFormat("Total Signals Pruned     : %d", m_totalSignalsPruned));
+    m_logger.LogInfo(StringFormat("Signals in Pool          : %d", m_signalCount));
     m_logger.LogInfo(StringFormat("Bullish Signals          : %d", m_bullishCount));
     m_logger.LogInfo(StringFormat("Bearish Signals          : %d", m_bearishCount));
     m_logger.LogInfo("");

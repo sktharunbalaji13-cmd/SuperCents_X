@@ -42,6 +42,14 @@
 
 //--- Input parameters
 input ENUM_ENTRY_MODE EntryMode = ENTRY_MODE_LEGACY;
+//--- C1 (integrity): stable order magic number.  Previously derived from
+//    TimeCurrent(), which changed the identity on every restart and
+//    orphaning open positions.  Must be a positive int (1..2147483647).
+input long InpMagicNumber = 27182819;
+//--- C2 (integrity): risk % of account equity per trade (position sizing).
+input double InpRiskPercent = 1.0;
+//--- C3 (integrity): maximum open positions per symbol (EA-owned orders).
+input int InpMaxPositionsPerSymbol = 1;
 //--- ED01-D prerequisite: replay outcome simulator TP arm (fixed-RR default,
 //    opposing-liquidity selectable for the experiment). Inert in LEGACY.
 input ENUM_OUTCOME_TP_MODE OutcomeTpMode = OUTCOME_TP_FIXED_RR;
@@ -96,6 +104,21 @@ int OnInit()
     }
     g_engine.SetWeights(w);
     Print("Confluence weights: " + w.ToString());
+
+    //--- C1 (integrity): validate the magic input and push it into the
+    //    engine BEFORE Init so Config keeps it (no TimeCurrent-derived
+    //    overwrite) and every symbol context + TradeManager adopt it.
+    if(InpMagicNumber < 1 || InpMagicNumber > INT_MAX)
+    {
+        Print("ERROR: InpMagicNumber must be in [1, 2147483647] (got " +
+              IntegerToString(InpMagicNumber) + ")");
+        return INIT_PARAMETERS_INCORRECT;
+    }
+    g_engine.SetMagicNumber((int)InpMagicNumber);
+
+    //--- C2 (integrity): risk % per trade; C3: per-symbol position cap.
+    g_engine.SetRiskPercent(InpRiskPercent);
+    g_engine.SetMaxPositionsPerSymbol(InpMaxPositionsPerSymbol);
 
     // Set entry engine mode
     g_engine.SetEntryMode(EntryMode);

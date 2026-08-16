@@ -44,6 +44,13 @@ public:
     bool IsInitialized(void) const { return m_isInitialized; }
 
     void SetEntryMode(ENUM_ENTRY_MODE mode) { m_config.SetEntryMode(mode); }
+    //--- C1 (integrity): stable order magic from the EA input, applied
+    //    before Init so every symbol context and the TradeManager use it.
+    void SetMagicNumber(int magic) { m_config.SetMagicNumber(magic); }
+    //--- C2 (integrity): risk-per-trade percent and per-symbol position
+    //    cap, applied to the primary context after registration.
+    void SetRiskPercent(double pct) { m_config.SetRiskPercent(pct); }
+    void SetMaxPositionsPerSymbol(int max) { m_config.SetMaxPositionsPerSymbol(max); }
     //--- ED01-D prerequisite: outcome TP arm for the replay outcome
     //    simulator (applied to the primary context during Init).
     void SetOutcomeTpMode(ENUM_OUTCOME_TP_MODE mode) { m_config.SetOutcomeTpMode(mode); }
@@ -178,6 +185,14 @@ bool CEngine::Init(void)
     //    the experiment tiers override it per run).
     if(primary != NULL)
         primary.SetSwingSignificanceTier(m_config.GetSwingSignificanceTier());
+
+    //--- C2/C3 (integrity): forward the risk % and per-symbol position cap
+    //    to the primary context so the TradeManager uses them at execution.
+    if(primary != NULL)
+    {
+        primary.SetRiskPercent(m_config.GetRiskPercent());
+        primary.SetMaxPositionsPerSymbol(m_config.GetMaxPositionsPerSymbol());
+    }
 
     m_logger.LogInfo("Engine initialization complete");
     m_telemetry.Init();
