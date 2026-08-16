@@ -237,10 +237,12 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
         return;
     }
 
+    bool entrySR = false, stopSR = false, targetSR = false;
+
     {
         double price = 0;
         string policyName = "";
-        ResolveEntryPrice(candidate, m_config.entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, price, policyName);
+        ResolveEntryPrice(candidate, m_config.entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, price, policyName, entrySR);
         plan.entryPrice = price;
         plan.entryPolicyUsed = policyName;
     }
@@ -251,7 +253,7 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
         ResolveStopLoss(candidate, m_config.stopPolicy, plan.entryPrice,
                         m_config.stopBufferPips, m_config.minStopDistancePips,
                         m_obDetector, m_liqDetector, m_ppManager,
-                        sl, policyName);
+                        sl, policyName, stopSR);
         plan.stopLoss = sl;
         plan.stopPolicyUsed = policyName;
     }
@@ -262,10 +264,17 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
         ResolveTakeProfit(candidate, m_config.targetPolicy, plan.entryPrice, plan.stopLoss,
                           m_config.targetRR, m_obDetector, m_fvgDetector,
                           m_liqDetector, m_bosDetector,
-                          tp, policyName);
+                          tp, policyName, targetSR);
         plan.takeProfit = tp;
         plan.targetPolicyUsed = policyName;
     }
+
+    //--- C1 (plan identity): persist the resolution policies (enum) and the
+    //    structure-resolved flag for durable cross-run plan identity.
+    plan.entryPolicy = m_config.entryPolicy;
+    plan.stopPolicy = m_config.stopPolicy;
+    plan.targetPolicy = m_config.targetPolicy;
+    plan.structureResolved = (entrySR && stopSR && targetSR);
 
     plan.stopDistance = MathAbs(plan.entryPrice - plan.stopLoss);
     plan.targetDistance = MathAbs(plan.takeProfit - plan.entryPrice);
@@ -406,16 +415,17 @@ void CExecutionPlanner::EvaluateSingleCombo(int idx, const ExecutionPlanConfig &
 
         double entryPrice = 0, stopLoss = 0, takeProfit = 0;
         string entryPol = "", stopPol = "", targetPol = "";
+        bool eSR = false, sSR = false, tSR = false;
 
-        ResolveEntryPrice(candidate, cfg.entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, entryPrice, entryPol);
+        ResolveEntryPrice(candidate, cfg.entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, entryPrice, entryPol, eSR);
         ResolveStopLoss(candidate, cfg.stopPolicy, entryPrice,
                         cfg.stopBufferPips, cfg.minStopDistancePips,
                         m_obDetector, m_liqDetector, m_ppManager,
-                        stopLoss, stopPol);
+                        stopLoss, stopPol, sSR);
         ResolveTakeProfit(candidate, cfg.targetPolicy, entryPrice, stopLoss,
                           cfg.targetRR, m_obDetector, m_fvgDetector,
                           m_liqDetector, m_bosDetector,
-                          takeProfit, targetPol);
+                          takeProfit, targetPol, tSR);
 
         double stopDist = MathAbs(entryPrice - stopLoss);
         double targetDist = MathAbs(takeProfit - entryPrice);

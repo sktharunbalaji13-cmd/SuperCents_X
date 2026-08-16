@@ -27,8 +27,13 @@ bool ResolveTakeProfit(const TradeCandidate &candidate,
                        CLiquidityDetector *liqDetector,
                        CBOSDetector *bosDetector,
                        double &takeProfit,
-                       string &policyName)
+                       string &policyName,
+                       bool &structureResolved)
 {
+    // C1: every target path is deterministic (structure or fixed-RR with a
+    // stable RR tier).  There is no live/broker fallback in this resolver.
+    structureResolved = true;
+
     if(policy == TARGET_OPPOSING_LIQUIDITY && candidate.hasLiquidity && candidate.liquidityId >= 0 && liqDetector != NULL)
     {
         //--- DD04 (ledger C10): the opposing target is a DIFFERENT pool of the

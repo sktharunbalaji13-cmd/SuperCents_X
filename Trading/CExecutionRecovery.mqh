@@ -125,7 +125,7 @@ int FindStateByDecisionId(const ExecutionReconState &states[], const long decisi
     return -1;
 }
 
-//--- INTENT payload: decisionId|symbol|side|price|volume|sl|tp|magic
+//--- INTENT payload: decisionId|symbol|side|price|volume|sl|tp|magic|planEntryPrice|structureResolved|entryPolicy|stopPolicy|targetPolicy
 bool ParseIntentPayload(const string payload, long &decisionId, string &symbol,
                         string &side, double &requestedVolume, long &magic)
 {
@@ -138,6 +138,44 @@ bool ParseIntentPayload(const string payload, long &decisionId, string &symbol,
     side = parts[2];
     requestedVolume = StringToDouble(parts[4]);
     magic = StringToInteger(parts[7]);
+    return true;
+}
+
+//--- C1 (plan identity): the durable, deterministic plan identity.  present
+//    is false for legacy 8-field INTENT records (no identity -> E BLOCKs).
+struct PlanIdentity
+{
+    string symbol;
+    string side;
+    long   magic;
+    int    entryPolicy;
+    double planEntryPrice;
+    int    stopPolicy;
+    double stopLoss;
+    int    targetPolicy;
+    double takeProfit;
+    bool   structureResolved;
+    bool   present;
+};
+
+bool ParseIntentPlanIdentity(const string payload, PlanIdentity &pi)
+{
+    pi.present = false;
+    string parts[];
+    int n = StringSplit(payload, '|', parts);
+    if(n < 13)
+        return false;   // legacy record: identity absent
+    pi.symbol = parts[1];
+    pi.side = parts[2];
+    pi.magic = StringToInteger(parts[7]);
+    pi.planEntryPrice = StringToDouble(parts[8]);
+    pi.structureResolved = (StringToInteger(parts[9]) != 0);
+    pi.entryPolicy = (int)StringToInteger(parts[10]);
+    pi.stopPolicy = (int)StringToInteger(parts[11]);
+    pi.targetPolicy = (int)StringToInteger(parts[12]);
+    pi.stopLoss = StringToDouble(parts[5]);
+    pi.takeProfit = StringToDouble(parts[6]);
+    pi.present = true;
     return true;
 }
 

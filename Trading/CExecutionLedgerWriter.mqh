@@ -154,9 +154,14 @@ public:
 
     //--- C1-B (Invariant 6): an executionId must never receive a second
     //    INTENT.  BeginExecution always allocates a FRESH executionId.
+    //    C1 (plan identity): appends [8..12] = planEntryPrice, structureResolved,
+    //    entryPolicy, stopPolicy, targetPolicy.  [3] requestedPrice stays the
+    //    live broker-request price (unchanged).
     bool BeginExecution(const long decisionId, const string symbol, const string side,
                         const double requestedPrice, const double requestedVolume,
                         const double sl, const double tp, const long magic,
+                        const double planEntryPrice, const int structureResolved,
+                        const int entryPolicy, const int stopPolicy, const int targetPolicy,
                         string &executionId)
     {
         executionId = "";
@@ -174,7 +179,12 @@ public:
                          DoubleToString(requestedPrice, 8) + "|" +
                          DoubleToString(requestedVolume, 8) + "|" +
                          DoubleToString(sl, 8) + "|" + DoubleToString(tp, 8) + "|" +
-                         IntegerToString(magic);
+                         IntegerToString(magic) + "|" +
+                         DoubleToString(planEntryPrice, 8) + "|" +
+                         IntegerToString(structureResolved) + "|" +
+                         IntegerToString(entryPolicy) + "|" +
+                         IntegerToString(stopPolicy) + "|" +
+                         IntegerToString(targetPolicy);
 
         ulong eventSeq = 0;
         if(!Append(eid, LEDGER_EVENT_INTENT, "", EXEC_STATE_INTENT, payload, eventSeq))

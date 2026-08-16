@@ -34,6 +34,7 @@
 #include "unit/TestH6RetryPolicy.mqh"
 #include "unit/TestExecutionRecovery.mqh"
 #include "unit/TestD1Correlation.mqh"
+#include "unit/TestC1PayloadExtension.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
 
@@ -154,6 +155,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunD1CorrelationTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunC1PayloadExtensionTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");

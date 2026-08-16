@@ -75,6 +75,14 @@ struct ExecutionPlan
     string              rationale;
     string              rejectionReason;
 
+    //--- C1 (plan identity): the resolution policies (enum) and the
+    //    structure-resolved flag, so the plan identity is durably
+    //    reconstructible independent of live market price.
+    ENUM_ENTRY_POLICY   entryPolicy;
+    ENUM_STOP_POLICY    stopPolicy;
+    ENUM_TARGET_POLICY  targetPolicy;
+    bool                structureResolved;
+
     datetime            createdTime;
 };
 

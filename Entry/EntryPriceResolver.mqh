@@ -12,8 +12,11 @@ bool ResolveEntryPrice(const TradeCandidate &candidate,
                        CFVGDetector *fvgDetector,
                        CLiquidityDetector *liqDetector,
                        double &entryPrice,
-                       string &policyName)
+                       string &policyName,
+                       bool &structureResolved)
 {
+    structureResolved = false;
+
     if(policy == ENTRY_OB_RETEST && candidate.hasOB && candidate.obId >= 0 && obDetector != NULL)
     {
         int count = obDetector.GetOrderBlockCount();
@@ -27,6 +30,7 @@ bool ResolveEntryPrice(const TradeCandidate &candidate,
                 else
                     entryPrice = ob.high;
                 policyName = "OB Retest";
+                structureResolved = true;
                 return true;
             }
         }
@@ -42,6 +46,7 @@ bool ResolveEntryPrice(const TradeCandidate &candidate,
             {
                 entryPrice = (fvg.upper + fvg.lower) / 2.0;
                 policyName = "FVG Midpoint";
+                structureResolved = true;
                 return true;
             }
         }
@@ -57,6 +62,7 @@ bool ResolveEntryPrice(const TradeCandidate &candidate,
             {
                 entryPrice = ll.price;
                 policyName = "Liquidity Level";
+                structureResolved = true;
                 return true;
             }
         }

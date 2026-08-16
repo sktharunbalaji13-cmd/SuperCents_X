@@ -16,8 +16,10 @@ bool ResolveStopLoss(const TradeCandidate &candidate,
                      CLiquidityDetector *liqDetector,
                      CProtectedPointManager *ppManager,
                      double &stopLoss,
-                     string &policyName)
+                     string &policyName,
+                     bool &structureResolved)
 {
+    structureResolved = false;
     double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
     double stopBuffer = stopBufferPips * 10.0 * point;
 
@@ -34,6 +36,7 @@ bool ResolveStopLoss(const TradeCandidate &candidate,
                 else
                     stopLoss = ob.high + stopBuffer;
                 policyName = "Below OB + buffer";
+                structureResolved = true;
                 return true;
             }
         }
@@ -52,6 +55,7 @@ bool ResolveStopLoss(const TradeCandidate &candidate,
                 else
                     stopLoss = ll.price + stopBuffer;
                 policyName = "Below Liquidity + buffer";
+                structureResolved = true;
                 return true;
             }
         }
@@ -64,12 +68,14 @@ bool ResolveStopLoss(const TradeCandidate &candidate,
         {
             stopLoss = pp.price - stopBuffer;
             policyName = "Below Protected Low";
+            structureResolved = true;
             return true;
         }
         else if(candidate.direction == CONFLUENCE_BEARISH && ppManager.GetActiveHigh(pp))
         {
             stopLoss = pp.price + stopBuffer;
             policyName = "Above Protected High";
+            structureResolved = true;
             return true;
         }
     }

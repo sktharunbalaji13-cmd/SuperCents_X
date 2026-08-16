@@ -348,7 +348,10 @@ void CTradeManager::Update(void)
             string execSide = (plan.orderType == ORDER_TYPE_BUY) ? "BUY" : "SELL";
             if(!m_ledgerWriter.BeginExecution((long)planId, m_symbol, execSide,
                                               request.price, volume, request.sl, request.tp,
-                                              m_magicNumber, execExecutionId))
+                                              m_magicNumber,
+                                              plan.entryPrice, (int)plan.structureResolved,
+                                              (int)plan.entryPolicy, (int)plan.stopPolicy, (int)plan.targetPolicy,
+                                              execExecutionId))
             {
                 m_totalFailed++;
                 m_logger.LogInfo(StringFormat(

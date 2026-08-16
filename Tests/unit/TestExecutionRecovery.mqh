@@ -239,8 +239,8 @@ void TestPhase45Writer(TestCounters &counters)
 
     // BeginExecution allocates a fresh executionId and appends INTENT
     string eid1 = "", eid2 = "";
-    TEST_TRUE(writer.BeginExecution(101, "EURUSD", "BUY", 1.10000, 1.0, 1.09000, 1.12000, 27182819, eid1), "T4c BeginExecution 1");
-    TEST_TRUE(writer.BeginExecution(102, "EURUSD", "SELL", 1.10000, 0.5, 1.12000, 1.08000, 27182819, eid2), "T4d BeginExecution 2");
+    TEST_TRUE(writer.BeginExecution(101, "EURUSD", "BUY", 1.10000, 1.0, 1.09000, 1.12000, 27182819, 1.1, 1, 0, 2, 0, eid1), "T4c BeginExecution 1");
+    TEST_TRUE(writer.BeginExecution(102, "EURUSD", "SELL", 1.10000, 0.5, 1.12000, 1.08000, 27182819, 1.1, 1, 0, 2, 0, eid2), "T4d BeginExecution 2");
     TEST_TRUE(eid1 != "" && eid2 != "", "T4e executionIds non-empty");
     TEST_TRUE(eid1 != eid2, "T4f distinct executionIds (never reuse)");
 
@@ -262,20 +262,20 @@ void TestPhase45Writer(TestCounters &counters)
 
     // REJECT_PERMANENT / RETRY_ELIGIBLE -> REJECTED ; RETRY_HOLD -> UNKNOWN
     string eid3 = "";
-    writer.BeginExecution(103, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, eid3);
+    writer.BeginExecution(103, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, 1.1, 1, 0, 2, 0, eid3);
     truth.retcode = TRADE_RETCODE_INVALID;
     truth.outcome = EXEC_OUTCOME_REJECTED;
     TEST_TRUE(writer.RecordResult(eid3, truth, H6_POLICY_REJECT_PERMANENT), "T4l REJECT_PERMANENT -> REJECTED");
 
     string eid4 = "";
-    writer.BeginExecution(104, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, eid4);
+    writer.BeginExecution(104, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, 1.1, 1, 0, 2, 0, eid4);
     truth.retcode = TRADE_RETCODE_REQUOTE;
     truth.outcome = EXEC_OUTCOME_REJECTED;
     TEST_TRUE(writer.RecordResult(eid4, truth, H6_POLICY_RETRY_ELIGIBLE), "T4m RETRY_ELIGIBLE -> REJECTED (this attempt)");
     TEST_FALSE(writer.AlreadySent(eid4), "T4n retry-eligible execution NOT broker-visible (new executionId on retry)");
 
     string eid5 = "";
-    writer.BeginExecution(105, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, eid5);
+    writer.BeginExecution(105, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, 1.1, 1, 0, 2, 0, eid5);
     truth.retcode = TRADE_RETCODE_TIMEOUT;
     truth.outcome = EXEC_OUTCOME_TIMEOUT;
     TEST_TRUE(writer.RecordResult(eid5, truth, H6_POLICY_RETRY_HOLD), "T4o RETRY_HOLD -> UNKNOWN");
@@ -320,7 +320,7 @@ void TestPhase6Corruption(TestCounters &counters)
         CExecutionLedgerWriter w;
         w.Init(path, &id, "RUN-CORR", "test");
         string eid = "";
-        w.BeginExecution(201, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, eid);
+        w.BeginExecution(201, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, 1.1, 1, 0, 2, 0, eid);
         ExecutionTruthRecord t;
         t.retcode = TRADE_RETCODE_DONE;
         t.outcome = EXEC_OUTCOME_FILLED;
@@ -377,7 +377,7 @@ void TestPhase6Corruption(TestCounters &counters)
         CExecutionLedgerWriter w;
         w.Init(path, &id, "RUN-TORN", "test");
         string eid = "";
-        w.BeginExecution(202, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, eid);
+        w.BeginExecution(202, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, 1.1, 1, 0, 2, 0, eid);
         // append a truncated record as the last line
         TestRecoveryRawAppend(path, "EVT|999|EX-RUN-999|SENT|2026.01.01 00:00|INTENT|SUBMITTED|truncated|deadbeef");
         CExecutionRecovery rec;
@@ -405,7 +405,7 @@ void TestPhase7Idempotence(TestCounters &counters)
     w.Init(path, &id, "RUN-IDEM", "test");
 
     string eid = "";
-    w.BeginExecution(301, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, eid);
+    w.BeginExecution(301, "EURUSD", "BUY", 1.1, 1.0, 1.09, 1.12, 27182819, 1.1, 1, 0, 2, 0, eid);
     ExecutionTruthRecord t;
     t.retcode = TRADE_RETCODE_DONE; t.outcome = EXEC_OUTCOME_FILLED;
     t.dealTicket = 0; t.orderTicket = 0; t.requestId = 0; t.retcodeExternal = 0;

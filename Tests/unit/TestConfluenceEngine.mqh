@@ -1118,8 +1118,9 @@ TestCounters RunConfluenceEngineTests(void)
 
         double tp = 0;
         string policy = "";
+        bool dummySR = false;
         bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
-                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
         TEST_TRUE(ok, "target resolved (bullish E3)");
         TEST_STR_EQ("Opposing Liquidity", policy, "policy = opposing liquidity");
         TEST_DBL_EQ(TARGET_P, tp, "target = buy-side pool above, not the swept source");
@@ -1145,8 +1146,9 @@ TestCounters RunConfluenceEngineTests(void)
 
         double tp = 0;
         string policy = "";
+        bool dummySR = false;
         bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 9.95, 10.05, 2.0,
-                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
         TEST_TRUE(ok, "target resolved (bearish E3)");
         TEST_STR_EQ("Opposing Liquidity", policy, "policy = opposing liquidity");
         TEST_DBL_EQ(TARGET_P, tp, "target = sell-side pool below, not the swept source");
@@ -1168,8 +1170,9 @@ TestCounters RunConfluenceEngineTests(void)
 
         double tp = 0;
         string policy = "";
+        bool dummySR = false;
         bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
-                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
         TEST_TRUE(ok, "fallback target resolved");
         TEST_TRUE(StringFind(policy, "Fixed RR") >= 0, "policy falls back to Fixed RR");
         TEST_DBL_NEAR(10.35, tp, 0.000001, "fixed RR target (entry + stopDist * 2)");
@@ -1192,8 +1195,9 @@ TestCounters RunConfluenceEngineTests(void)
 
         double tp = 0;
         string policy = "";
+        bool dummySR = false;
         bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 9.95, 9.90, 2.0,
-                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
         TEST_TRUE(ok, "fallback target resolved (same-level guard)");
         TEST_TRUE(StringFind(policy, "Fixed RR") >= 0, "no opposing pool -> Fixed RR");
         TEST_DBL_NEAR(10.05, tp, 0.000001, "target is NOT the swept source price");
@@ -1221,8 +1225,9 @@ TestCounters RunConfluenceEngineTests(void)
 
         double tp = 0;
         string policy = "";
+        bool dummySR = false;
         bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
-                                    NULL, NULL, GetPointer(liq), NULL, tp, policy);
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
         TEST_TRUE(ok, "target resolved (active-only)");
         TEST_DBL_EQ(ACTIVE_P, tp, "target = ACTIVE buy-side pool, swept pool skipped");
     }

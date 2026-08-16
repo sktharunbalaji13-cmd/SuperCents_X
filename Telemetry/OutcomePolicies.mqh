@@ -255,9 +255,10 @@ public:
 
             double tp = 0.0;
             string policyName = "";
+            bool dummySR = false;
             if(ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, entryPrice,
                                  levels.slPrice, m_tpR, NULL, NULL, m_liqDetector,
-                                 NULL, tp, policyName))
+                                 NULL, tp, policyName, dummySR))
             {
                 if(StringCompare(policyName, "Opposing Liquidity") == 0)
                     levels.tpPrice = tp;
