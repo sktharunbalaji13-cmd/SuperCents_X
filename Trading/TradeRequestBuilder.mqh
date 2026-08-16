@@ -20,6 +20,15 @@ public:
     void    SetDeviation(int deviation);
 
     bool    Build(const ExecutionPlan &plan, double volume, MqlTradeRequest &request);
+    //--- D1 (restart-stable broker correlation): emit the frozen B25-03A
+    //    #<seq> comment form SCX-<side>-P<decisionId>#<seq>.  Domain proof:
+    //    decisionId is int (<=10 digits) and seq <= EXEC_ID_MAX_SEQ (8
+    //    digits), so the worst case "SCX-SELL-P2147483647#99999999" is 29
+    //    chars <= the 31-char order-comment bound; this is INFALLIBLE (a
+    //    plain StringFormat, never fails) and can therefore never produce a
+    //    dangling INTENT when called after BeginExecution.
+    void    SetCorrelationComment(MqlTradeRequest &request, const string side,
+                                  const int decisionId, const ulong seq);
 };
 
 CTradeRequestBuilder::CTradeRequestBuilder(void)
@@ -70,6 +79,12 @@ bool CTradeRequestBuilder::Build(const ExecutionPlan &plan, double volume, MqlTr
     }
 
     return true;
+}
+
+void CTradeRequestBuilder::SetCorrelationComment(MqlTradeRequest &request, const string side,
+                                                 const int decisionId, const ulong seq)
+{
+    request.comment = StringFormat("SCX-%s-P%d#%llu", side, decisionId, seq);
 }
 
 #endif

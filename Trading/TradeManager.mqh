@@ -357,6 +357,17 @@ void CTradeManager::Update(void)
             }
         }
 
+        //--- D1 (restart-stable broker correlation): append the frozen #<seq>
+        //    tail to the order comment using the SAME seq embedded in the
+        //    INTENT's executionId, so a later restart can correlate exactly.
+        //    Infra-only: no inspection, no reconciliation, no retry change.
+        if(m_ledgerWriter != NULL && execExecutionId != "")
+        {
+            ulong execSeq = LedgerExtractExecutionSeq(execExecutionId);
+            string d1Side = (plan.orderType == ORDER_TYPE_BUY) ? "BUY" : "SELL";
+            m_requestBuilder.SetCorrelationComment(request, d1Side, (int)planId, execSeq);
+        }
+
         MqlTradeResult tradeResult;
         bool sent = OrderSend(request, tradeResult);
 
