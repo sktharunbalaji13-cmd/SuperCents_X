@@ -31,6 +31,7 @@
 #include "unit/TestExecutionIdentity.mqh"
 #include "unit/TestTrendFlipGate.mqh"
 #include "unit/TestIntegrityFixes.mqh"
+#include "unit/TestH6RetryPolicy.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
 
@@ -142,6 +143,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunIntegrityFixTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunH6RetryPolicyTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");

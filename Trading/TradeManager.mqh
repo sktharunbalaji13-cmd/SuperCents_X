@@ -11,6 +11,7 @@
 #include "ExecutionTruth.mqh"
 #include "TradeRequestBuilder.mqh"
 #include "TradeValidation.mqh"
+#include "TradeManagerRetryPolicy.mqh"
 
 class CTradeManager
 {
@@ -39,6 +40,15 @@ private:
     ulong                   m_submittedIds[];
     int                     m_submittedCount;
 
+    //--- H6 (integrity, Rev 2): session-scoped hold set for uncertain
+    //    send outcomes (TIMEOUT/CONNECTION/ERROR/NO_CHANGES/UNKNOWN).
+    //    Held plans are NEVER auto-retried and NEVER rejected intra-session;
+    //    only B25-03C durable reconciliation may resolve them.  RAM-only,
+    //    freed on Shutdown (no intra-session release path exists).
+    ulong                   m_retryHoldIds[];
+    int                     m_retryHoldCount;
+    int                     m_totalHeld;
+
     int     m_totalReceived;
     int     m_totalSubmitted;
     int     m_totalSucceeded;
@@ -49,6 +59,8 @@ private:
 
     bool    IsAlreadySubmitted(ulong planId);
     void    RecordSubmitted(ulong planId);
+    bool    IsRetryHeld(ulong planId);
+    void    HoldForRetry(ulong planId);
     void    LogOrderSent(const TradeExecutionResult &result);
     void    LogOrderFailed(const TradeExecutionResult &result);
     string  RetcodeToString(uint retcode);
@@ -77,6 +89,11 @@ public:
     int  GetOpenPositionCount(void) const { return CountOpenPositions(); }
     double GetRiskPercent(void) const { return m_riskPercent; }
     int  GetMaxPositionsPerSymbol(void) const { return m_maxPositionsPerSymbol; }
+    //--- H6 (integrity, Rev 2) hold-map observability/control (test seam).
+    int  GetHeldCount(void) const { return m_retryHoldCount; }
+    int  GetTotalHeld(void) const { return m_totalHeld; }
+    bool IsPlanRetryHeld(ulong planId) { return IsRetryHeld(planId); }
+    void HoldPlanForRetry(ulong planId) { HoldForRetry(planId); }
 };
 
 CTradeManager::CTradeManager(void)
@@ -92,6 +109,8 @@ CTradeManager::CTradeManager(void)
     , m_riskPercent(0.0)
     , m_maxPositionsPerSymbol(1)
     , m_submittedCount(0)
+    , m_retryHoldCount(0)
+    , m_totalHeld(0)
     , m_totalReceived(0)
     , m_totalSubmitted(0)
     , m_totalSucceeded(0)
@@ -119,6 +138,7 @@ bool CTradeManager::Init(void)
 
     m_symbol = _Symbol;
     m_submittedCount = 0;
+    m_retryHoldCount = 0;
 
     m_requestBuilder.SetSymbol(m_symbol);
     m_requestBuilder.SetDeviation(m_maxSlippage);
@@ -186,6 +206,12 @@ void CTradeManager::Update(void)
             m_totalDuplicates++;
             continue;
         }
+
+        //--- H6 (integrity, Rev 2): an uncertain send outcome is held and
+        //    skipped silently - never auto-retried, never rejected.  Only
+        //    B25-03C durable reconciliation may release it.
+        if(IsRetryHeld(planId))
+            continue;
 
         //--- C3 (integrity): position gate.  Once the per-symbol cap is
         //    reached (live positions with this magic+symbol), no further
@@ -313,32 +339,70 @@ void CTradeManager::Update(void)
         result.filledVolume = truth.filledVolume;
         result.executionTime = TimeCurrent();
 
-        if(truth.outcome == EXEC_OUTCOME_FILLED || truth.outcome == EXEC_OUTCOME_PARTIALLY_FILLED)
-        {
-            m_totalFilledPrice += truth.filledPrice;
-            result.rationale = "Order submitted successfully";
-            m_totalSucceeded++;
-            LogOrderSent(result);
-        }
-        else if(truth.outcome == EXEC_OUTCOME_ACCEPTED_NO_DEAL)
-        {
-            result.rationale = "Order accepted, no deal confirmed";
-            LogOrderSent(result);
-        }
-        else
-        {
-            result.rationale = StringFormat("OrderSend failed: retcode=%u %s",
-                truth.retcode, RetcodeToString(truth.retcode));
-            m_totalFailed++;
-            LogOrderFailed(result);
-        }
+        //--- H6 (integrity, Rev 2): classify the broker outcome into a
+        //    retry policy.  A plan enters the submitted/dedup state ONLY
+        //    when a broker-visible submission exists; a deterministic
+        //    broker refusal is retry-eligible or a permanent plan
+        //    rejection; an uncertain outcome is held and NEVER auto-retried
+        //    and NEVER rejected - only B25-03C durable reconciliation may
+        //    resolve it.  Absence of broker evidence never grants retry.
+        ENUM_H6_RETRY_POLICY policy = H6ClassifyPolicy(truth.retcode, truth.dealTicket);
 
-        //--- H6 (integrity): an order is recorded as submitted ONLY after
-        //    OrderSend was actually attempted.  Failed sends stay
-        //    retryable on the next bar; the same-tick dedup ledger is not
-        //    polluted by failed attempts.
-        RecordSubmitted(planId);
-        m_totalSubmitted++;
+        switch(policy)
+        {
+            case H6_POLICY_RECORD:
+                if(truth.outcome == EXEC_OUTCOME_FILLED || truth.outcome == EXEC_OUTCOME_PARTIALLY_FILLED)
+                {
+                    m_totalFilledPrice += truth.filledPrice;
+                    result.rationale = "Order submitted successfully";
+                    m_totalSucceeded++;
+                    LogOrderSent(result);
+                }
+                else if(truth.outcome == EXEC_OUTCOME_ACCEPTED_NO_DEAL)
+                {
+                    result.rationale = "Order accepted, no deal confirmed";
+                    LogOrderSent(result);
+                }
+                else
+                {
+                    //--- deal != 0 override while the truth outcome is not
+                    //    FILLED/PARTIAL/ACCEPTED_NO_DEAL (rare broker
+                    //    anomaly): evidence beats classification.
+                    result.rationale = "Broker-visible deal confirmed";
+                    m_totalSucceeded++;
+                    LogOrderSent(result);
+                }
+                RecordSubmitted(planId);
+                m_totalSubmitted++;
+                break;
+
+            case H6_POLICY_REJECT_PERMANENT:
+                result.rationale = StringFormat("Order rejected (permanent): retcode=%u %s",
+                    truth.retcode, RetcodeToString(truth.retcode));
+                m_totalFailed++;
+                LogOrderFailed(result);
+                if(m_planner != NULL)
+                    m_planner.SetPlanStatus(i, PLAN_REJECTED);
+                break;
+
+            case H6_POLICY_RETRY_ELIGIBLE:
+                result.rationale = StringFormat("Order refused (retry eligible): retcode=%u %s",
+                    truth.retcode, RetcodeToString(truth.retcode));
+                m_totalFailed++;
+                LogOrderFailed(result);
+                //--- plan remains PLAN_EXECUTABLE and unrecorded -> the
+                //    existing per-tick loop re-attempts it (no retry engine).
+                break;
+
+            case H6_POLICY_RETRY_HOLD:
+                result.rationale = StringFormat("Order outcome uncertain (hold): retcode=%u %s",
+                    truth.retcode, RetcodeToString(truth.retcode));
+                m_totalFailed++;
+                m_totalHeld++;
+                LogOrderFailed(result);
+                HoldForRetry(planId);
+                break;
+        }
     }
 }
 
@@ -355,6 +419,7 @@ void CTradeManager::Shutdown(void)
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Failed",                    m_totalFailed));
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Duplicate Prevented",       m_totalDuplicates));
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Blocked by Position Gate",  m_totalBlocked));
+    m_logger.LogInfo(StringFormat("  %-30s %5d", "Held (Uncertain Outcome)",   m_totalHeld));
     if(m_totalSucceeded > 0)
     {
         m_logger.LogInfo(StringFormat("  %-30s %.5f", "Avg Fill Price",       m_totalFilledPrice / m_totalSucceeded));
@@ -363,6 +428,8 @@ void CTradeManager::Shutdown(void)
 
     ArrayFree(m_submittedIds);
     m_submittedCount = 0;
+    ArrayFree(m_retryHoldIds);
+    m_retryHoldCount = 0;
     m_planner = NULL;
     m_isInitialized = false;
     m_logger.LogInfo("TradeManager shutdown complete");
@@ -384,6 +451,24 @@ void CTradeManager::RecordSubmitted(ulong planId)
     ArrayResize(m_submittedIds, idx + 1);
     m_submittedIds[idx] = planId;
     m_submittedCount++;
+}
+
+bool CTradeManager::IsRetryHeld(ulong planId)
+{
+    for(int i = 0; i < m_retryHoldCount; i++)
+    {
+        if(m_retryHoldIds[i] == planId)
+            return true;
+    }
+    return false;
+}
+
+void CTradeManager::HoldForRetry(ulong planId)
+{
+    int idx = m_retryHoldCount;
+    ArrayResize(m_retryHoldIds, idx + 1);
+    m_retryHoldIds[idx] = planId;
+    m_retryHoldCount++;
 }
 
 void CTradeManager::LogOrderSent(const TradeExecutionResult &result)
