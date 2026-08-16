@@ -106,6 +106,7 @@ private:
     CExecutionLedgerWriter     *m_execWriter;
     CExecutionRecovery         *m_execRecovery;
     CExecutionReconciler       *m_execReconciler;
+    CExecutionPlanInspection   *m_execInspection;
 
     CMetricsCollector          *m_metricsCollector;
     CHealthMonitor             *m_healthMonitor;
@@ -315,6 +316,7 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_execWriter(NULL)
     , m_execRecovery(NULL)
     , m_execReconciler(NULL)
+    , m_execInspection(NULL)
     , m_metricsCollector(NULL)
     , m_healthMonitor(NULL)
     , m_statisticsReporter(NULL)
@@ -663,6 +665,9 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
                     m_execRecovery.Init("Execution\\execution_ledger.dat");
                     m_execIdentity.SetMonotonicFloor(m_execRecovery.HighWaterSeq());
                     m_execReconciler = new CExecutionReconciler();
+                    m_execInspection = new CExecutionPlanInspection();
+                    if(m_execInspection != NULL)
+                        m_execInspection.Init("Execution\\execution_ledger.dat");
 
                     if(!m_execRecovery.IsExecutionBlocked() && m_execReconciler != NULL)
                     {
@@ -684,6 +689,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         {
             m_tradeExecutionManager.SetLedgerWriter(m_execWriter);
             m_tradeExecutionManager.SetRecovery(m_execRecovery);
+            m_tradeExecutionManager.SetPlanInspection(m_execInspection);
         }
     }
 
@@ -1460,6 +1466,11 @@ void CSymbolContext::Shutdown(void)
     {
         delete m_execReconciler;
         m_execReconciler = NULL;
+    }
+    if(m_execInspection != NULL)
+    {
+        delete m_execInspection;
+        m_execInspection = NULL;
     }
     if(m_execIdentity != NULL)
     {

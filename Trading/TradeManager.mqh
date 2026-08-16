@@ -13,6 +13,7 @@
 #include "TradeValidation.mqh"
 #include "TradeManagerRetryPolicy.mqh"
 #include "CExecutionLedgerWriter.mqh"
+#include "CExecutionPlanInspection.mqh"
 
 class CTradeManager
 {
@@ -54,6 +55,10 @@ private:
     //    NULL when unwired (NEW/SHADOW dormancy); LEGACY wires them.
     CExecutionLedgerWriter  *m_ledgerWriter;
     CExecutionRecovery      *m_recovery;
+    //--- B25-03C-E (integrity): plan-identity ledger inspection before send.
+    //    NULL when unwired; LEGACY wires it.  Cross-run duplicate gate.
+    CExecutionPlanInspection *m_inspection;
+    int                     m_totalInspectionBlocked;
 
     int     m_totalReceived;
     int     m_totalSubmitted;
@@ -92,6 +97,8 @@ public:
     void SetLedgerWriter(CExecutionLedgerWriter *writer) { m_ledgerWriter = writer; }
     void SetRecovery(CExecutionRecovery *recovery) { m_recovery = recovery; }
     CExecutionLedgerWriter *GetLedgerWriter(void) const { return m_ledgerWriter; }
+    //--- B25-03C-E wiring (LEGACY only; NULL under NEW/SHADOW).
+    void SetPlanInspection(CExecutionPlanInspection *inspection) { m_inspection = inspection; }
     //--- C2/C3 (integrity) configuration entry points.
     void SetPositionSizer(CPositionSizer *sizer) { m_positionSizer = sizer; }
     void SetRiskPercent(double pct) { m_riskPercent = fmax(pct, 0.0); }
@@ -123,6 +130,8 @@ CTradeManager::CTradeManager(void)
     , m_totalHeld(0)
     , m_ledgerWriter(NULL)
     , m_recovery(NULL)
+    , m_inspection(NULL)
+    , m_totalInspectionBlocked(0)
     , m_totalReceived(0)
     , m_totalSubmitted(0)
     , m_totalSucceeded(0)
@@ -340,6 +349,27 @@ void CTradeManager::Update(void)
             continue;
         }
 
+        //--- B25-03C-E: plan-identity ledger inspection before send (cross-run
+        //    duplicate defense).  Keys on the durable canonical PI read from the
+        //    unbounded ledger; MATCHED/AMBIGUOUS/CORRUPT -> BLOCK (no send);
+        //    only NOT_FOUND permits.  Read-only: no broker access, no resend.
+        if(m_inspection != NULL)
+        {
+            string inspSide = (plan.orderType == ORDER_TYPE_BUY) ? "BUY" : "SELL";
+            string inspVerdict = m_inspection.Inspect(m_symbol, inspSide, m_magicNumber,
+                                                      (int)plan.entryPolicy, plan.entryPrice,
+                                                      (int)plan.stopPolicy, plan.stopLoss,
+                                                      (int)plan.targetPolicy, plan.takeProfit,
+                                                      plan.structureResolved);
+            if(inspVerdict != EINSPECT_NOT_FOUND)
+            {
+                m_totalInspectionBlocked++;
+                m_logger.LogInfo(StringFormat(
+                    "ORDER-BLOCKED-INSPECTION Plan=%lld verdict=%s", planId, inspVerdict));
+                continue;
+            }
+        }
+
         //--- B25-03C-B: INTENT-before-send (write-ahead; fail closed before
         //    OrderSend).  Allocates a fresh executionId (never reused).
         string execExecutionId = "";
@@ -473,6 +503,7 @@ void CTradeManager::Shutdown(void)
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Duplicate Prevented",       m_totalDuplicates));
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Blocked by Position Gate",  m_totalBlocked));
     m_logger.LogInfo(StringFormat("  %-30s %5d", "Held (Uncertain Outcome)",   m_totalHeld));
+    m_logger.LogInfo(StringFormat("  %-30s %5d", "Blocked by Inspection (E)",  m_totalInspectionBlocked));
     if(m_totalSucceeded > 0)
     {
         m_logger.LogInfo(StringFormat("  %-30s %.5f", "Avg Fill Price",       m_totalFilledPrice / m_totalSucceeded));
