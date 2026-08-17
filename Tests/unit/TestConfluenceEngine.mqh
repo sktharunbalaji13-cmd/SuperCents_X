@@ -1314,6 +1314,107 @@ TestCounters RunConfluenceEngineTests(void)
                     "stamped family LIQUIDITY");
     }
 
+    // Test 55: TargetResolver — BULL wrong-side guard: the newest opposing
+    //          (buy-side) pool sits BELOW the entry.  It must be skipped and
+    //          the older valid buy-side pool ABOVE the entry selected (not
+    //          the Fixed-RR fallback).
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (bull wrong-side guard)");
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQL, 10.00, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQL) swept");
+        const double VALID_P = 10.60;
+        int validId = liq.CreateLevel(LIQUIDITY_EQH, VALID_P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        const double WRONG_P = 9.90;
+        int wrongId = liq.CreateLevel(LIQUIDITY_EQH, WRONG_P, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(sourceId >= 0 && validId >= 0 && wrongId >= 0, "levels created");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BULLISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0; string policy = ""; bool dummySR = false;
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
+        TEST_TRUE(ok, "target resolved (bull wrong-side guard)");
+        TEST_STR_EQ("Opposing Liquidity", policy, "policy = opposing liquidity");
+        TEST_DBL_EQ(VALID_P, tp, "skips wrong-side newest, selects older valid above");
+    }
+
+    // Test 56: TargetResolver — BEAR wrong-side guard: the newest opposing
+    //          (sell-side) pool sits ABOVE the entry; skip it and select the
+    //          older valid sell-side pool BELOW the entry.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (bear wrong-side guard)");
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQH, 10.00, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQH) swept");
+        const double VALID_P = 9.40;
+        int validId = liq.CreateLevel(LIQUIDITY_EQL, VALID_P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        const double WRONG_P = 10.10;
+        int wrongId = liq.CreateLevel(LIQUIDITY_EQL, WRONG_P, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(sourceId >= 0 && validId >= 0 && wrongId >= 0, "levels created");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BEARISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0; string policy = ""; bool dummySR = false;
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 9.95, 10.05, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
+        TEST_TRUE(ok, "target resolved (bear wrong-side guard)");
+        TEST_STR_EQ("Opposing Liquidity", policy, "policy = opposing liquidity");
+        TEST_DBL_EQ(VALID_P, tp, "skips wrong-side newest, selects older valid below");
+    }
+
+    // Test 57: TargetResolver — BULL wrong-side only: every opposing pool is
+    //          below the entry, so the resolver must fall through to Fixed-RR.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (bull wrong-side only)");
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQL, 10.00, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQL) swept");
+        int wrongId = liq.CreateLevel(LIQUIDITY_EQH, 9.80, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(sourceId >= 0 && wrongId >= 0, "levels created");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BULLISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0; string policy = ""; bool dummySR = false;
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 10.05, 9.90, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
+        TEST_TRUE(ok, "fallback resolved (bull wrong-side only)");
+        TEST_TRUE(StringFind(policy, "Fixed RR") >= 0, "policy falls back to Fixed RR");
+        TEST_DBL_NEAR(10.35, tp, 0.000001, "fixed RR target (entry + stopDist * 2)");
+    }
+
+    // Test 58: TargetResolver — BEAR wrong-side only: every opposing pool is
+    //          above the entry, so the resolver must fall through to Fixed-RR.
+    {
+        CLiquidityDetector liq;
+        TEST_TRUE(liq.Init(), "LiquidityDetector init (bear wrong-side only)");
+        int sourceId = liq.CreateLevel(LIQUIDITY_EQH, 10.00, LIQUIDITY_ORIGIN_EQH, -1, -1);
+        TEST_TRUE(liq.SweepLevel(sourceId, 1, D'2026.01.01 01:00'), "source (EQH) swept");
+        int wrongId = liq.CreateLevel(LIQUIDITY_EQL, 10.10, LIQUIDITY_ORIGIN_EQL, -1, -1);
+        TEST_TRUE(sourceId >= 0 && wrongId >= 0, "levels created");
+
+        TradeCandidate cand;
+        cand.direction = CONFLUENCE_BEARISH;
+        cand.hasLiquidity = true;
+        cand.liquidityId = sourceId;
+
+        double tp = 0; string policy = ""; bool dummySR = false;
+        bool ok = ResolveTakeProfit(cand, TARGET_OPPOSING_LIQUIDITY, 9.95, 10.05, 2.0,
+                                    NULL, NULL, GetPointer(liq), NULL, tp, policy, dummySR);
+        TEST_TRUE(ok, "fallback resolved (bear wrong-side only)");
+        TEST_TRUE(StringFind(policy, "Fixed RR") >= 0, "policy falls back to Fixed RR");
+        TEST_DBL_NEAR(9.75, tp, 0.000001, "fixed RR target (entry - stopDist * 2)");
+    }
+
     SUITE_END("Confluence Engine Tests");
     return counters;
 }

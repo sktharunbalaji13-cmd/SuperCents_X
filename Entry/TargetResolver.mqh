@@ -49,13 +49,13 @@ bool ResolveTakeProfit(const TradeCandidate &candidate,
                 continue;
             if(ll.id == candidate.liquidityId || ll.status != LIQUIDITY_STATUS_ACTIVE)
                 continue;
-            if(candidate.direction == CONFLUENCE_BULLISH && ll.classification == LIQUIDITY_CLASS_BUY_SIDE)
+            if(candidate.direction == CONFLUENCE_BULLISH && ll.classification == LIQUIDITY_CLASS_BUY_SIDE && ll.price > entryPrice)
             {
                 takeProfit = ll.price;
                 policyName = "Opposing Liquidity";
                 return true;
             }
-            else if(candidate.direction == CONFLUENCE_BEARISH && ll.classification == LIQUIDITY_CLASS_SELL_SIDE)
+            else if(candidate.direction == CONFLUENCE_BEARISH && ll.classification == LIQUIDITY_CLASS_SELL_SIDE && ll.price < entryPrice)
             {
                 takeProfit = ll.price;
                 policyName = "Opposing Liquidity";
@@ -72,13 +72,13 @@ bool ResolveTakeProfit(const TradeCandidate &candidate,
             OrderBlock ob;
             if(obDetector.GetOrderBlock(i, ob) && ob.id != candidate.obId && !ob.mitigated && !ob.invalidated)
             {
-                if(candidate.direction == CONFLUENCE_BULLISH && !ob.bullish)
+                if(candidate.direction == CONFLUENCE_BULLISH && !ob.bullish && ob.low > entryPrice)
                 {
                     takeProfit = ob.low;
                     policyName = "Opposing OB";
                     return true;
                 }
-                else if(candidate.direction == CONFLUENCE_BEARISH && ob.bullish)
+                else if(candidate.direction == CONFLUENCE_BEARISH && ob.bullish && ob.high < entryPrice)
                 {
                     takeProfit = ob.high;
                     policyName = "Opposing OB";
@@ -96,13 +96,13 @@ bool ResolveTakeProfit(const TradeCandidate &candidate,
             FairValueGap fvg;
             if(fvgDetector.GetFVG(i, fvg) && !fvg.filled && !fvg.invalidated)
             {
-                if(candidate.direction == CONFLUENCE_BULLISH && !fvg.bullish)
+                if(candidate.direction == CONFLUENCE_BULLISH && !fvg.bullish && fvg.lower > entryPrice)
                 {
                     takeProfit = fvg.lower;
                     policyName = "Opposing FVG";
                     return true;
                 }
-                else if(candidate.direction == CONFLUENCE_BEARISH && fvg.bullish)
+                else if(candidate.direction == CONFLUENCE_BEARISH && fvg.bullish && fvg.upper < entryPrice)
                 {
                     takeProfit = fvg.upper;
                     policyName = "Opposing FVG";
@@ -120,13 +120,13 @@ bool ResolveTakeProfit(const TradeCandidate &candidate,
             BOSEvent bos;
             if(bosDetector.GetBOS(i, bos))
             {
-                if(candidate.direction == CONFLUENCE_BULLISH && !bos.bullish)
+                if(candidate.direction == CONFLUENCE_BULLISH && !bos.bullish && bos.pivotPrice > entryPrice)
                 {
                     takeProfit = bos.pivotPrice;
                     policyName = "Previous Swing (BOS pivot)";
                     return true;
                 }
-                else if(candidate.direction == CONFLUENCE_BEARISH && bos.bullish)
+                else if(candidate.direction == CONFLUENCE_BEARISH && bos.bullish && bos.pivotPrice < entryPrice)
                 {
                     takeProfit = bos.pivotPrice;
                     policyName = "Previous Swing (BOS pivot)";
