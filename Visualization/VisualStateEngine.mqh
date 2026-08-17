@@ -64,11 +64,21 @@ private:
     VisualStateRecord m_records[];
     int               m_recordCount;
 
+    //--- PHASE_1_5_DIAGNOSTIC (temporary instrumentation; remove after verification)
+    long              m_diagFindIterations;
+    long              m_diagObjectFind;
+    long              m_diagObjectCreate;
+    long              m_diagObjectDelete;
+    long              m_diagCmdExecuted;
+
     int FindRecord(const string &name)
     {
         for(int i = 0; i < m_recordCount; i++)
+        {
+            m_diagFindIterations++;   // PHASE_1_5_DIAGNOSTIC
             if(m_records[i].objName == name)
                 return i;
+        }
         return -1;
     }
 
@@ -84,9 +94,11 @@ private:
 
     void HandleDraw(VisualCommand &cmd)
     {
+        m_diagObjectFind++;   // PHASE_1_5_DIAGNOSTIC
         if(ObjectFind(0, cmd.objName) >= 0)
             return;
 
+        m_diagObjectCreate++;   // PHASE_1_5_DIAGNOSTIC
         bool created;
         if(cmd.objType == OBJ_ARROW || cmd.objType == OBJ_ARROW_DOWN || cmd.objType == OBJ_ARROW_UP || cmd.objType == OBJ_TEXT)
             created = ObjectCreate(0, cmd.objName, cmd.objType, 0, cmd.time1, cmd.price1);
@@ -226,10 +238,18 @@ private:
 
     void HandleDelete(VisualCommand &cmd)
     {
+        m_diagObjectFind++;   // PHASE_1_5_DIAGNOSTIC
         if(ObjectFind(0, cmd.objName) >= 0)
+        {
+            m_diagObjectDelete++;   // PHASE_1_5_DIAGNOSTIC
             ObjectDelete(0, cmd.objName);
+        }
+        m_diagObjectFind++;   // PHASE_1_5_DIAGNOSTIC
         if(cmd.textName != "" && ObjectFind(0, cmd.textName) >= 0)
+        {
+            m_diagObjectDelete++;   // PHASE_1_5_DIAGNOSTIC
             ObjectDelete(0, cmd.textName);
+        }
         RemoveRecord(FindRecord(cmd.objName));
     }
 
@@ -238,6 +258,11 @@ public:
     {
         m_recordCount = 0;
         ArrayResize(m_records, 0);
+        m_diagFindIterations = 0;   // PHASE_1_5_DIAGNOSTIC
+        m_diagObjectFind = 0;
+        m_diagObjectCreate = 0;
+        m_diagObjectDelete = 0;
+        m_diagCmdExecuted = 0;
     }
 
     void Shutdown()
@@ -262,6 +287,7 @@ public:
     {
         for(int i = 0; i < count; i++)
         {
+            m_diagCmdExecuted++;   // PHASE_1_5_DIAGNOSTIC
             VisualCommand cmd = cmds[i];
             switch(cmd.type)
             {
@@ -280,6 +306,21 @@ public:
         VisualCommand cmds[1];
         cmds[0] = cmd;
         ExecuteBatch(cmds, 1);
+    }
+
+    //--- PHASE_1_5_DIAGNOSTIC: one-shot aggregate report (self-resetting)
+    string GetDiagAndReset(void)
+    {
+        string s = StringFormat("VSE records=%d cmds=%d findCalls=%d findIter=%d objCreate=%d objDelete=%d",
+                                m_recordCount, (long)m_diagCmdExecuted,
+                                (long)m_diagObjectFind, (long)m_diagFindIterations,
+                                (long)m_diagObjectCreate, (long)m_diagObjectDelete);
+        m_diagFindIterations = 0;
+        m_diagObjectFind = 0;
+        m_diagObjectCreate = 0;
+        m_diagObjectDelete = 0;
+        m_diagCmdExecuted = 0;
+        return s;
     }
 
     EVisualState GetState(const string &name)
