@@ -81,7 +81,8 @@ public:
     void SetBOSDetector(CBOSDetector *bd) { m_bosDetector = bd; }
 
     int CreateLevel(LiquidityType type, double price, LiquidityOrigin origin,
-                    int leftSwing, int rightSwing, int barIndex = -1);
+                    int leftSwing, int rightSwing, int barIndex = -1,
+                    datetime leftTime = 0, datetime rightTime = 0);
     bool SweepLevel(int id, int bar = -1, datetime sweepTime = 0);
     bool MitigateLevel(int id, int bar = -1, double price = 0.0, datetime mitigateTime = 0);
     bool InvalidateLevel(int id, string reason = "", int bar = -1, double price = 0.0, datetime invalidateTime = 0);
@@ -184,6 +185,7 @@ void CLiquidityDetector::DetectEQH(void)
             m_levels[existingIdx].memberCount++;
             m_levels[existingIdx].averagePrice = total / m_levels[existingIdx].memberCount;
             m_levels[existingIdx].rightSwingId = sp.id;
+            m_levels[existingIdx].rightTime = sp.time;
             m_levels[existingIdx].memberIdStr += "," + IntegerToString(sp.id);
 
             m_logger.LogInfo(StringFormat(
@@ -207,7 +209,7 @@ void CLiquidityDetector::DetectEQH(void)
             {
                 int newId = CreateLevel(LIQUIDITY_EQH, (sp.price + partner.price) / 2.0,
                                         LIQUIDITY_ORIGIN_EQH, partner.id, sp.id,
-                                        partner.barIndex);
+                                        partner.barIndex, partner.time, sp.time);
 
                 if(newId >= 0)
                 {
@@ -290,6 +292,7 @@ void CLiquidityDetector::DetectEQL(void)
             m_levels[existingIdx].memberCount++;
             m_levels[existingIdx].averagePrice = total / m_levels[existingIdx].memberCount;
             m_levels[existingIdx].rightSwingId = sp.id;
+            m_levels[existingIdx].rightTime = sp.time;
             m_levels[existingIdx].memberIdStr += "," + IntegerToString(sp.id);
 
             m_logger.LogInfo(StringFormat(
@@ -312,7 +315,7 @@ void CLiquidityDetector::DetectEQL(void)
             {
                 int newId = CreateLevel(LIQUIDITY_EQL, (sp.price + partner.price) / 2.0,
                                         LIQUIDITY_ORIGIN_EQL, partner.id, sp.id,
-                                        partner.barIndex);
+                                        partner.barIndex, partner.time, sp.time);
 
                 if(newId >= 0)
                 {
@@ -761,7 +764,7 @@ int CLiquidityDetector::FindMatchingEQL(double price) const
 int CLiquidityDetector::CreateLevel(LiquidityType type, double price,
                                      LiquidityOrigin origin,
                                      int leftSwing, int rightSwing,
-                                     int barIndex)
+                                     int barIndex, datetime leftTime, datetime rightTime)
 {
     if(!m_initialized)
         return -1;
@@ -785,6 +788,8 @@ int CLiquidityDetector::CreateLevel(LiquidityType type, double price,
     level.origin = origin;
     level.leftSwingId = leftSwing;
     level.rightSwingId = rightSwing;
+    level.leftTime = leftTime;
+    level.rightTime = rightTime;
     level.memberIdStr = (leftSwing >= 0) ? IntegerToString(leftSwing) : "";
     level.swept = false;
     level.mitigated = false;

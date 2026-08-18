@@ -189,6 +189,8 @@ struct LiquidityLevel
 
     int      leftSwingId;
     int      rightSwingId;
+    datetime leftTime;
+    datetime rightTime;
     string   memberIdStr;
 
     bool     swept;

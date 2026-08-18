@@ -141,6 +141,8 @@ void TestLQR_EQH_FormationCoordinates(TestCounters &counters)
     //--- display order (left = older, right = formation).
     TEST_INT_EQ(idH10, lv0.leftSwingId, "VF01.1: EQH left member = k10 (newest)");
     TEST_INT_EQ(idH4, lv0.rightSwingId, "VF01.1: EQH right member = k4 (oldest)");
+    TEST_DATETIME_EQ(LQR_BASE + 10 * 3600, lv0.leftTime, "VF01.1: EQH leftTime = k10 swing time");
+    TEST_DATETIME_EQ(LQR_BASE + 4 * 3600, lv0.rightTime, "VF01.1: EQH rightTime = k4 swing time");
     TEST_INT_EQ(2, lv0.memberCount, "VF01.1: EQH member count 2");
 
     TEST_INT_EQ(1, lv1.id, "VF01.1: EQL id = 1");
@@ -150,6 +152,8 @@ void TestLQR_EQH_FormationCoordinates(TestCounters &counters)
     TEST_DBL_NEAR(1.0949, lv1.averagePrice, 1e-9, "VF01.1: EQL avg price (1.0948+1.0950)/2");
     TEST_INT_EQ(idL12, lv1.leftSwingId, "VF01.1: EQL left member = k12 (newest)");
     TEST_INT_EQ(idL6, lv1.rightSwingId, "VF01.1: EQL right member = k6 (oldest)");
+    TEST_DATETIME_EQ(LQR_BASE + 12 * 3600, lv1.leftTime, "VF01.1: EQL leftTime = k12 swing time");
+    TEST_DATETIME_EQ(LQR_BASE + 6 * 3600, lv1.rightTime, "VF01.1: EQL rightTime = k6 swing time");
     TEST_INT_EQ(2, lv1.memberCount, "VF01.1: EQL member count 2");
 
     //--- Pure command builder: EQH (DIRECTION mode)
@@ -219,9 +223,13 @@ void TestLQR_ClusterMergeUpdatesRightEdge(TestCounters &counters)
     TEST_TRUE(liq.GetLevel(1, lv1), "VF01.2: level 1 readable");
 
     TEST_INT_EQ(idH16, lv0.leftSwingId, "VF01.2: EQH left member stays k16 (newest)");
+    TEST_DATETIME_EQ(LQR_BASE + 16 * 3600, lv0.leftTime, "VF01.2: EQH leftTime stays k16");
+    TEST_DATETIME_EQ(LQR_BASE + 4 * 3600, lv0.rightTime, "VF01.2: EQH rightTime = k4 (oldest, atomic with rightSwingId)");
     TEST_INT_EQ(3, lv0.memberCount, "VF01.2: EQH members 3");
     TEST_DBL_NEAR(1.1051, lv0.averagePrice, 1e-9, "VF01.2: EQH avg unchanged after merge");
     TEST_INT_EQ(idL18, lv1.leftSwingId, "VF01.2: EQL left member stays k18 (newest)");
+    TEST_DATETIME_EQ(LQR_BASE + 18 * 3600, lv1.leftTime, "VF01.2: EQL leftTime stays k18");
+    TEST_DATETIME_EQ(LQR_BASE + 6 * 3600, lv1.rightTime, "VF01.2: EQL rightTime = k6 (oldest, atomic with rightSwingId)");
     TEST_INT_EQ(3, lv1.memberCount, "VF01.2: EQL members 3");
     TEST_DBL_NEAR(1.0949, lv1.averagePrice, 1e-9, "VF01.2: EQL avg unchanged after merge");
 
@@ -319,7 +327,10 @@ void TestLQR_CommandGates(TestCounters &counters)
     swept.rightSwingId = 1;
     TEST_FALSE(renderer.BuildLevelCommand(swept, cmd, LIQUIDITY_LABEL_NONE), "VF01.4: swept level rejected");
 
-    //--- Unresolvable member swings (no swing detector): rejected.
+    //--- Unresolvable member times (stored-times gate): the detector never
+    //--- persisted member times for this level, so it cannot be placed in
+    //--- time and must be rejected. (The renderer no longer resolves member
+    //--- times by scanning the swing detector.)
     LiquidityLevel orphan;
     orphan.id = 7;
     orphan.type = LIQUIDITY_EQH;
@@ -328,7 +339,7 @@ void TestLQR_CommandGates(TestCounters &counters)
     orphan.averagePrice = 1.1050;
     orphan.leftSwingId = 999;
     orphan.rightSwingId = 998;
-    TEST_FALSE(renderer.BuildLevelCommand(orphan, cmd, LIQUIDITY_LABEL_NONE), "VF01.4: unresolvable swing ids rejected");
+    TEST_FALSE(renderer.BuildLevelCommand(orphan, cmd, LIQUIDITY_LABEL_NONE), "VF01.4: level without stored member times rejected");
 
     //--- Uninitialized renderer: no commands.
     CLiquidityRenderer uninit;

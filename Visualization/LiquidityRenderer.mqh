@@ -8,8 +8,8 @@
 //| OBJ_TREND lines + labels); the VSE performs every chart          |
 //| mutation. The renderer NEVER re-implements detection, sweep or   |
 //| invalidation logic — it consumes LiquidityLevel events via       |
-//| GetLevelCount()/GetLevel() and resolves swing times by id        |
-//| through the injected swing detector.                             |
+//| GetLevelCount()/GetLevel() and uses the member times persisted   |
+//| by the detector at CreateLevel/merge (no swing-array scan).      |
 //|                                                                  |
 //| VF01 lifecycle: Detected -> Draw -> Active (static) -> Delete    |
 //| (FIFO count limit / render window). No CMD_EXTEND, no            |
@@ -43,7 +43,6 @@ private:
     int                  m_drawnIds[];
     int                  m_drawnCount;
 
-    bool ResolveMemberTime(int swingId, bool isHigh, datetime &out) const;
     int  FindDrawn(int id) const;
     void RemoveDrawn(int index);
     void AppendDrawn(int id);
@@ -117,31 +116,23 @@ void CLiquidityRenderer::Update(void)
         if(lv.status != LIQUIDITY_STATUS_ACTIVE)
             continue;
 
-        bool isEqh = (lv.type == LIQUIDITY_EQH);
-        datetime leftTime = 0, rightTime = 0;
-        if(!ResolveMemberTime(lv.leftSwingId, isEqh, leftTime))
-            continue;
-        if(!ResolveMemberTime(lv.rightSwingId, isEqh, rightTime))
-            continue;
-
-        string lineName = LiquidityLineName(lv.id);
-
-        //--- Outside the render window: reconcile any existing object away.
-        if(rightTime < renderStartTime)
+        //--- Outside the render window: reconcile away any object WE drew
+        //--- (m_drawnIds is authoritative for renderer-owned objects;
+        //--- member times are persisted by the detector, no swing scan).
+        if(lv.rightTime < renderStartTime)
         {
-            if(ObjectFind(0, lineName) >= 0)
+            int drawn = FindDrawn(lv.id);
+            if(drawn >= 0)
             {
                 if(cmdCount < 256)
                     cmds[cmdCount++] = MakeDeleteCommand(lv.id);
-                int drawn = FindDrawn(lv.id);
-                if(drawn >= 0)
-                    RemoveDrawn(drawn);
+                RemoveDrawn(drawn);
             }
             continue;
         }
 
         //--- Already drawn: never re-create (spec §0 no-repaint).
-        if(ObjectFind(0, lineName) >= 0)
+        if(FindDrawn(lv.id) >= 0)
             continue;
 
         VisualCommand drawCmd;
@@ -149,12 +140,11 @@ void CLiquidityRenderer::Update(void)
             continue;
         if(CompactLabels)
             drawCmd.labelPrice = ResolveLabelPrice(drawCmd.labelTime, drawCmd.labelPrice,
-                                                   20.0 * _Point, isEqh ? 1 : -1);
+                                                   20.0 * _Point, lv.type == LIQUIDITY_EQH ? 1 : -1);
         if(cmdCount < 256)
         {
             cmds[cmdCount++] = drawCmd;
-            if(FindDrawn(lv.id) < 0)
-                AppendDrawn(lv.id);
+            AppendDrawn(lv.id);
         }
     }
 
@@ -206,24 +196,6 @@ void CLiquidityRenderer::SetVSE(CVisualStateEngine *vse)
     m_vse = vse;
 }
 
-bool CLiquidityRenderer::ResolveMemberTime(int swingId, bool isHigh, datetime &out) const
-{
-    if(m_swingDetector == NULL)
-        return false;
-    int n = isHigh ? m_swingDetector.GetSwingHighCount() : m_swingDetector.GetSwingLowCount();
-    for(int i = 0; i < n; i++)
-    {
-        SwingPoint sp;
-        bool ok = isHigh ? m_swingDetector.GetSwingHigh(i, sp) : m_swingDetector.GetSwingLow(i, sp);
-        if(ok && sp.id == swingId)
-        {
-            out = sp.time;
-            return true;
-        }
-    }
-    return false;
-}
-
 int CLiquidityRenderer::FindDrawn(int id) const
 {
     for(int i = 0; i < m_drawnCount; i++)
@@ -271,19 +243,19 @@ bool CLiquidityRenderer::BuildLevelCommand(const LiquidityLevel &level, VisualCo
 
     bool isEqh = (level.type == LIQUIDITY_EQH);
 
-    datetime leftTime = 0, rightTime = 0;
-    if(!ResolveMemberTime(level.leftSwingId, isEqh, leftTime))
-        return false;
-    if(!ResolveMemberTime(level.rightSwingId, isEqh, rightTime))
+    //--- Stored member times (persisted by the detector at CreateLevel/merge).
+    //--- Levels whose member times were never persisted are rejected
+    //--- (VF01.4 gate: unresolvable members cannot be placed in time).
+    if(level.leftTime <= 0 || level.rightTime <= 0)
         return false;
 
-    //--- Normalize to chronological display order. The detector stores the
-    //--- NEWEST member as leftSwingId and the oldest as rightSwingId (its
-    //--- swing accessor scan order is newest-first). The visual contract
-    //--- (spec v2.2 section 14A) defines the line's LEFT edge as the older
-    //--- member and the RIGHT edge as the newer member (formation time).
-    datetime dispLeft  = MathMin(leftTime, rightTime);
-    datetime dispRight = MathMax(leftTime, rightTime);
+    //--- Normalize to chronological display order. The detector persists
+    //--- leftTime/rightTime from the same SwingPoints that produced the
+    //--- member ids; the visual contract (spec v2.2 section 14A) defines
+    //--- the line's LEFT edge as the older member and the RIGHT edge as
+    //--- the newer member (formation time).
+    datetime dispLeft  = MathMin(level.leftTime, level.rightTime);
+    datetime dispRight = MathMax(level.leftTime, level.rightTime);
 
     color levelColor = isEqh ? COLOR_LIQUIDITY_EQH : COLOR_LIQUIDITY_EQL;
 
