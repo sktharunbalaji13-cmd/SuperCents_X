@@ -23,6 +23,7 @@
 #include "unit/TestVisualizationReset.mqh"
 #include "unit/TestLiquidityRenderer.mqh"
 #include "unit/TestPivotRenderer.mqh"
+#include "unit/TestSwingRenderer.mqh"
 #include "unit/TestOutcomeTpPolicy.mqh"
 #include "unit/TestFixedRRTier.mqh"
 #include "VF02/TestPaletteParity.mqh"
@@ -124,6 +125,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunPivotRendererTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunSwingRendererTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunPaletteParityTests();
