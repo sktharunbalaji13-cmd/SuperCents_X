@@ -26,7 +26,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "RenderConfig.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/LiquidityDetector.mqh"
@@ -139,8 +138,8 @@ void CLiquidityRenderer::Update(void)
         if(!BuildLevelCommand(lv, drawCmd, LiquidityLabelMode))
             continue;
         if(CompactLabels)
-            drawCmd.labelPrice = ResolveLabelPrice(drawCmd.labelTime, drawCmd.labelPrice,
-                                                   20.0 * _Point, lv.type == LIQUIDITY_EQH ? 1 : -1);
+            drawCmd.labelPrice = m_vse.ResolveLabelPlacement(drawCmd.labelTime, drawCmd.labelPrice,
+                                                             20.0 * _Point, lv.type == LIQUIDITY_EQH ? 1 : -1);
         if(cmdCount < 256)
         {
             cmds[cmdCount++] = drawCmd;
@@ -175,7 +174,9 @@ void CLiquidityRenderer::Shutdown(void)
 void CLiquidityRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing LiquidityRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_LIQ_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_LIQ_");
     m_drawnCount = 0;
     ArrayResize(m_drawnIds, 0);
     m_logger.LogInfo("LiquidityRenderer chart objects cleared");

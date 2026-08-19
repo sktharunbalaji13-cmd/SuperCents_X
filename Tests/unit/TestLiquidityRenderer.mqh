@@ -330,7 +330,10 @@ void TestLQR_CommandGates(TestCounters &counters)
     //--- Unresolvable member times (stored-times gate): the detector never
     //--- persisted member times for this level, so it cannot be placed in
     //--- time and must be rejected. (The renderer no longer resolves member
-    //--- times by scanning the swing detector.)
+    //--- times by scanning the swing detector.) Times are zeroed EXPLICITLY:
+    //--- local struct members are not guaranteed to start at zero, so the
+    //--- gate verdict must not depend on memory state (exposed by a suite
+    //--- layout shift: garbage times made the gate accept the level).
     LiquidityLevel orphan;
     orphan.id = 7;
     orphan.type = LIQUIDITY_EQH;
@@ -339,6 +342,8 @@ void TestLQR_CommandGates(TestCounters &counters)
     orphan.averagePrice = 1.1050;
     orphan.leftSwingId = 999;
     orphan.rightSwingId = 998;
+    orphan.leftTime = 0;
+    orphan.rightTime = 0;
     TEST_FALSE(renderer.BuildLevelCommand(orphan, cmd, LIQUIDITY_LABEL_NONE), "VF01.4: level without stored member times rejected");
 
     //--- Uninitialized renderer: no commands.

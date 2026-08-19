@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/ProtectedPointManager.mqh"
 
@@ -228,7 +227,9 @@ void CProtectedRenderer::Shutdown(void)
 void CProtectedRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing ProtectedRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_PP_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_PP_");
     m_visualStateCount = 0;
     m_lastRenderedPPCount = 0;
     m_lastActiveHighId = -1;
@@ -278,7 +279,7 @@ void CProtectedRenderer::DrawProtectedPoint(const ProtectedPoint &p)
         ? p.price + 20 * _Point
         : p.price - 20 * _Point;
     double labelPrice = CompactLabels
-        ? ResolveLabelPrice(startTime, labelBase, 20 * _Point, p.isHigh ? 1 : -1)
+        ? m_vse.ResolveLabelPlacement(startTime, labelBase, 20 * _Point, p.isHigh ? 1 : -1)
         : labelBase;
     datetime labelTime = startTime + PeriodSeconds(_Period) / 2;
 

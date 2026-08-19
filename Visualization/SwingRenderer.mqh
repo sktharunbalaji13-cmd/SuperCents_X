@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/SwingDetector.mqh"
 
@@ -236,7 +235,9 @@ void CSwingRenderer::Shutdown(void)
 void CSwingRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing SwingRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_SWING_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_SWING_");
     m_lastRenderedHighCount = 0;
     m_lastRenderedLowCount = 0;
     m_drawnHighCount = 0;

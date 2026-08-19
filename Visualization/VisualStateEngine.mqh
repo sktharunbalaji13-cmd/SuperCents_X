@@ -58,11 +58,30 @@ struct VisualStateRecord
     ENUM_OBJECT   objType;
 };
 
+//--- Track 3 (Phase 2A): in-memory label registry. Every OBJ_TEXT label
+//    is created/moved/deleted exclusively through the VSE, so the
+//    registry mirrors the chart's label set exactly and label placement
+//    (ResolveLabelPlacement) can run against memory instead of a
+//    full-chart ObjectsTotal() scan (~170 API calls per iteration, up
+//    to 10 iterations = 95-128 ms on live draw bars). The resolution
+//    algorithm is byte-identical to the removed ChartUtils
+//    ResolveLabelPrice (same 2-hour window, step, direction and
+//    10-iteration cap), only the collision domain is the registry.
+struct LabelPlacementRecord
+{
+    string   textName;
+    datetime time;
+    double   price;
+};
+
 class CVisualStateEngine
 {
 private:
     VisualStateRecord m_records[];
     int               m_recordCount;
+
+    LabelPlacementRecord m_labelPlacements[];
+    int                  m_labelPlacementCount;
 
     //--- PHASE_1_5_DIAGNOSTIC (temporary instrumentation; remove after verification)
     long              m_diagFindIterations;
@@ -90,6 +109,45 @@ private:
             m_records[i] = m_records[i + 1];
         m_recordCount--;
         ArrayResize(m_records, m_recordCount);
+    }
+
+    //--- Track 3: label-registry bookkeeping (must mirror chart label
+    //    state exactly; all label mutations flow through Handle* below).
+    void AddLabelPlacement(const string &textName, datetime time, double price)
+    {
+        int idx = m_labelPlacementCount;
+        ArrayResize(m_labelPlacements, idx + 1);
+        m_labelPlacements[idx].textName = textName;
+        m_labelPlacements[idx].time     = time;
+        m_labelPlacements[idx].price    = price;
+        m_labelPlacementCount++;
+    }
+
+    void RemoveLabelPlacement(const string &textName)
+    {
+        for(int i = 0; i < m_labelPlacementCount; i++)
+        {
+            if(m_labelPlacements[i].textName != textName)
+                continue;
+            for(int j = i; j < m_labelPlacementCount - 1; j++)
+                m_labelPlacements[j] = m_labelPlacements[j + 1];
+            m_labelPlacementCount--;
+            ArrayResize(m_labelPlacements, m_labelPlacementCount);
+            return;
+        }
+    }
+
+    void UpdateLabelPlacement(const string &textName, datetime time, double price)
+    {
+        for(int i = 0; i < m_labelPlacementCount; i++)
+        {
+            if(m_labelPlacements[i].textName == textName)
+            {
+                m_labelPlacements[i].time  = time;
+                m_labelPlacements[i].price = price;
+                return;
+            }
+        }
     }
 
     void HandleDraw(VisualCommand &cmd)
@@ -143,6 +201,7 @@ private:
                 ObjectSetString(0, cmd.textName, OBJPROP_TEXT, cmd.labelText);
                 ObjectSetInteger(0, cmd.textName, OBJPROP_COLOR, cmd.textColor);
                 ObjectSetInteger(0, cmd.textName, OBJPROP_FONTSIZE, cmd.fontSize > 0 ? cmd.fontSize : 8);
+                AddLabelPlacement(cmd.textName, lblTime, lblPrice);   // Track 3: registry sync
             }
         }
 
@@ -160,10 +219,13 @@ private:
 
     void HandleExtend(VisualCommand &cmd)
     {
+        //--- Track 3: VSE records are authoritative for engine-owned
+        //    objects (Clear/Reset now route through the engine), so the
+        //    per-bar ObjectFind guard is dropped: 19 FVG extends/bar was
+        //    issuing ~38 terminal object-list lookups/bar. A manually
+        //    deleted object merely makes ObjectMove return false.
         int idx = FindRecord(cmd.objName);
         if(idx < 0 || m_records[idx].state != VISUAL_STATE_ACTIVE)
-            return;
-        if(ObjectFind(0, cmd.objName) < 0)
             return;
         ObjectMove(0, cmd.objName, 1, cmd.time2, cmd.price2);
     }
@@ -207,6 +269,7 @@ private:
             {
                 ObjectSetInteger(0, cmd.textName, OBJPROP_TIME, cmd.time2);
                 ObjectSetDouble(0, cmd.textName, OBJPROP_PRICE, cmd.price2);
+                UpdateLabelPlacement(cmd.textName, cmd.time2, cmd.price2);   // Track 3: registry sync
             }
         }
     }
@@ -245,10 +308,14 @@ private:
             ObjectDelete(0, cmd.objName);
         }
         m_diagObjectFind++;   // PHASE_1_5_DIAGNOSTIC
-        if(cmd.textName != "" && ObjectFind(0, cmd.textName) >= 0)
+        if(cmd.textName != "")
         {
-            m_diagObjectDelete++;   // PHASE_1_5_DIAGNOSTIC
-            ObjectDelete(0, cmd.textName);
+            if(ObjectFind(0, cmd.textName) >= 0)
+            {
+                m_diagObjectDelete++;   // PHASE_1_5_DIAGNOSTIC
+                ObjectDelete(0, cmd.textName);
+            }
+            RemoveLabelPlacement(cmd.textName);   // Track 3: registry sync (idempotent)
         }
         RemoveRecord(FindRecord(cmd.objName));
     }
@@ -258,6 +325,8 @@ public:
     {
         m_recordCount = 0;
         ArrayResize(m_records, 0);
+        m_labelPlacementCount = 0;
+        ArrayResize(m_labelPlacements, 0);
         m_diagFindIterations = 0;   // PHASE_1_5_DIAGNOSTIC
         m_diagObjectFind = 0;
         m_diagObjectCreate = 0;
@@ -269,6 +338,8 @@ public:
     {
         m_recordCount = 0;
         ArrayResize(m_records, 0);
+        m_labelPlacementCount = 0;
+        ArrayResize(m_labelPlacements, 0);
     }
 
     //--- EN-02 (Sprint 24 audit #2): drop every tracked record WITHOUT
@@ -281,6 +352,8 @@ public:
     {
         m_recordCount = 0;
         ArrayResize(m_records, 0);
+        m_labelPlacementCount = 0;
+        ArrayResize(m_labelPlacements, 0);
     }
 
     void ExecuteBatch(VisualCommand &cmds[], int count)
@@ -306,6 +379,68 @@ public:
         VisualCommand cmds[1];
         cmds[0] = cmd;
         ExecuteBatch(cmds, 1);
+    }
+
+    //--- Track 3: in-memory label placement. Algorithm-identical to the
+    //    removed ChartUtils::ResolveLabelPrice (2-hour window, step,
+    //    direction, 10-iteration cap) but the collision domain is the
+    //    VSE label registry instead of a full ObjectsTotal() chart scan.
+    double ResolveLabelPlacement(datetime time, double basePrice, double step, int direction = 1)
+    {
+        double candidate = basePrice;
+        for(int iteration = 0; iteration < 10; iteration++)
+        {
+            bool collision = false;
+            for(int i = 0; i < m_labelPlacementCount; i++)
+            {
+                if(MathAbs(m_labelPlacements[i].time - time) > 7200)
+                    continue;
+                if(MathAbs(m_labelPlacements[i].price - candidate) < step)
+                {
+                    collision = true;
+                    if(direction == 0)
+                    {
+                        if(iteration < 5)
+                            candidate += step * (iteration + 1);
+                        else
+                            candidate = basePrice - step * (iteration - 4);
+                    }
+                    else
+                        candidate += direction * step * (iteration + 1);
+                    break;
+                }
+            }
+            if(!collision)
+                return candidate;
+        }
+        return candidate;
+    }
+
+    //--- Track 3: prefix clear routed through the VSE so chart objects,
+    //    VSE records and the label registry stay in sync. Keeps the
+    //    legacy chart-level sweep (stray untracked objects with the
+    //    prefix are removed too — Clear() is event-only, never per-bar)
+    //    and additionally drops the matching engine records/registry
+    //    entries that the old ChartUtils free function orphaned.
+    void DeleteObjectsByPrefix(const string &prefix)
+    {
+        int total = ObjectsTotal(0);
+        for(int i = total - 1; i >= 0; i--)
+        {
+            string objName = ObjectName(0, i);
+            if(StringFind(objName, prefix) == 0)
+                ObjectDelete(0, objName);
+        }
+        for(int i = m_recordCount - 1; i >= 0; i--)
+        {
+            bool matchObj  = StringFind(m_records[i].objName, prefix) == 0;
+            bool matchText = m_records[i].textName != "" && StringFind(m_records[i].textName, prefix) == 0;
+            if(!matchObj && !matchText)
+                continue;
+            if(m_records[i].textName != "")
+                RemoveLabelPlacement(m_records[i].textName);
+            RemoveRecord(i);
+        }
     }
 
     //--- PHASE_1_5_DIAGNOSTIC: one-shot aggregate report (self-resetting)

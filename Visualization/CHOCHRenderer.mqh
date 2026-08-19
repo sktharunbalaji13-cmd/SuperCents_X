@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/CHOCHDetector.mqh"
 #include "../Structure/ProtectedPointManager.mqh"
@@ -184,7 +183,9 @@ void CCHOCHRenderer::Shutdown(void)
 void CCHOCHRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing CHOCHRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_CHOCH_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_CHOCH_");
     m_lastRenderedCHOCHCount = 0;
     m_visualStateCount = 0;
     m_logger.LogInfo("CHOCHRenderer chart objects cleared");
@@ -299,7 +300,7 @@ void CCHOCHRenderer::DrawCHOCH(const CHOCHEvent &e)
     }
 
     if(CompactLabels)
-        labelPrice = ResolveLabelPrice(labelTime, labelPrice, 20 * _Point, labelDir);
+        labelPrice = m_vse.ResolveLabelPlacement(labelTime, labelPrice, 20 * _Point, labelDir);
 
     m_logger.LogInfo(StringFormat(
         "CHOCH LABEL: pos=%s PP=(%s, %.5f) BREAK=(%s, %.5f) MID=(%s, %.5f) LABEL=(%s, %.5f) offset=%.5f",

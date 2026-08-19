@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/BOSDetector.mqh"
 #include "../Structure/StructuralPivotEngine.mqh"
@@ -220,7 +219,9 @@ void CBOSRenderer::Shutdown(void)
 void CBOSRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing BOSRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_BOS_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_BOS_");
     m_lastRenderedBOSCount = 0;
     m_visualStateCount = 0;
     m_logger.LogInfo("BOSRenderer chart objects cleared");
@@ -317,7 +318,7 @@ void CBOSRenderer::DrawBOS(const BOSEvent &e)
     }
 
     if(CompactLabels)
-        labelPrice = ResolveLabelPrice(labelTime, labelPrice, 20 * _Point, labelDir);
+        labelPrice = m_vse.ResolveLabelPlacement(labelTime, labelPrice, 20 * _Point, labelDir);
 
     m_logger.LogInfo(StringFormat(
         "BOS Label: pos=%s PIVOT=(%s, %.5f) BREAK=(%s, %.5f) LABEL=(%s, %.5f) offset=%.5f",

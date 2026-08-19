@@ -19,7 +19,7 @@ Every object follows these invariants unless explicitly overridden by its type s
 | No repaint | `CreateObjectIfMissing()` → `ObjectFind()` guard — object created once, never re-created |
 | No jump | End point always advances monotonically forward in time; never shrinks |
 | Labels near break event | Label time = `breakTime + PeriodSeconds(_Period) / 2` (for level-based objects, label stays near the event, not the start of the line) |
-| Labels avoid other labels | `ResolveLabelPrice()` with 20-point step, 10-iteration max, 2-hour time window |
+| Labels avoid other labels | `ResolveLabelPlacement()` (VSE registry) with 20-point step, 10-iteration max, 2-hour time window |
 | Three-tier opacity | Active = 100% (`STYLE_SOLID`, full color), Frozen = 60% (`STYLE_DASH`, dimmed color), Historical = 35% (`STYLE_DASHDOT`, further dimmed) |
 | Premium palette | All colors defined in §16. Single definition per conceptual type |
 | Layer order | Defined in §15 — candles at bottom, labels at top |
@@ -1141,15 +1141,23 @@ enum EVisualCommandType
 ### Algorithm
 
 ```
-ResolveLabelPrice(targetTime, basePrice, direction):
+ResolveLabelPlacement(targetTime, basePrice, direction):   // Track 3
   1. candidatePrice = basePrice
   2. For iteration = 0 to MaxIterations (10):
-     a. Check for existing OBJ_TEXT objects within a 2-hour time window
-        centered on targetTime whose price is within 20 points of candidatePrice
+     a. Check the VSE in-memory label registry (engine-owned OBJ_TEXT
+        labels, synced at the single VSE choke point) within a 2-hour
+        time window centered on targetTime whose price is within 20
+        points of candidatePrice
      b. If no collision → return candidatePrice
      c. If collision → candidatePrice += direction * 20 * _Point * (iteration + 1)
   3. Return last candidatePrice (fallback)
 ```
+
+Track 3 note: the collision domain is the label registry (exactly the
+engine-drawn labels, mirrored on every create/move/delete through the
+VSE) instead of a full-chart `ObjectsTotal()` scan. Algorithm, window,
+step, direction and iteration cap are unchanged; a live draw-bar cost
+of 95-128 ms (label collision scans) drops to microseconds.
 
 ### Direction Convention
 

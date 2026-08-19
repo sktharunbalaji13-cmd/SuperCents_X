@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/StructuralPivotEngine.mqh"
 
@@ -159,7 +158,9 @@ void CPivotRenderer::Shutdown(void)
 void CPivotRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing PivotRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_PIVOT_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_PIVOT_");
     m_lastRenderedPivotCount = 0;
     m_drawnPivotCount = 0;
     m_logger.LogInfo("PivotRenderer chart objects cleared");

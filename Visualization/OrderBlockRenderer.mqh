@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/OrderBlockDetector.mqh"
 
@@ -211,7 +210,9 @@ void COrderBlockRenderer::Shutdown(void)
 void COrderBlockRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing OrderBlockRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_OB_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_OB_");
     m_lastRenderedOBCount = 0;
     m_visualStateCount = 0;
     m_logger.LogInfo("OrderBlockRenderer chart objects cleared");
@@ -242,7 +243,7 @@ void COrderBlockRenderer::DrawOrderBlock(const OrderBlock &ob)
     datetime rightTime = iTime(_Symbol, _Period, 0);  // extends to current bar
 
     double midPrice = (ob.high + ob.low) / 2.0;
-    double labelPrice = CompactLabels ? ResolveLabelPrice(ob.time, midPrice, 20 * _Point, 0) : midPrice;
+    double labelPrice = CompactLabels ? m_vse.ResolveLabelPlacement(ob.time, midPrice, 20 * _Point, 0) : midPrice;
     datetime labelTime = ob.time + PeriodSeconds(_Period) / 2;
 
     VisualCommand cmd;

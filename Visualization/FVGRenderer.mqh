@@ -8,7 +8,6 @@
 #include "BaseRenderer.mqh"
 #include "ChartObjectNames.mqh"
 #include "ChartStyle.mqh"
-#include "ChartUtils.mqh"
 #include "VisualStateEngine.mqh"
 #include "../Structure/FVGDetector.mqh"
 
@@ -231,7 +230,9 @@ void CFVGRenderer::Shutdown(void)
 void CFVGRenderer::Clear(void)
 {
     m_logger.LogInfo("Clearing FVGRenderer chart objects...");
-    DeleteObjectsByPrefix("SCX_FVG_");
+    //--- Track 3: prefix clear routed through the VSE (registry sync)
+    if(m_vse != NULL)
+        m_vse.DeleteObjectsByPrefix("SCX_FVG_");
     m_lastRenderedFVGCount = 0;
     m_visualStateCount = 0;
     m_logger.LogInfo("FVGRenderer chart objects cleared");
@@ -262,7 +263,7 @@ void CFVGRenderer::DrawFVG(const FairValueGap &fvg)
     datetime rightTime = iTime(_Symbol, _Period, 0);  // extends to current bar
 
     double midPrice = (fvg.upper + fvg.lower) / 2.0;
-    double labelPrice = CompactLabels ? ResolveLabelPrice(fvg.time, midPrice, 20 * _Point, 0) : midPrice;
+    double labelPrice = CompactLabels ? m_vse.ResolveLabelPlacement(fvg.time, midPrice, 20 * _Point, 0) : midPrice;
     datetime labelTime = fvg.time + PeriodSeconds(_Period) / 2;
 
     VisualCommand cmd;
