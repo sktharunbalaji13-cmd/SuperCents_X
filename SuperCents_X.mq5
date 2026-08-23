@@ -212,8 +212,18 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
         return;
 
     string comment = "";
-    if(HistoryDealSelect(trans.deal))
-        comment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
+    //--- P0/1A (integrity): only an ENTRY deal may become a DEAL_IN record.
+    //    A close deal (OUT / INOUT / OUT_BY) carries the same entry comment and
+    //    would otherwise be accumulated into filledVolume.  Fail closed and
+    //    side-effect-free: read the entry type, admit, or return silently
+    //    exactly as the unselectable-history path already did.
+    bool selected  = HistoryDealSelect(trans.deal);
+    int  dealEntry = -1;
+    if(selected)
+        dealEntry = (int)HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
+    if(!LedgerAdmitsDealAsEntry(selected, dealEntry))
+        return;
+    comment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
 
     int ppos = StringFind(comment, "-P");
     if(ppos < 0)

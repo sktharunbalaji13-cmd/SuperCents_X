@@ -690,6 +690,26 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
             m_tradeExecutionManager.SetLedgerWriter(m_execWriter);
             m_tradeExecutionManager.SetRecovery(m_execRecovery);
             m_tradeExecutionManager.SetPlanInspection(m_execInspection);
+
+            //--- P0/F5 (integrity): fail CLOSED.  The wiring above runs even when
+            //    identity/writer/recovery Init failed above, leaving NULL modules
+            //    while execution stays ENABLED - i.e. live OrderSend with no
+            //    durable INTENT, no duplicate defense and no block gate.  Refuse
+            //    to trade instead of trading blind.  A fully wired context is
+            //    unaffected (predicate true -> no call, behaviour unchanged).
+            if(!LedgerWiringPermitsExecution(true,
+                                             m_execWriter != NULL,
+                                             m_execRecovery != NULL,
+                                             m_execInspection != NULL))
+            {
+                m_tradeExecutionManager.SetExecutionEnabled(false);
+                m_logger.LogError(StringFormat(
+                    "EXECUTION DISABLED (fail-closed): execution-ledger wiring incomplete "
+                    "[writer=%s recovery=%s inspection=%s] - LEGACY cannot send without durable intent",
+                    (m_execWriter != NULL ? "OK" : "NULL"),
+                    (m_execRecovery != NULL ? "OK" : "NULL"),
+                    (m_execInspection != NULL ? "OK" : "NULL")));
+            }
         }
     }
 

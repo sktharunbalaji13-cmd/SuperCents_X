@@ -27,6 +27,39 @@
 
 #include "CExecutionRecovery.mqh"
 
+//--- P0/1A (integrity): pure, deterministic DEAL_IN admission gate.
+//    A broker DEAL_ADD notification may become a DEAL_IN ledger event ONLY
+//    when the deal was selectable in history AND it is an ENTRY deal.
+//    An OUT / INOUT / OUT_BY deal carries the SAME "SCX-<side>-P<id>" comment
+//    as the entry it closes, so without this gate a close would be folded into
+//    filledVolume as if it were another fill - breaking Invariant 8 and the
+//    "every deal ticket maps to <=1 decision" half of INV-11.
+//    Fail closed: anything not provably an entry deal is refused.
+bool LedgerAdmitsDealAsEntry(const bool historySelected, const int dealEntry)
+{
+    if(!historySelected)
+        return false;   // no durable evidence of what this deal is -> never record
+    return (dealEntry == DEAL_ENTRY_IN);
+}
+
+//--- P0/F5 (integrity): pure, deterministic fail-closed execution gate.
+//    ENTRY_MODE_LEGACY is the only mode that calls OrderSend, and it may do so
+//    ONLY when the durable execution infrastructure is actually wired:
+//      writer     -> INTENT-before-send (durable intent; Invariant 6)
+//      recovery    -> the corrupt/blocked-ledger send gate
+//      inspection  -> cross-run duplicate defense (B25-03C-E)
+//    CTradeManager treats each of these as "absent -> skip", so a partially
+//    wired LEGACY context would send live orders with no durable intent, no
+//    duplicate defense and no block gate.  Non-LEGACY modes are dormant by
+//    design (the modules are never created) and are unaffected.
+bool LedgerWiringPermitsExecution(const bool legacyMode, const bool hasLedgerWriter,
+                                  const bool hasRecovery, const bool hasInspection)
+{
+    if(!legacyMode)
+        return true;    // SHADOW / NEW never send: dormancy is not a failure
+    return (hasLedgerWriter && hasRecovery && hasInspection);
+}
+
 class CExecutionLedgerWriter
 {
 private:
@@ -267,6 +300,17 @@ public:
             return true; // idempotent: already recorded
 
         double newFilled = m_states[idx].filledVolume + filledVolume;
+
+        //--- P0/1B (Invariant 8): filledVolume <= requestedVolume + 1e-8.
+        //    RebuildStates enforces this on replay and REFUSES the whole ledger
+        //    when it is violated, so appending an over-fill here would write a
+        //    record that the next start cannot read: writer Init returns false
+        //    and recovery latches BLOCKED, on an append-only file with no repair
+        //    path.  Refuse the append instead (mirrors CExecutionRecovery
+        //    RebuildStates); the live state is left untouched.
+        if(newFilled > m_states[idx].requestedVolume + 1e-8)
+            return false;
+
         string to = (newFilled + 1e-8 >= m_states[idx].requestedVolume)
                     ? EXEC_STATE_FILLED : EXEC_STATE_PARTIALLY_FILLED;
 

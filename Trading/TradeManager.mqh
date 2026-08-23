@@ -111,6 +111,10 @@ public:
     int  GetTotalHeld(void) const { return m_totalHeld; }
     bool IsPlanRetryHeld(ulong planId) { return IsRetryHeld(planId); }
     void HoldPlanForRetry(ulong planId) { HoldForRetry(planId); }
+    //--- P0/F5 (integrity) observability: the send-path gate at Update() (the
+    //    first statement before INTENT, E-inspection and OrderSend) is a test
+    //    seam so the fail-closed wiring decision can be asserted.
+    bool IsExecutionEnabled(void) const { return m_executionEnabled; }
 };
 
 CTradeManager::CTradeManager(void)
