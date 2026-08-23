@@ -42,6 +42,61 @@ bool LedgerAdmitsDealAsEntry(const bool historySelected, const int dealEntry)
     return (dealEntry == DEAL_ENTRY_IN);
 }
 
+//--- P1-A.1 (observability): admission-outcome labels.
+//    The P0 gate above is fail-closed and side-effect-free, which means all of
+//    its refusal causes - plus the "no decision token" case downstream - leave
+//    the SAME observable: nothing.  A lost fill (HISTORY_UNAVAILABLE) is then
+//    indistinguishable from correct, expected, high-frequency behaviour
+//    (NOT_ENTRY on every position close; NO_DECISION_TOKEN on every
+//    third-party/manual deal).  These labels name the four causes so the
+//    disclosure can tell them apart.  They are OBSERVABILITY ONLY: no label
+//    participates in any admission, ledger, state or send decision.
+#define DEAL_ADMIT_ADMIT              "ADMIT"
+#define DEAL_ADMIT_HISTORY_UNAVAIL    "HISTORY_UNAVAILABLE"
+#define DEAL_ADMIT_NOT_ENTRY          "NOT_ENTRY"
+#define DEAL_ADMIT_NO_DECISION_TOKEN  "NO_DECISION_TOKEN"
+
+//--- P1-A.1: pure, deterministic classification of a DEAL_ADD admission.
+//    Precedence mirrors the handler's evaluation order exactly:
+//      1. history not selectable        -> HISTORY_UNAVAILABLE (possible lost fill)
+//      2. selectable but not an entry   -> NOT_ENTRY           (correct: our close)
+//      3. entry but no "-P" token       -> NO_DECISION_TOKEN   (correct: not ours)
+//      4. otherwise                     -> ADMIT
+//    This function does NOT decide admission.  LedgerAdmitsDealAsEntry remains
+//    the sole admission authority; this only labels what happened.
+string ClassifyDealAdmission(const bool historySelected, const int dealEntry,
+                             const bool hasDecisionToken)
+{
+    if(!historySelected)
+        return DEAL_ADMIT_HISTORY_UNAVAIL;
+    if(dealEntry != DEAL_ENTRY_IN)
+        return DEAL_ADMIT_NOT_ENTRY;
+    if(!hasDecisionToken)
+        return DEAL_ADMIT_NO_DECISION_TOKEN;
+    return DEAL_ADMIT_ADMIT;
+}
+
+//--- P1-A.1: pure classification of the post-admission attribution result.
+//    RecordDealByDecisionId returns false when no non-terminal execution carries
+//    that decisionId, i.e. an admitted entry deal that cannot be attached to any
+//    live decision (orphan attribution).  Its return value was previously
+//    discarded, making that case silent.  Reuses the authorised label set - no
+//    new event type, no new vocabulary.
+string ClassifyDealAttribution(const bool ledgerAccepted)
+{
+    if(ledgerAccepted)
+        return DEAL_ADMIT_ADMIT;
+    return DEAL_ADMIT_NO_DECISION_TOKEN;
+}
+
+//--- P1-A.1: pure predicate - which labels warrant a diagnostic.  ADMIT is the
+//    success path and stays quiet; every other label is a distinct cause that
+//    was previously invisible.
+bool DealAdmissionRequiresDisclosure(const string label)
+{
+    return (label != DEAL_ADMIT_ADMIT);
+}
+
 //--- P0/F5 (integrity): pure, deterministic fail-closed execution gate.
 //    ENTRY_MODE_LEGACY is the only mode that calls OrderSend, and it may do so
 //    ONLY when the durable execution infrastructure is actually wired:

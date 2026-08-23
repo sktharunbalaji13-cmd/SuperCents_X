@@ -72,6 +72,15 @@ input double WeightPremiumDiscount = 10.0;   // Weight: Premium/Discount
 //--- Global engine instance
 CEngine g_engine;
 
+//--- P1-A.1 (observability): DEAL_ADD admission disclosure.  OnTradeTransaction
+//    is a global handler with no logger in scope; CTradeManager holds CLogger as
+//    a private value member (MQL5 has no address-of for class objects, so it
+//    cannot be handed out by pointer).  Rather than plumb an accessor or a
+//    forwarding method through CTradeManager, this reuses the existing CLogger
+//    (already included above) at file scope - same [Name][LEVEL] format as every
+//    other module, zero architectural change.
+CLogger g_dealAdmissionLogger(MODULE_TRADING, "DealAdmission");
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
@@ -217,19 +226,48 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
     //    would otherwise be accumulated into filledVolume.  Fail closed and
     //    side-effect-free: read the entry type, admit, or return silently
     //    exactly as the unselectable-history path already did.
+    //--- P1-A.1 (observability): capture the selection error and classify the
+    //    outcome so the four causes are no longer indistinguishable.  The
+    //    DEAL_COMMENT read is hoisted under the condition that is IDENTICAL to
+    //    the P0 gate (selected && entry == IN), so the number of history queries
+    //    is unchanged - it is only needed one step earlier, to label the
+    //    NO_DECISION_TOKEN case.
+    ResetLastError();
     bool selected  = HistoryDealSelect(trans.deal);
+    int  selectErr = (selected ? 0 : GetLastError());
     int  dealEntry = -1;
     if(selected)
         dealEntry = (int)HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
+    if(selected && dealEntry == DEAL_ENTRY_IN)
+        comment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
+
+    string admission = ClassifyDealAdmission(selected, dealEntry,
+                                             (StringFind(comment, "-P") >= 0));
+    if(DealAdmissionRequiresDisclosure(admission))
+        g_dealAdmissionLogger.LogWarn(StringFormat(
+            "DEAL-ADMISSION %s Deal=%llu Order=%llu Position=%llu Selected=%s "
+            "Entry=%d SelectErr=%d Volume=%.2f",
+            admission, trans.deal, trans.order, trans.position,
+            (selected ? "YES" : "NO"), dealEntry, selectErr, trans.volume));
+
+    //--- P0 gate: unchanged, and still the sole admission authority.
     if(!LedgerAdmitsDealAsEntry(selected, dealEntry))
         return;
-    comment = HistoryDealGetString(trans.deal, DEAL_COMMENT);
 
     int ppos = StringFind(comment, "-P");
     if(ppos < 0)
         return;
     long decisionId = StringToInteger(StringSubstr(comment, ppos + 2));
 
-    writer.RecordDealByDecisionId(decisionId, trans.deal, trans.order, trans.position,
-                                  trans.price, trans.volume, TimeCurrent(), (int)trans.type);
+    //--- P1-A.1: the result was previously discarded.  false = admitted entry
+    //    deal with no non-terminal execution carrying that decisionId (orphan
+    //    attribution), which is an integrity event, not a no-op.
+    bool accepted = writer.RecordDealByDecisionId(decisionId, trans.deal, trans.order, trans.position,
+                                                 trans.price, trans.volume, TimeCurrent(), (int)trans.type);
+    string attribution = ClassifyDealAttribution(accepted);
+    if(DealAdmissionRequiresDisclosure(attribution))
+        g_dealAdmissionLogger.LogWarn(StringFormat(
+            "DEAL-ADMISSION %s Deal=%llu Order=%llu Position=%llu DecisionId=%lld "
+            "Volume=%.2f Reason=ORPHAN_ATTRIBUTION",
+            attribution, trans.deal, trans.order, trans.position, decisionId, trans.volume));
 }

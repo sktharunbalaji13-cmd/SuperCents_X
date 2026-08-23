@@ -40,6 +40,7 @@
 #include "unit/TestC1PayloadExtension.mqh"
 #include "unit/TestEPlanInspection.mqh"
 #include "unit/TestP0ExecutionIntegrity.mqh"
+#include "unit/TestP1A1DealAdmissionObservability.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
 
@@ -178,6 +179,9 @@ TestCounters RunAllSuperCentsTests(void)
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunP0ExecutionIntegrityTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunP1A1DealAdmissionObservabilityTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     Print("");
