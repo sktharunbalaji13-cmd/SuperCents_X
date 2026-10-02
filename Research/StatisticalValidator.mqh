@@ -250,6 +250,7 @@ bool CStatisticalValidator::Summarize(const double data[], int count,
     ComputeConfidenceInterval(data, count, 0.95, ciLower, ciUpper);
 
     int e = evidenceCount;
+    if(e + 6 > 32) return false;
 
     evidence[e].source = "StatisticalValidator";
     evidence[e].dimension = metricName + ".mean";

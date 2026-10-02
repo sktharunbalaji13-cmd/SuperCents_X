@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "SuperCents_X Roadmap: Dev",
+      "type": "npm",
+      "script": "dev",
+      "path": "Tools/SprintRoadmap",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "SuperCents_X Roadmap: Build",
+      "type": "npm",
+      "script": "build",
+      "path": "Tools/SprintRoadmap",
+      "problemMatcher": ["$tsc"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "SuperCents_X Roadmap: Typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "path": "Tools/SprintRoadmap",
+      "problemMatcher": ["$tsc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

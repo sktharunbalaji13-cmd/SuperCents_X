@@ -113,14 +113,16 @@ bool CEngine::Init(void)
     m_logger.LogInfo("Configuration initialized");
 
     m_eventBus = new CEventBusAdapter();
-    if(m_eventBus != NULL)
+    if(m_eventBus == NULL)
     {
-        if(!m_eventBus.Init())
-        {
-            m_logger.LogError("Failed to initialize EventBus");
-            delete m_eventBus;
-            m_eventBus = NULL;
-        }
+        m_logger.LogError("Failed to create EventBus");
+        return false;
+    }
+    if(!m_eventBus.Init())
+    {
+        m_logger.LogError("Failed to initialize EventBus");
+        delete m_eventBus;
+        m_eventBus = NULL;
     }
 
     m_portfolioManager = new CPortfolioManager();

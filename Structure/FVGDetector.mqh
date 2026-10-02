@@ -117,8 +117,7 @@ void CFVGDetector::Shutdown(void)
     m_logger.LogInfo(StringFormat("Strong                 %3d", m_strengthCounts[FVG_STRENGTH_STRONG]));
     m_logger.LogInfo("================================================================");
 
-    ArrayResize(m_fvgs, 0);
-    m_fvgCount = 0;
+    Clear();
     m_initialized = false;
 }
 

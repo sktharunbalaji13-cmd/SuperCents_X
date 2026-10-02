@@ -104,6 +104,11 @@ public:
     CExecutionPlanner *GetExecutionPlanner(void) { return &m_executionPlanner; }
     bool GetLastEntryDecision(EntryDecision &out) const { return m_entryDecisionEngine.GetLastDecision(out); }
 
+    //--- B25-03C-E (integrity): wire the live execution-plan config
+    //    (target policy, target RR) from SymbolContext/Engine inputs
+    //    into the ExecutionPlanner so the live TP resolves correctly.
+    void SetPlanConfig(ENUM_TARGET_POLICY targetPolicy, double targetRR);
+
     bool RegisterEvaluator(IConfluenceEvaluator *evaluator);
     void SetWeights(const ConfluenceWeights &weights);
     bool GetLatestConfluence(ConfluenceResult &out) const;
@@ -783,6 +788,8 @@ void CConfluenceEngine::Shutdown(void)
 
     ArrayFree(m_signals);
     m_signalCount = 0;
+    ArrayFree(m_evaluators);
+    m_evaluatorCount = 0;
     m_hasLatest = false;
     m_nextSignalId = 1;
 
@@ -844,6 +851,14 @@ void CConfluenceEngine::SetLiquidityDetector(CLiquidityDetector *liquidityDetect
     m_liquidityDetector = liquidityDetector;
     m_candidateBuilder.SetLiquidityDetector(liquidityDetector);
     m_executionPlanner.SetLiquidityDetector(liquidityDetector);
+}
+
+void CConfluenceEngine::SetPlanConfig(ENUM_TARGET_POLICY targetPolicy, double targetRR)
+{
+    ExecutionPlanConfig cfg;
+    cfg.targetPolicy = targetPolicy;
+    cfg.targetRR = targetRR;
+    m_executionPlanner.SetConfig(cfg);
 }
 
 bool CConfluenceEngine::GetSignal(int index, ConfluenceSignal &out) const

@@ -122,6 +122,7 @@ void CStructuralPivotEngine::Update(CSwingDetector *swingDetector)
     //--- two-pointer merge yields the exact detection sequence.
     SwingPoint h, l, s;
     int hi = 0, li = 0;
+    int newSwings = 0;   // PHASE_1_5_DIAGNOSTIC
 
     while(hi < highCount || li < lowCount)
     {
@@ -151,8 +152,15 @@ void CStructuralPivotEngine::Update(CSwingDetector *swingDetector)
 
         //--- Only process new swings (deterministic, no reprocessing)
         if(s.id > m_lastProcessedSwingId)
+        {
+            newSwings++;   // PHASE_1_5_DIAGNOSTIC
             ProcessSwing(s);
+        }
     }
+
+    //--- PHASE_1_5_DIAGNOSTIC (temporary; remove after verification)
+    Print(StringFormat("PHASE_1_5_DIAGNOSTIC PIVOT_DIAG SwingsTotal=%d SwingsExamined=%d NewSwings=%d Pivots=%d",
+                       highCount + lowCount, highCount + lowCount, newSwings, m_pivotCount));
 }
 
 void CStructuralPivotEngine::ProcessSwing(const SwingPoint &swing)

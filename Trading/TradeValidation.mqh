@@ -85,16 +85,44 @@ bool CTradeValidation::IsVolumeValid(double volume, string &outReason)
     if(volume < volMin || volume > volMax)
     {
         outReason = StringFormat("Volume %.2f outside range [%.2f, %.2f]", volume, volMin, volMax);
+        //--- P50 (measurement-only): range-path observation. No behavior change.
+        Print(StringFormat("VOL-MEASURE time=%s symbol=%s vol=%.10f min=%.2f max=%.2f step=%.4f rem=-1 result=REJECT-RANGE k=-1 dev=-1",
+            TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), m_symbol, volume, volMin, volMax, volStep));
         return false;
     }
 
     double remainder = MathMod(volume - volMin, volStep);
-    if(remainder > 1e-10)
+    //--- P50 (measurement-only instrumentation, retained): shadow int-domain
+    //    diagnostics k/dev. P52 promotes them to the decision below; they are
+    //    computed identically either way. No NormalizeDouble, no epsilon creep.
+    long shadowK = -1;
+    double shadowDev = -1.0;
+    if(volStep > 0.0)
+    {
+        shadowK = (long)MathRound((volume - volMin) / volStep);
+        shadowDev = MathAbs(volume - (volMin + shadowK * volStep));
+    }
+    //--- P52 (authorized fix, P51): integer-domain step membership replaces
+    //    the raw MathMod comparison. k/dev computed above (P50 diagnostics).
+    //    Tolerance 1e-8: measured dust <= 6e-16 (2e7x below), step/2 above
+    //    (5e5x for 0.01). Degenerate volStep<=0 preserves legacy behavior
+    //    exactly (frozen, out of scope). No NormalizeDouble. Range check,
+    //    signature, callers, producers all unchanged.
+    bool stepOk;
+    if(volStep > 0.0)
+        stepOk = (shadowDev <= 0.00000001);
+    else
+        stepOk = !(remainder > 1e-10);
+    if(!stepOk)
     {
         outReason = StringFormat("Volume %.2f not aligned to step %.2f", volume, volStep);
+        Print(StringFormat("VOL-MEASURE time=%s symbol=%s vol=%.10f min=%.2f max=%.2f step=%.4f rem=%.16f result=REJECT-STEP k=%d dev=%.16f",
+            TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), m_symbol, volume, volMin, volMax, volStep, remainder, shadowK, shadowDev));
         return false;
     }
 
+    Print(StringFormat("VOL-MEASURE time=%s symbol=%s vol=%.10f min=%.2f max=%.2f step=%.4f rem=%.16f result=PASS k=%d dev=%.16f",
+        TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), m_symbol, volume, volMin, volMax, volStep, remainder, shadowK, shadowDev));
     return true;
 }
 

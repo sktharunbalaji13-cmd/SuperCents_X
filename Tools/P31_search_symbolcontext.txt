@@ -1,0 +1,34 @@
+﻿121: CEntryOrchestrator       *m_entryOrchestrator;
+332: , m_entryOrchestrator(NULL)
+841: m_entryOrchestrator = new CEntryOrchestrator();
+842: if(m_entryOrchestrator != NULL)
+844: m_entryOrchestrator.Init();
+845: m_entryOrchestrator.RegisterValidator(&m_dirVal);
+846: m_entryOrchestrator.RegisterValidator(&m_confVal);
+847: m_entryOrchestrator.RegisterValidator(&m_freshVal);
+848: m_entryOrchestrator.RegisterValidator(&m_spreadVal);
+849: m_entryOrchestrator.RegisterValidator(&m_sessVal);
+850: m_entryOrchestrator.RegisterValidator(&m_distVal);
+851: m_entryOrchestrator.RegisterValidator(&m_cooldownVal);
+852: m_entryOrchestrator.RegisterValidator(&m_riskVal);
+855: m_entryOrchestrator.SetShadowMode(true);
+860: m_entryOrchestrator.SetShadowMode(true);
+1044: if(m_entryOrchestrator != NULL && m_confluenceEngine != NULL && m_entryMode != ENTRY_MODE_LEGACY)
+1063: //    is read-only; SwingGateEvaluate never mutates it
+1068: gate.gateDecision = SWING_GATE_DECISION_OFF;
+1073: SwingGateEvaluate(*m_structuralPivotEngine, rates_total - 1, rates_total,
+1094: EntryDecision newDecision = m_entryOrchestrator.Evaluate(
+1108: bool newQualified = (newDecision.status == DECISION_QUALIFIED);
+1118: cmp.newConfidence    = newDecision.confidence;
+1121: cmp.directionMatch = hasLegacy && (legacyDecision.direction == newDecision.direction);
+1124: cmp.newFirstReason = (newDecision.rejectionCount > 0)
+1127: m_entryOrchestrator.RecordShadowComparison(cmp);
+1133: CValidatorRegistry *reg = m_entryOrchestrator.GetRegistry();
+1160: CTelemetryRowBuilder::BuildWithEvidence(row, cr, newDecision, hasLegacy,
+1169: CTelemetryRowBuilder::Build(row, cr, newDecision, hasLegacy,
+1188: SwingGateApplyToRow(row, gate);
+1189: QueueForSettlement(row, newDecision.candidateId,
+1500: if(m_entryOrchestrator != NULL)
+1502: m_entryOrchestrator.Shutdown();
+1503: delete m_entryOrchestrator;
+1504: m_entryOrchestrator = NULL;

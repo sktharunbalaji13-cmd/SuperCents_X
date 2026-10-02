@@ -1,0 +1,86 @@
+﻿
+> Confluence\ConfluenceEngine.mqh:102:    bool GetLatestSignal(ConfluenceSignal &out) const;
+  Confluence\ConfluenceEngine.mqh:103:
+  Confluence\ConfluenceEngine.mqh:104:    CExecutionPlanner *GetExecutionPlanner(void) { return 
+&m_executionPlanner; }
+  Confluence\ConfluenceEngine.mqh:105:    bool GetLastEntryDecision(EntryDecision &out) const { return 
+m_entryDecisionEngine.GetLastDecision(out); }
+  Confluence\ConfluenceEngine.mqh:106:
+  Confluence\ConfluenceEngine.mqh:107:    bool RegisterEvaluator(IConfluenceEvaluator *evaluator);
+  Confluence\ConfluenceEngine.mqh:108:    void SetWeights(const ConfluenceWeights &weights);
+> Confluence\ConfluenceEngine.mqh:109:    bool GetLatestConfluence(ConfluenceResult &out) const;
+  Confluence\ConfluenceEngine.mqh:110:    bool IsUsingEvaluators(void) const { return m_evaluatorCount > 0; }
+  Confluence\ConfluenceEngine.mqh:111:};
+  Confluence\ConfluenceEngine.mqh:112:
+  Confluence\ConfluenceEngine.mqh:113:CConfluenceEngine::CConfluenceEngine(void)
+  Confluence\ConfluenceEngine.mqh:114:    : m_isInitialized(false)
+  Confluence\ConfluenceEngine.mqh:115:    , m_logger(MODULE_CONFLUENCE_ENGINE, "ConfluenceEngine")
+  Confluence\ConfluenceEngine.mqh:116:    , m_nextSignalId(1)
+  Confluence\ConfluenceEngine.mqh:117:    , m_signalCount(0)
+  Confluence\ConfluenceEngine.mqh:118:    , m_hasLatest(false)
+  Confluence\ConfluenceEngine.mqh:119:    , m_totalSignalsCreated(0)
+  Confluence\ConfluenceEngine.mqh:120:    , m_totalSignalsExpired(0)
+  Confluence\ConfluenceEngine.mqh:121:    , m_totalSignalsPruned(0)
+  Confluence\ConfluenceEngine.mqh:122:    , m_bullishCount(0)
+  Confluence\ConfluenceEngine.mqh:123:    , m_bearishCount(0)
+  Confluence\ConfluenceEngine.mqh:124:    , m_evaluatorCount(0)
+  Confluence\ConfluenceEngine.mqh:125:    , m_hasConfluence(false)
+  Confluence\ConfluenceEngine.mqh:126:{
+  Confluence\ConfluenceEngine.mqh:127:    m_trendState            = NULL;
+  Confluence\ConfluenceEngine.mqh:128:    m_bosDetector           = NULL;
+  Confluence\ConfluenceEngine.mqh:129:    m_chochDetector         = NULL;
+  Confluence\ConfluenceEngine.mqh:130:    m_orderBlockDetector    = NULL;
+  Confluence\ConfluenceEngine.mqh:131:    m_fvgDetector           = NULL;
+  Confluence\ConfluenceEngine.mqh:132:    m_protectedPointManager = NULL;
+  Confluence\ConfluenceEngine.mqh:133:    m_liquidityDetector     = NULL;
+  Confluence\ConfluenceEngine.mqh:134:
+  Confluence\ConfluenceEngine.mqh:135:    for(int i = 0; i < EXPIRY_REASON_COUNT; i++)
+  Confluence\ConfluenceEngine.mqh:136:        m_expiryCounts[i] = 0;
+  Confluence\ConfluenceEngine.mqh:137:    for(int i = 0; i < 8; i++)
+  Confluence\ConfluenceEngine.mqh:138:    {
+  Confluence\ConfluenceEngine.mqh:139:        m_ruleMatchCounts[i] = 0;
+> Confluence\ConfluenceEngine.mqh:611:bool CConfluenceEngine::GetLatestConfluence(ConfluenceResult &out) const
+  Confluence\ConfluenceEngine.mqh:612:{
+  Confluence\ConfluenceEngine.mqh:613:    if(!m_hasConfluence) return false;
+  Confluence\ConfluenceEngine.mqh:614:    out = m_latestConfluence;
+  Confluence\ConfluenceEngine.mqh:615:    return true;
+  Confluence\ConfluenceEngine.mqh:616:}
+  Confluence\ConfluenceEngine.mqh:617:
+  Confluence\ConfluenceEngine.mqh:618:void CConfluenceEngine::BuildDetectionContext(DetectionContext &context)
+  Confluence\ConfluenceEngine.mqh:619:{
+  Confluence\ConfluenceEngine.mqh:620:    context.trendState = m_trendState;
+  Confluence\ConfluenceEngine.mqh:621:    context.bosDetector = m_bosDetector;
+  Confluence\ConfluenceEngine.mqh:622:    context.chochDetector = m_chochDetector;
+  Confluence\ConfluenceEngine.mqh:623:    context.orderBlockDetector = m_orderBlockDetector;
+  Confluence\ConfluenceEngine.mqh:624:    context.fvgDetector = m_fvgDetector;
+  Confluence\ConfluenceEngine.mqh:625:    context.protectedPointManager = m_protectedPointManager;
+  Confluence\ConfluenceEngine.mqh:626:    context.liquidityDetector = m_liquidityDetector;
+  Confluence\ConfluenceEngine.mqh:627:    context.currentPrice = iClose(_Symbol, _Period, 0);
+  Confluence\ConfluenceEngine.mqh:628:    context.currentTime = iTime(_Symbol, _Period, 0);
+  Confluence\ConfluenceEngine.mqh:629:
+  Confluence\ConfluenceEngine.mqh:630:    //--- DD01 (AVP C01 / Swing S1): wire the engine's active swing
+  Confluence\ConfluenceEngine.mqh:631:    //    references into the context so PremiumDiscountEvaluator 
+receives
+  Confluence\ConfluenceEngine.mqh:632:    //    a live dealing range.  The manager holds the active swing
+  Confluence\ConfluenceEngine.mqh:633:    //    high/low from the moment ProcessCurrentTrend activates it (on
+  Confluence\ConfluenceEngine.mqh:634:    //    trend change) until the next trend change resets it.  
+Previously
+  Confluence\ConfluenceEngine.mqh:635:    //    these fields stayed 0.0 and the evaluator always scored
+  Confluence\ConfluenceEngine.mqh:636:    //    InvalidRange — a dead production code path.
+  Confluence\ConfluenceEngine.mqh:637:    context.swingHigh = 0.0;
+  Confluence\ConfluenceEngine.mqh:638:    context.swingLow = 0.0;
+  Confluence\ConfluenceEngine.mqh:639:    ProtectedPoint swingRef;
+  Confluence\ConfluenceEngine.mqh:640:    if(m_protectedPointManager != NULL)
+  Confluence\ConfluenceEngine.mqh:641:    {
+> Confluence\ConfluenceEngine.mqh:860:bool CConfluenceEngine::GetLatestSignal(ConfluenceSignal &out) const
+  Confluence\ConfluenceEngine.mqh:861:{
+  Confluence\ConfluenceEngine.mqh:862:    if(!m_hasLatest)
+  Confluence\ConfluenceEngine.mqh:863:        return false;
+  Confluence\ConfluenceEngine.mqh:864:
+  Confluence\ConfluenceEngine.mqh:865:    out = m_latestSignal;
+  Confluence\ConfluenceEngine.mqh:866:    return true;
+  Confluence\ConfluenceEngine.mqh:867:}
+  Confluence\ConfluenceEngine.mqh:868:
+  Confluence\ConfluenceEngine.mqh:869:#endif
+
+

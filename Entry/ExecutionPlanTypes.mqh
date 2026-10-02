@@ -68,6 +68,17 @@ struct ExecutionPlan
     double              riskReward;
     double              stopDistance;
     double              targetDistance;
+    //--- P37 (integrity, Fix 1): cost-aware net-RR admission field, gate-only.
+    //    P36 verified plan RR as gross (no spread/slippage/commission/swap
+    //    deduction). The deduction formula needs separate design
+    //    authorization, so hasNetRiskReward=false and riskRewardNet carries
+    //    gross until then. Gross riskReward behavior unchanged.
+    double              riskRewardNet;
+    bool                hasNetRiskReward;
+    //--- P46 (observe-only, 1.0R policy): informational flag, set when the
+    //    spread-only net-RR falls below the 1.0 observe threshold. The gate
+    //    still uses gross riskReward; this flag never affects eligibility.
+    bool                belowNetRRThreshold;
 
     string              entryPolicyUsed;
     string              stopPolicyUsed;

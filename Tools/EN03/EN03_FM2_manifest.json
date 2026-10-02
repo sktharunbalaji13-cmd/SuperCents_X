@@ -1,0 +1,67 @@
+{
+    "protocol":  "docs/Sprint24_EN03_Assessment.md Phase 2 (targeted FM-2 adversarial validation)",
+    "authorized":  "2026-08-13 user authorization (Q1/Q3 YES; research first; no A/B selection)",
+    "validityGate":  "COORDINATED2 fm2 CSV must equal COORDINATED byte-identical (replay determinism)",
+    "arms":  [
+                 {
+                     "arm":  "LEGACY",
+                     "strategy":  0,
+                     "label":  "legacy",
+                     "status":  "DONE",
+                     "start":  "2026-08-13T21:09:34",
+                     "end":  "2026-08-13T21:09:52",
+                     "faults":  null,
+                     "files":  [
+                                   "en03_fm2_legacy.csv",
+                                   "en03_pop_legacy_20260102.csv",
+                                   "telemetry_v5_20260130.csv"
+                               ],
+                     "fm2":  "en03_fm2_legacy.csv"
+                 },
+                 {
+                     "arm":  "OFF",
+                     "strategy":  1,
+                     "label":  "off",
+                     "status":  "DONE",
+                     "start":  "2026-08-13T21:09:52",
+                     "end":  "2026-08-13T21:10:10",
+                     "faults":  null,
+                     "files":  [
+                                   "en03_fm2_off.csv",
+                                   "en03_pop_off_20260102.csv",
+                                   "telemetry_v5_20260130.csv"
+                               ],
+                     "fm2":  "en03_fm2_off.csv"
+                 },
+                 {
+                     "arm":  "COORDINATED",
+                     "strategy":  2,
+                     "label":  "coord",
+                     "status":  "DONE",
+                     "start":  "2026-08-13T21:10:10",
+                     "end":  "2026-08-13T21:10:23",
+                     "faults":  null,
+                     "files":  [
+                                   "en03_fm2_coord.csv",
+                                   "en03_pop_coord_20260102.csv",
+                                   "telemetry_v5_20260130.csv"
+                               ],
+                     "fm2":  "en03_fm2_coord.csv"
+                 },
+                 {
+                     "arm":  "COORDINATED2",
+                     "strategy":  2,
+                     "label":  "coord2",
+                     "status":  "DONE",
+                     "start":  "2026-08-13T21:10:23",
+                     "end":  "2026-08-13T21:10:36",
+                     "faults":  null,
+                     "files":  [
+                                   "en03_fm2_coord2.csv",
+                                   "en03_pop_coord_20260102.csv",
+                                   "telemetry_v5_20260130.csv"
+                               ],
+                     "fm2":  "en03_fm2_coord2.csv"
+                 }
+             ]
+}

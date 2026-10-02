@@ -178,6 +178,7 @@ double IncompleteBeta(double a, double b, double x)
 {
     if(x <= 0.0) return 0.0;
     if(x >= 1.0) return 1.0;
+    if(a <= 0.0) return 0.0;
 
     double lnBeta = 0.0;
     lnBeta += LnGamma(a + b) - LnGamma(a) - LnGamma(b);
@@ -228,6 +229,7 @@ double IncompleteBeta(double a, double b, double x)
 //--- Log-gamma (Lanczos approximation).
 double LnGamma(double x)
 {
+    if(x <= 0.0) return 0.0;
     double cof[6] = { 76.18009172947146, -86.50532032941677,
                       24.01409824083091, -1.231739572450155,
                       0.1208650973866179e-2, -0.5395239384953e-5 };

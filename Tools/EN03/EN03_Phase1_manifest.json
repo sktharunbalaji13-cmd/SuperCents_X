@@ -1,0 +1,52 @@
+{
+    "protocol":  "docs/Sprint24_EN03_Assessment.md Phase 1 (population-invariance study)",
+    "authorized":  "2026-08-13 user authorization (Q1/Q3 YES; research first; no A/B selection)",
+    "validityGate":  "LEGACY arm telemetry must equal C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\SuperCents_X\\Tools\\TT01\\artifacts\\TT01_20260813_185122\\telemetry_v5_default.csv byte-identical",
+    "arms":  [
+                 {
+                     "arm":  "LEGACY",
+                     "strategy":  0,
+                     "status":  "DONE",
+                     "start":  "2026-08-13T20:00:11",
+                     "end":  "2026-08-13T20:00:40",
+                     "rows":  "500/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v5_20260130.csv",
+                                   "en03_pop_legacy_20260102.csv"
+                               ],
+                     "telemetry":  null,
+                     "population":  null
+                 },
+                 {
+                     "arm":  "OFF",
+                     "strategy":  1,
+                     "status":  "DONE",
+                     "start":  "2026-08-13T20:00:40",
+                     "end":  "2026-08-13T20:01:09",
+                     "rows":  "500/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v5_20260130.csv",
+                                   "en03_pop_off_20260102.csv"
+                               ],
+                     "telemetry":  null,
+                     "population":  null
+                 },
+                 {
+                     "arm":  "COORDINATED",
+                     "strategy":  2,
+                     "status":  "DONE",
+                     "start":  "2026-08-13T20:01:09",
+                     "end":  "2026-08-13T20:01:39",
+                     "rows":  "500/0",
+                     "faults":  "0",
+                     "files":  [
+                                   "telemetry_v5_20260130.csv",
+                                   "en03_pop_coord_20260102.csv"
+                               ],
+                     "telemetry":  null,
+                     "population":  null
+                 }
+             ]
+}

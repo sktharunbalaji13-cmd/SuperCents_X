@@ -381,7 +381,7 @@ void COrderBlockDetector::Shutdown(void)
     m_logger.LogInfo(StringFormat("Order Blocks Total    : %d", m_orderBlockCount));
     m_logger.LogInfo("===================================");
 
-    m_orderBlockCount = 0;
+    Clear();
     m_isInitialized = false;
     m_logger.LogInfo("OrderBlockDetector shutdown complete");
 }

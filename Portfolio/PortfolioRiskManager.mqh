@@ -186,7 +186,13 @@ PortfolioRiskDecision CPortfolioRiskManager::Evaluate(const ExecutionPlan &plan,
         }
     }
 
-    // 4. Symbol concentration
+    // 4. Symbol concentration (P37 integrity, Fix 6: instrument-aware
+    //    notional). vol*price is FX-shaped fiction on XAU/indices and the
+    //    old addedExposure (stopDist*_Point*100000) hardcoded a 100k FX
+    //    contract while ignoring lots. Notional = vol*price*contractSize.
+    //    Unknown contract size falls back to legacy vol*price (never zero).
+    //    BEHAVIOR NOTE: caps now bind at true notional; previously inert on
+    //    FX. Cap percentages intentionally untouched (no new parameters).
     double symbolExposure = 0.0;
     for(int i = 0; i < PositionsTotal(); i++)
     {
@@ -196,16 +202,32 @@ PortfolioRiskDecision CPortfolioRiskManager::Evaluate(const ExecutionPlan &plan,
             {
                 double vol = PositionGetDouble(POSITION_VOLUME);
                 double price = PositionGetDouble(POSITION_PRICE_OPEN);
-                symbolExposure += vol * price;
+                double cs = SymbolInfoDouble(symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+                symbolExposure += (cs > 0.0) ? vol * price * cs : vol * price;
             }
         }
     }
 
-    double addedExposure = plan.entryPrice > 0.0
-        ? (plan.stopDistance > 0.0 ? plan.stopDistance * _Point * 100000.0 : 0.0)
-        : 0.0;
+    double addedExposure = 0.0;
+    if(plan.entryPrice > 0.0 && plan.stopDistance > 0.0)
+    {
+        double csPlan = SymbolInfoDouble(symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+        //--- Risk-$ proxy per 1.0 lot (lots unknown pre-allocator).
+        addedExposure = (csPlan > 0.0) ? plan.stopDistance * csPlan
+                                       : plan.stopDistance * 100000.0;
+    }
     double totalSymbolExposure = symbolExposure + addedExposure;
     double maxSymbolExposure = equity * (m_limits.maxSymbolConcentrationPercent / 100.0);
+    //--- P41 (measurement-only, no behavior change): structured concentration
+    //    gate observation for every candidate reaching §4. Logging only;
+    //    decision logic below untouched. Cap value unchanged (30% default).
+    bool concPass = (totalSymbolExposure <= maxSymbolExposure);
+    m_logger.LogInfo(StringFormat(
+        "CONC-MEASURE time=%s symbol=%s dir=%d concDecision=%s equity=%.2f openExp=%.2f addedExp=%.2f combined=%.2f concPct=%.4f capPct=%.2f positions=%d stopDist=%.5f",
+        TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), symbol, (int)plan.direction,
+        (concPass ? "PASS" : "REJECT"), equity, symbolExposure, addedExposure, totalSymbolExposure,
+        ((equity > 0.0) ? (100.0 * totalSymbolExposure / equity) : 0.0),
+        m_limits.maxSymbolConcentrationPercent, exposure.totalPositions, plan.stopDistance));
     if(totalSymbolExposure > maxSymbolExposure)
     {
         decision.decision = ALLOC_REJECTED;

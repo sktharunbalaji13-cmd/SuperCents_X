@@ -1,0 +1,239 @@
+﻿{
+    "runId":  "TT01_20260814_235134",
+    "timestamp":  "2026-08-15T00:56:01",
+    "gitHead":  "73e5886",
+    "overall":  "PASS",
+    "allowDelta":  {
+
+                   },
+    "expectedRows":  500,
+    "allowDecisionIds":  0,
+    "gates":  [
+                  {
+                      "name":  "PREFLIGHT",
+                      "pass":  true,
+                      "details":  [
+                                      "dataFolder=D0E8209F77C8CF37AD8BF550E51FF075",
+                                      "originBinding OK: C:\\Program Files\\MetaTrader 5",
+                                      "foreign data folders clean (no ex5)",
+                                      "tester sandbox clean (no ex5 copies)",
+                                      "canonical binary unique: C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\SuperCents_X\\Tests\\TestRunnerEA.ex5",
+                                      "terminal=5.0.0.6104 metaeditor=5.0.0.6104"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE-SuperCents_X",
+                      "pass":  true,
+                      "details":  [
+                                      "Result: 0 errors, 4 warnings, 13919 ms elapsed, cpu=\u0027X64 Regular\u0027",
+                                      "artifact refreshed: 59C414AA... 454168 bytes 2026-08-14 23:51:50 hashChanged=True"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE-CalibrationRunner",
+                      "pass":  true,
+                      "details":  [
+                                      "Result: 0 errors, 0 warnings, 7483 ms elapsed, cpu=\u0027X64 Regular\u0027",
+                                      "artifact refreshed: E12F9076... 183208 bytes 2026-08-14 23:52:04 hashChanged=True"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE-TestRunner",
+                      "pass":  true,
+                      "details":  [
+                                      "Result: 0 errors, 6 warnings, 159179 ms elapsed, cpu=\u0027X64 Regular\u0027",
+                                      "artifact refreshed: 98FB5543... 2119494 bytes 2026-08-14 23:54:47 hashChanged=True"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE-TestRunnerEA",
+                      "pass":  true,
+                      "details":  [
+                                      "Result: 0 errors, 6 warnings, 156915 ms elapsed, cpu=\u0027X64 Regular\u0027",
+                                      "artifact refreshed: D1BB10F9... 2119262 bytes 2026-08-14 23:57:35 hashChanged=True"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE-BenchmarkRunner",
+                      "pass":  true,
+                      "details":  [
+                                      "Result: 0 errors, 0 warnings, 4781 ms elapsed, cpu=\u0027X64 Regular\u0027",
+                                      "artifact refreshed: 30C7FBAB... 200694 bytes 2026-08-14 23:57:50 hashChanged=True"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE-BenchmarkRunnerEA",
+                      "pass":  true,
+                      "details":  [
+                                      "Result: 0 errors, 0 warnings, 4587 ms elapsed, cpu=\u0027X64 Regular\u0027",
+                                      "artifact refreshed: 7F58BF26... 200730 bytes 2026-08-14 23:57:59 hashChanged=True"
+                                  ]
+                  },
+                  {
+                      "name":  "COMPILE",
+                      "pass":  true,
+                      "details":  "targets compiled: 6"
+                  },
+                  {
+                      "name":  "SUITE",
+                      "pass":  true,
+                      "details":  [
+                                      "2738/2738 passed, 0 failed",
+                                      "categories: 1",
+                                      "EN-03 Trend Flip Gate Tests (Option B): 110/110 passed, 0 failed",
+                                      "runtime: \u003e\u003e\u003e BUILD 25A-RUNTIME-01 tag=\"2026.08.14 23:54:59\" term=6104 path=C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Tester\\D0E8209F77C8CF37AD8BF550E51FF075\\Agent-127.0.0.1-3000\\MQL5\\Experts\\SuperCents_X\\Tests\\TestRunnerEA.ex5",
+                                      "identity OK: runtime tag \u00272026.08.14 23:54:59\u0027 inside the compile window",
+                                      "identity OK: executed path C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Tester\\D0E8209F77C8CF37AD8BF550E51FF075\\Agent-127.0.0.1-3000\\MQL5\\Experts\\SuperCents_X\\Tests\\TestRunnerEA.ex5",
+                                      "identity OK: on-disk ex5 hash == compiled artifact (D1BB10F9...)"
+                                  ]
+                  },
+                  {
+                      "name":  "REPLAY",
+                      "pass":  true,
+                      "details":  "rows=500 expected=500 faults=0 health=HEALTHY critical=0 csvCaptured=True"
+                  },
+                  {
+                      "name":  "TELEMETRY-CONTRACT",
+                      "pass":  true,
+                      "details":  "header 78/78 exact (v5 = v3.1 + 3 gate columns), schemaVersion=5, gate sentinels OFF, all numerics/flags/times parse, fingerprint constant"
+                  },
+                  {
+                      "name":  "EVIDENCE-REGRESSION",
+                      "pass":  true,
+                      "details":  [
+                                      "split invariant (rule|eval) holds on 500/500 rows",
+                                      "pdRaw unique=1 (PD family not wired at decision time yet - DD02/DD05 target; not gated)",
+                                      "hasProtectedPoint \u00272\u0027 on 500 rows",
+                                      "all evidence invariants hold"
+                                  ]
+                  },
+                  {
+                      "name":  "BEHAVIOR-REGRESSION",
+                      "pass":  true,
+                      "details":  [
+                                      "decision identity invariant holds: decisionId/signalTime/configFingerprint/symbol/timeframe identical on all 500 rows",
+                                      "schemaVersion 4 -\u003e 5 on all 500 rows (Sprint 22 schema recording; gate columns carry OFF sentinels, verified by CONTRACT)",
+                                      "all 71 behavior columns byte-identical across 500 rows",
+                                      "counters match: 500 unique decisions, rules 5, outcomes 3"
+                                  ]
+                  },
+                  {
+                      "name":  "ACTIVE-TIER",
+                      "pass":  true,
+                      "details":  [
+                                      "nGatedOut = 227 (default 500 -\u003e admitted 273)",
+                                      "all 273 admitted rows record gateDecision=ADMIT",
+                                      "fingerprint invariant: 3005138848403243456 constant and equal to the default run (tier outside canonical)",
+                                      "decision identity: all 273 admitted bars are a subset of the default run\u0027s bars (gating is a pure filter)",
+                                      "gate 3b: all 273 admitted rows byte-identical to the default run on all 73 shared columns (signalTime-paired)",
+                                      "K1 replay health: rows=273 faults=0 health=HEALTHY critical=0"
+                                  ]
+                  },
+                  {
+                      "name":  "SETTLEMENT-ISOLATION",
+                      "pass":  true,
+                      "details":  [
+                                      "nGatedOut = 2912 (default 6239 -\u003e admitted 3327)",
+                                      "fingerprint invariant: 13548296177162108249 constant and equal across the tiered pair (tier outside canonical)",
+                                      "decision identity: all admitted bars are a subset of the control bars (gating is a pure filter)",
+                                      "gate 3b isolation: all 3327 admitted rows byte-identical on all shared non-gate columns (Design A, 58 -\u003e 0)",
+                                      "horizon rows (exitReason=4): control 99 vs admitted 45 (the deferral-sensitive class, barsHeld=51)",
+                                      "all horizon rows settle at the max-hold boundary (barsHeld=51)",
+                                      "admitted tier-1.0 rows: 3327 ADMIT, 0 OFF (tier 1.0 must admit only strong pivots)",
+                                      "control arm health: rows=-1 faults=-1 health= critical=0 files=6",
+                                      "k1 arm health: rows=-1 faults=-1 health= critical=0 files=4"
+                                  ]
+                  },
+                  {
+                      "name":  "INTEGRITY-CONTROL",
+                      "pass":  true,
+                      "details":  [
+                                      "row count 6239 == frozen CONTROL (determinism holds)",
+                                      "INTEGRITY byte-identity: 6239/6239 rows identical to frozen CONTROL on all shared non-record columns",
+                                      "fresh control arm vs frozen CONTROL_RLHYP01_INTEGRITY (EURUSD_M15): determinism guard"
+                                  ]
+                  },
+                  {
+                      "name":  "PERFORMANCE",
+                      "pass":  true,
+                      "details":  [
+                                      "replayMs=18701 suiteMs=12145 peakMemMB=767.2",
+                                      "csvBytes=710478 rowsPerSec=26.7"
+                                  ]
+                  }
+              ],
+    "buildIdentity":  {
+                          "runtime":  {
+                                          "failLines":  {
+
+                                                        },
+                                          "suiteStartedLine":  null,
+                                          "buildLine":  "buildLine  = CS\t0\t23:58:09.790\tTestRunnerEA (EURUSD,H1)\t2026.01.01 00:00:00   \u003e\u003e\u003e BUILD 25A-RUNTIME-01 tag=\"2026.08.14 23:54:59\" term=6104 path=C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Tester\\D0E8209F77C8CF37AD8BF550E51FF075\\Agent-127.0.0.1-3000\\MQL5\\Experts\\SuperCents_X\\Tests\\TestRunnerEA.ex5\r\nfailLines  = 0",
+                                          "grandTotalLine":  "CS\t0\t23:58:10.267\tTestRunnerEA (EURUSD,H1)\t2026.01.01 00:00:00     GRAND TOTAL: 2738/2738 passed, 0 failed",
+                                          "binaryArchiveDir":  "C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\SuperCents_X\\Tools\\TT01\\artifacts\\TT01_20260814_235134\\binaries",
+                                          "sliceFile":  "C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\SuperCents_X\\Tools\\TT01\\artifacts\\TT01_20260814_235134\\suite_journal_slice.log",
+                                          "sliceLines":  3990
+                                      },
+                          "run":  {
+                                      "suiteRunAt":  null,
+                                      "compileFinishedAt":  null,
+                                      "suiteRunFinishedAt":  null,
+                                      "runId":  "TT01_20260814_235134"
+                                  },
+                          "sourceTree":  {
+                                             "dirty":  true,
+                                             "gitHeadFull":  null,
+                                             "dirtyLines":  16,
+                                             "gitHeadShort":  "73e5886"
+                                         },
+                          "dataFolder":  {
+                                             "id":  "D0E8209F77C8CF37AD8BF550E51FF075",
+                                             "terminalVersion":  "5.0.0.6104",
+                                             "dir":  "C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075",
+                                             "metaeditorVersion":  "5.0.0.6104",
+                                             "installDir":  "C:\\Program Files\\MetaTrader 5",
+                                             "canonicalEx5":  "C:\\Users\\k.tharun balaji\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Experts\\SuperCents_X\\Tests\\TestRunnerEA.ex5",
+                                             "originBinding":  "C:\\Program Files\\MetaTrader 5"
+                                         },
+                          "artifacts":  {
+                                            "SuperCents_X":  {
+                                                                 "sourceHash":  null,
+                                                                 "compileResult":  "recorded (run 5)",
+                                                                 "refreshed":  true,
+                                                                 "hashChanged":  true,
+                                                                 "pre":  {
+                                                                             "hash":  "59C414AA2DF3A88740ED10CDA26F896B52B1E78EFF1667F59727CB98169814BF",
+                                                                             "size":  454168,
+                                                                             "mtime":  "\/Date(1786731710391)\/"
+                                                                         },
+                                                                 "post":  {
+                                                                              "hash":  "59C414AA2DF3A88740ED10CDA26F896B52B1E78EFF1667F59727CB98169814BF",
+                                                                              "size":  454168,
+                                                                              "mtime":  "\/Date(1786731710391)\/"
+                                                                          }
+                                                             },
+                                            "TestRunnerEA":  {
+                                                                 "sourceHash":  null,
+                                                                 "compileResult":  "recorded (run 5)",
+                                                                 "refreshed":  true,
+                                                                 "hashChanged":  true,
+                                                                 "pre":  {
+                                                                             "hash":  "D1BB10F992AC8E6860413FBBF743764C66E710FA6374084BBFC37A2F0DDD0292",
+                                                                             "size":  2119262,
+                                                                             "mtime":  "\/Date(1786732055780)\/"
+                                                                         },
+                                                                 "post":  {
+                                                                              "hash":  "D1BB10F992AC8E6860413FBBF743764C66E710FA6374084BBFC37A2F0DDD0292",
+                                                                              "size":  2119262,
+                                                                              "mtime":  "\/Date(1786732055780)\/"
+                                                                          }
+                                                             }
+                                        }
+                      },
+    "perf":  {
+                 "peakMemMB":  767.2,
+                 "suiteMs":  12145,
+                 "replayMs":  18701,
+                 "csvBytes":  710478
+             }
+}

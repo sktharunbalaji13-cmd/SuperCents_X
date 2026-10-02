@@ -35,8 +35,8 @@ private:
 
     //--- Internal helpers
     bool IsValidBarIndex(int center, int rates_total) const;
-    bool IsSwingHigh(const double &high[], int center) const;
-    bool IsSwingLow(const double &low[], int center) const;
+    bool IsSwingHigh(const double &high[], int center, int rates_total) const;
+    bool IsSwingLow(const double &low[], int center, int rates_total) const;
     void AddSwingHigh(double price, datetime time, int barIndex);
     void AddSwingLow(double price, datetime time, int barIndex);
     void LogSwingConfirmed(const SwingPoint &sp);
@@ -160,13 +160,13 @@ void CSwingDetector::Update(const double &high[], const double &low[], const dat
     for(int center = startCenter; center <= maxCenter; center++)
     {
         //--- Check Swing High
-        if(IsSwingHigh(high, center))
+        if(IsSwingHigh(high, center, rates_total))
         {
             AddSwingHigh(high[center], time[center], center);
         }
 
         //--- Check Swing Low
-        if(IsSwingLow(low, center))
+        if(IsSwingLow(low, center, rates_total))
         {
             AddSwingLow(low[center], time[center], center);
         }
@@ -212,8 +212,11 @@ bool CSwingDetector::IsValidBarIndex(int center, int rates_total) const
     return true;
 }
 
-bool CSwingDetector::IsSwingHigh(const double &high[], int center) const
+bool CSwingDetector::IsSwingHigh(const double &high[], int center, int rates_total) const
 {
+    if(!IsValidBarIndex(center, rates_total))
+        return false;
+
     // 5-bar fractal: H[center] > H[center-1] && H[center] > H[center-2]
     //              && H[center] > H[center+1] && H[center] > H[center+2]
     double c = high[center];
@@ -226,8 +229,11 @@ bool CSwingDetector::IsSwingHigh(const double &high[], int center) const
     return true;
 }
 
-bool CSwingDetector::IsSwingLow(const double &low[], int center) const
+bool CSwingDetector::IsSwingLow(const double &low[], int center, int rates_total) const
 {
+    if(!IsValidBarIndex(center, rates_total))
+        return false;
+
     // 5-bar fractal: L[center] < L[center-1] && L[center] < L[center-2]
     //              && L[center] < L[center+1] && L[center] < L[center+2]
     double c = low[center];

@@ -1,0 +1,689 @@
+{
+ "gate": {
+  "pass": true,
+  "messages": [
+   "OK   gate2 EURUSD_H1/K1P0: total=820 qualified=779 closed=760 nGatedOut=660",
+   "OK   gate2 EURUSD_H1/K1P5: total=691 qualified=654 closed=639 nGatedOut=781",
+   "OK   gate2 EURUSD_H1/K2P0: total=521 qualified=495 closed=483 nGatedOut=937",
+   "OK   gate2 EURUSD_M15/K1P0: total=3327 qualified=3179 closed=3157 nGatedOut=2774",
+   "OK   gate2 EURUSD_M15/K1P5: total=2827 qualified=2710 closed=2693 nGatedOut=3238",
+   "OK   gate2 EURUSD_M15/K2P0: total=2096 qualified=2013 closed=2000 nGatedOut=3931",
+   "OK   gate2 GBPJPY_H1/K1P0: total=840 qualified=135 closed=124 nGatedOut=93",
+   "OK   gate2 GBPJPY_H1/K1P5: total=695 qualified=112 closed=103 nGatedOut=114",
+   "OK   gate2 GBPJPY_H1/K2P0: total=512 qualified=77 closed=70 nGatedOut=147",
+   "OK   gate3c EURUSD_H1/K1P0: nGatedOut=660",
+   "OK   gate3c EURUSD_H1/K1P5: nGatedOut=781",
+   "OK   gate3c EURUSD_H1/K2P0: nGatedOut=937"
+  ],
+  "pairingKey": "canonical",
+  "pairingProof": [
+   "EURUSD_H1: decisionId invariant (integrity rerun reproduces CONTROL row-for-row on decisionId + all shared columns except the frozen schemaVersion 4->5 flip; gate columns at OFF defaults)",
+   "EURUSD_M15: decisionId invariant (integrity rerun reproduces CONTROL row-for-row on decisionId + all shared columns except the frozen schemaVersion 4->5 flip; gate columns at OFF defaults)",
+   "GBPJPY_H1: decisionId invariant (integrity rerun reproduces CONTROL row-for-row on decisionId + all shared columns except the frozen schemaVersion 4->5 flip; gate columns at OFF defaults)"
+  ]
+ },
+ "perFile": {
+  "EURUSD_H1": {
+   "K1P0": {
+    "tier": 1.0,
+    "nTotal": 1420,
+    "nAdmitted": 760,
+    "nGatedOut": 660,
+    "admissionRate": 0.535211,
+    "gatedOutRate": 0.464789,
+    "meanR": {
+     "control": -0.023944,
+     "gatedOut": -0.013636
+    },
+    "delta": 0.006338,
+    "a1Identity": {
+     "predictedDelta": 0.006338,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.0675017397355602,
+     "hi": 0.07898448519040903
+    },
+    "dailyCi": {
+     "lo": -0.06640159357550664,
+     "hi": 0.07904876926616057
+    },
+    "sensitivityCi9833": {
+     "lo": -0.08280701754385965,
+     "hi": 0.09560906515580736
+    },
+    "observedDailyDelta": 0.006815418306101536,
+    "pairedDays": 63,
+    "winRate": {
+     "control": 0.3254,
+     "admitted": 0.3224
+    },
+    "nOpen": {
+     "control": 48,
+     "treatment": 19
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 1303,
+      "nGatedOut": 602,
+      "delta": 0.001535
+     },
+     "FVG-removed": {
+      "n": 1102,
+      "nGatedOut": 511,
+      "delta": 0.022686
+     },
+     "BOS-removed": {
+      "n": 1042,
+      "nGatedOut": 493,
+      "delta": 0.009597
+     },
+     "LIQUIDITY-removed": {
+      "n": 813,
+      "nGatedOut": 374,
+      "delta": -0.0123
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   },
+   "K1P5": {
+    "tier": 1.5,
+    "nTotal": 1420,
+    "nAdmitted": 639,
+    "nGatedOut": 781,
+    "admissionRate": 0.45,
+    "gatedOutRate": 0.55,
+    "meanR": {
+     "control": -0.023944,
+     "gatedOut": -0.00128
+    },
+    "delta": 0.000704,
+    "a1Identity": {
+     "predictedDelta": 0.000704,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.08842105263157894,
+     "hi": 0.08848314606741572
+    },
+    "dailyCi": {
+     "lo": -0.08710104595197765,
+     "hi": 0.08929355668486105
+    },
+    "sensitivityCi9833": {
+     "lo": -0.10751932536893886,
+     "hi": 0.10415200562983815
+    },
+    "observedDailyDelta": 0.0019378194844033333,
+    "pairedDays": 63,
+    "winRate": {
+     "control": 0.3254,
+     "admitted": 0.3161
+    },
+    "nOpen": {
+     "control": 48,
+     "treatment": 15
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 1303,
+      "nGatedOut": 713,
+      "delta": -0.009977
+     },
+     "FVG-removed": {
+      "n": 1102,
+      "nGatedOut": 590,
+      "delta": 0.029038
+     },
+     "BOS-removed": {
+      "n": 1042,
+      "nGatedOut": 591,
+      "delta": 0.002879
+     },
+     "LIQUIDITY-removed": {
+      "n": 813,
+      "nGatedOut": 449,
+      "delta": -0.02337
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   },
+   "K2P0": {
+    "tier": 2.0,
+    "nTotal": 1420,
+    "nAdmitted": 483,
+    "nGatedOut": 937,
+    "admissionRate": 0.340141,
+    "gatedOutRate": 0.659859,
+    "meanR": {
+     "control": -0.023944,
+     "gatedOut": -0.039488
+    },
+    "delta": 0.026056,
+    "a1Identity": {
+     "predictedDelta": 0.026056,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.07461645746164575,
+     "hi": 0.1266713581984518
+    },
+    "dailyCi": {
+     "lo": -0.07293356516959,
+     "hi": 0.12786658361192524
+    },
+    "sensitivityCi9833": {
+     "lo": -0.09733893557422969,
+     "hi": 0.1475177304964539
+    },
+    "observedDailyDelta": 0.027796450156698602,
+    "pairedDays": 63,
+    "winRate": {
+     "control": 0.3254,
+     "admitted": 0.3354
+    },
+    "nOpen": {
+     "control": 48,
+     "treatment": 12
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 1303,
+      "nGatedOut": 850,
+      "delta": 0.005372
+     },
+     "FVG-removed": {
+      "n": 1102,
+      "nGatedOut": 709,
+      "delta": 0.066243
+     },
+     "BOS-removed": {
+      "n": 1042,
+      "nGatedOut": 716,
+      "delta": 0.027831
+     },
+     "LIQUIDITY-removed": {
+      "n": 813,
+      "nGatedOut": 536,
+      "delta": 0.00246
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   }
+  },
+  "EURUSD_M15": {
+   "K1P0": {
+    "tier": 1.0,
+    "nTotal": 5931,
+    "nAdmitted": 3157,
+    "nGatedOut": 2774,
+    "admissionRate": 0.532288,
+    "gatedOutRate": 0.467712,
+    "meanR": {
+     "control": -0.012639,
+     "gatedOut": -0.05938
+    },
+    "delta": 0.027773,
+    "a1Identity": {
+     "predictedDelta": 0.027773,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.014163458235983263,
+     "hi": 0.06769398109687083
+    },
+    "dailyCi": {
+     "lo": -0.012234022019752855,
+     "hi": 0.06994685174339872
+    },
+    "sensitivityCi9833": {
+     "lo": -0.021717524978040543,
+     "hi": 0.07714650326984661
+    },
+    "observedDailyDelta": 0.029881840108311648,
+    "pairedDays": 65,
+    "winRate": {
+     "control": 0.3315,
+     "admitted": 0.3453
+    },
+    "nOpen": {
+     "control": 50,
+     "treatment": 22
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 5882,
+      "nGatedOut": 2755,
+      "delta": 0.027204
+     },
+     "FVG-removed": {
+      "n": 3839,
+      "nGatedOut": 1747,
+      "delta": 0.046208
+     },
+     "BOS-removed": {
+      "n": 3836,
+      "nGatedOut": 1804,
+      "delta": 0.038449
+     },
+     "LIQUIDITY-removed": {
+      "n": 4237,
+      "nGatedOut": 2017,
+      "delta": 0.001713
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   },
+   "K1P5": {
+    "tier": 1.5,
+    "nTotal": 5931,
+    "nAdmitted": 2693,
+    "nGatedOut": 3238,
+    "admissionRate": 0.454055,
+    "gatedOutRate": 0.545945,
+    "meanR": {
+     "control": -0.012639,
+     "gatedOut": -0.036045
+    },
+    "delta": 0.019679,
+    "a1Identity": {
+     "predictedDelta": 0.019679,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.02841560682260228,
+     "hi": 0.0697112549914937
+    },
+    "dailyCi": {
+     "lo": -0.026020805808206742,
+     "hi": 0.07190130299211711
+    },
+    "sensitivityCi9833": {
+     "lo": -0.04010518097108473,
+     "hi": 0.07793322686654103
+    },
+    "observedDailyDelta": 0.022057648154055677,
+    "pairedDays": 65,
+    "winRate": {
+     "control": 0.3315,
+     "admitted": 0.3413
+    },
+    "nOpen": {
+     "control": 50,
+     "treatment": 17
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 5882,
+      "nGatedOut": 3215,
+      "delta": 0.018873
+     },
+     "FVG-removed": {
+      "n": 3839,
+      "nGatedOut": 2030,
+      "delta": 0.046933
+     },
+     "BOS-removed": {
+      "n": 3836,
+      "nGatedOut": 2115,
+      "delta": 0.028598
+     },
+     "LIQUIDITY-removed": {
+      "n": 4237,
+      "nGatedOut": 2355,
+      "delta": -0.012449
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   },
+   "K2P0": {
+    "tier": 2.0,
+    "nTotal": 5931,
+    "nAdmitted": 2000,
+    "nGatedOut": 3931,
+    "admissionRate": 0.337211,
+    "gatedOutRate": 0.662789,
+    "meanR": {
+     "control": -0.012639,
+     "gatedOut": -0.026349
+    },
+    "delta": 0.017464,
+    "a1Identity": {
+     "predictedDelta": 0.017464,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.03628317707788902,
+     "hi": 0.07193914384497964
+    },
+    "dailyCi": {
+     "lo": -0.03318522989370038,
+     "hi": 0.07646584025645414
+    },
+    "sensitivityCi9833": {
+     "lo": -0.04889628962651413,
+     "hi": 0.08330342775523888
+    },
+    "observedDailyDelta": 0.021113565812055746,
+    "pairedDays": 65,
+    "winRate": {
+     "control": 0.3315,
+     "admitted": 0.3415
+    },
+    "nOpen": {
+     "control": 50,
+     "treatment": 13
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 5882,
+      "nGatedOut": 3899,
+      "delta": 0.017659
+     },
+     "FVG-removed": {
+      "n": 3839,
+      "nGatedOut": 2455,
+      "delta": 0.045852
+     },
+     "BOS-removed": {
+      "n": 3836,
+      "nGatedOut": 2587,
+      "delta": 0.028915
+     },
+     "LIQUIDITY-removed": {
+      "n": 4237,
+      "nGatedOut": 2853,
+      "delta": -0.019374
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   }
+  },
+  "GBPJPY_H1": {
+   "K1P0": {
+    "tier": 1.0,
+    "nTotal": 217,
+    "nAdmitted": 124,
+    "nGatedOut": 93,
+    "admissionRate": 0.571429,
+    "gatedOutRate": 0.428571,
+    "meanR": {
+     "control": -0.059908,
+     "gatedOut": -0.129032
+    },
+    "delta": 0.0553,
+    "a1Identity": {
+     "predictedDelta": 0.0553,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.059027777777777776,
+     "hi": 0.1657142857142857
+    },
+    "dailyCi": {
+     "lo": -0.13260125813927823,
+     "hi": 0.27627429958850325
+    },
+    "sensitivityCi9833": {
+     "lo": -0.08163265306122448,
+     "hi": 0.19607843137254902
+    },
+    "observedDailyDelta": 0.08341321519226827,
+    "pairedDays": 41,
+    "winRate": {
+     "control": 0.3134,
+     "admitted": 0.3306
+    },
+    "nOpen": {
+     "control": 19,
+     "treatment": 11
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 194,
+      "nGatedOut": 80,
+      "delta": 0.072165
+     },
+     "FVG-removed": {
+      "n": 178,
+      "nGatedOut": 74,
+      "delta": 0.011236
+     },
+     "BOS-removed": {
+      "n": 158,
+      "nGatedOut": 71,
+      "delta": 0.107595
+     },
+     "LIQUIDITY-removed": {
+      "n": 121,
+      "nGatedOut": 54,
+      "delta": 0.024793
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   },
+   "K1P5": {
+    "tier": 1.5,
+    "nTotal": 217,
+    "nAdmitted": 103,
+    "nGatedOut": 114,
+    "admissionRate": 0.474654,
+    "gatedOutRate": 0.525346,
+    "meanR": {
+     "control": -0.059908,
+     "gatedOut": 0.026316
+    },
+    "delta": -0.013825,
+    "a1Identity": {
+     "predictedDelta": -0.013825,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.18834080717488788,
+     "hi": 0.14754098360655737
+    },
+    "dailyCi": {
+     "lo": -0.21925292943944308,
+     "hi": 0.2572738914202329
+    },
+    "sensitivityCi9833": {
+     "lo": -0.226890756302521,
+     "hi": 0.1794871794871795
+    },
+    "observedDailyDelta": 0.02440382031486766,
+    "pairedDays": 41,
+    "winRate": {
+     "control": 0.3134,
+     "admitted": 0.2816
+    },
+    "nOpen": {
+     "control": 19,
+     "treatment": 9
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 194,
+      "nGatedOut": 100,
+      "delta": 0.005155
+     },
+     "FVG-removed": {
+      "n": 178,
+      "nGatedOut": 89,
+      "delta": -0.022472
+     },
+     "BOS-removed": {
+      "n": 158,
+      "nGatedOut": 87,
+      "delta": 0.037975
+     },
+     "LIQUIDITY-removed": {
+      "n": 121,
+      "nGatedOut": 66,
+      "delta": -0.099174
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": false
+    }
+   },
+   "K2P0": {
+    "tier": 2.0,
+    "nTotal": 217,
+    "nAdmitted": 70,
+    "nGatedOut": 147,
+    "admissionRate": 0.322581,
+    "gatedOutRate": 0.677419,
+    "meanR": {
+     "control": -0.059908,
+     "gatedOut": 0.020408
+    },
+    "delta": -0.013825,
+    "a1Identity": {
+     "predictedDelta": -0.013825,
+     "reproduced": true
+    },
+    "admittedDzeroViolations": 0,
+    "ci": {
+     "lo": -0.22790697674418606,
+     "hi": 0.19117647058823528
+    },
+    "dailyCi": {
+     "lo": -0.32745917401584546,
+     "hi": 0.2326514470703854
+    },
+    "sensitivityCi9833": {
+     "lo": -0.27472527472527475,
+     "hi": 0.22040816326530613
+    },
+    "observedDailyDelta": -0.03807292659516476,
+    "pairedDays": 41,
+    "winRate": {
+     "control": 0.3134,
+     "admitted": 0.2571
+    },
+    "nOpen": {
+     "control": 19,
+     "treatment": 7
+    },
+    "composition": {
+     "UNKNOWN-removed": {
+      "n": 194,
+      "nGatedOut": 131,
+      "delta": -0.005155
+     },
+     "FVG-removed": {
+      "n": 178,
+      "nGatedOut": 115,
+      "delta": -0.061798
+     },
+     "BOS-removed": {
+      "n": 158,
+      "nGatedOut": 113,
+      "delta": 0.06962
+     },
+     "LIQUIDITY-removed": {
+      "n": 121,
+      "nGatedOut": 82,
+      "delta": -0.066116
+     }
+    },
+    "shareFlags": [],
+    "decisionInputs": {
+     "absDeltaAtLeast010": false,
+     "ciExcludesZero": false,
+     "nAtLeast50": true,
+     "pairedDaysAtLeast10": true,
+     "estimatorsAgree": true
+    }
+   }
+  }
+ },
+ "direction": {
+  "K1P0": {
+   "primaryDelta": 0.006338,
+   "stabilityDelta": 0.027773,
+   "agree": true
+  },
+  "K1P5": {
+   "primaryDelta": 0.000704,
+   "stabilityDelta": 0.019679,
+   "agree": true
+  },
+  "K2P0": {
+   "primaryDelta": 0.026056,
+   "stabilityDelta": 0.017464,
+   "agree": true
+  }
+ },
+ "thresholds": {
+  "minEffect": 0.1,
+  "minN": 50,
+  "minPairedDays": 10,
+  "iters": 10000,
+  "seed": 20260811,
+  "sensitivityCi": "98.33%% (Bonferroni 0.05/3)"
+ },
+ "note": "delta = Mean(Treatment_R - Control_R) over the complete eligible CONTROL population (Amendment A1); Treatment_R = rMultiple if ADMITTED else 0R if GATED-OUT; pairing key = canonical (Amendment A2); verdict and decision ladder are computed in the decision report"
+}

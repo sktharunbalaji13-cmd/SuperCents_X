@@ -69,6 +69,7 @@ bool COperationalReport::Init(void)
 
 void COperationalReport::Shutdown(void)
 {
+    Clear();
     m_isInitialized = false;
 }
 

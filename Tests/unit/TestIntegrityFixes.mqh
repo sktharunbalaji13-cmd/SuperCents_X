@@ -100,9 +100,10 @@ void TestC2RiskMonotonicAndClamp(TestCounters &counters)
     TEST_TRUE(rWide.valid, "C7a-bi: wide-stop sizing valid");
     TEST_TRUE(rWide.lots < r10.lots, "C7b-bi: wider stop at fill -> smaller lots");
 
-    // Volume floor (min clamp).
+    // P37: sub-minimum volume REJECTS (no silent floor-clamp to volumeMin,
+    // which would over-risk). 0.01% of 10000 = $1 vs $500/lot -> 0.002 lots.
     PositionSizingResult rTiny = sizer.Calculate(0.01, 500.0, 10000.0, 1.0, 0.00001, 0.00001, 0.01, 100.0, 0.01);
-    TEST_TRUE(rTiny.valid && rTiny.lots >= 0.01, "C2h: lots floored at volume min (0.01)");
+    TEST_FALSE(rTiny.valid, "C2h-P37: sub-minimum lots rejected, not floored");
 
     // Volume ceiling.
     PositionSizingResult rHuge = sizer.Calculate(100.0, 5.0, 10000.0, 1.0, 0.00001, 0.00001, 0.01, 100.0, 0.01);

@@ -1,0 +1,75 @@
+﻿
+  Portfolio\SymbolContext.mqh:62:#include "../Entry/Validators/RiskValidator.mqh"
+> Portfolio\SymbolContext.mqh:63:#include "../Telemetry/TelemetryCollector.mqh"
+  Portfolio\SymbolContext.mqh:64:#include "../Telemetry/TelemetryRowBuilder.mqh"
+  Portfolio\SymbolContext.mqh:65:#include "../Telemetry/ForwardOutcomeSimulator.mqh"
+  Portfolio\SymbolContext.mqh:66:#include "../Telemetry/ActualOutcomeSettler.mqh"
+  Portfolio\SymbolContext.mqh:122:    ENUM_ENTRY_MODE           m_entryMode;
+> Portfolio\SymbolContext.mqh:123:    CTelemetryCollector      *m_telemetry;
+  Portfolio\SymbolContext.mqh:124:    //--- C2/C3 (integrity): risk % per trade and per-symbol position cap,
+  Portfolio\SymbolContext.mqh:125:    //    forwarded to the TradeManager once it is created in Init.
+  Portfolio\SymbolContext.mqh:126:    double                    m_riskPercent;
+  Portfolio\SymbolContext.mqh:192:    //--- Sprint 15.3: deferred outcome settlement.
+> Portfolio\SymbolContext.mqh:193:    void QueueForSettlement(const TelemetryRow &row, const int candidateId,
+  Portfolio\SymbolContext.mqh:194:                            const bool hasLiquidity, const int liquidityId);
+  Portfolio\SymbolContext.mqh:195:    bool SettleRow(TelemetryRow &row, datetime entryBarTime,
+  Portfolio\SymbolContext.mqh:196:                   const bool hasLiquidity, const int liquidityId);
+> Portfolio\SymbolContext.mqh:197:    void SettleDue(void);
+  Portfolio\SymbolContext.mqh:198:    void SettleRemaining(void);
+  Portfolio\SymbolContext.mqh:199:
+  Portfolio\SymbolContext.mqh:200:public:
+  Portfolio\SymbolContext.mqh:248:    double GetSwingSignificanceTier(void) const { return 
+m_swingSignificanceTier; }
+> Portfolio\SymbolContext.mqh:249:    void SetTelemetryCollector(CTelemetryCollector *collector) { 
+m_telemetry = collector; }
+  Portfolio\SymbolContext.mqh:250:    //--- B25-03C-B accessors (LEGACY only; NULL under NEW/SHADOW).
+  Portfolio\SymbolContext.mqh:251:    CExecutionLedgerWriter *GetExecutionLedgerWriter(void) const { return 
+m_execWriter; }
+  Portfolio\SymbolContext.mqh:252:    CExecutionRecovery     *GetExecutionRecovery(void) const { return 
+m_execRecovery; }
+  Portfolio\SymbolContext.mqh:1064:            //    (unit-proven in the gate suite).
+> Portfolio\SymbolContext.mqh:1065:            SettleDue();
+  Portfolio\SymbolContext.mqh:1066:            SwingGateResult gate;
+  Portfolio\SymbolContext.mqh:1067:            gate.admitted = true;
+  Portfolio\SymbolContext.mqh:1068:            gate.gateDecision = SWING_GATE_DECISION_OFF;
+  Portfolio\SymbolContext.mqh:1176:                        //--- Sprint 15.3: previously queued rows were 
+already
+> Portfolio\SymbolContext.mqh:1177:                        //    settled by the pre-gate SettleDue() above, 
+so the
+  Portfolio\SymbolContext.mqh:1178:                        //    collector receives rows in decision order; 
+queue
+  Portfolio\SymbolContext.mqh:1179:                        //    the new row for forward-outcome settlement.
+  Portfolio\SymbolContext.mqh:1180:                        //    GR02A: the candidate id travels with the row 
+so the
+  Portfolio\SymbolContext.mqh:1188:                        SwingGateApplyToRow(row, gate);
+> Portfolio\SymbolContext.mqh:1189:                        QueueForSettlement(row, newDecision.candidateId,
+  Portfolio\SymbolContext.mqh:1190:                                           hasSig && sig.hasLiquiditySweep,
+  Portfolio\SymbolContext.mqh:1191:                                           hasSig ? sig.liquidityLevelId : 
+-1);
+  Portfolio\SymbolContext.mqh:1192:                    }
+  Portfolio\SymbolContext.mqh:1560:
+> Portfolio\SymbolContext.mqh:1561:void CSymbolContext::QueueForSettlement(const TelemetryRow &row, const int 
+candidateId,
+  Portfolio\SymbolContext.mqh:1562:                                        const bool hasLiquidity, const int 
+liquidityId)
+  Portfolio\SymbolContext.mqh:1563:{
+  Portfolio\SymbolContext.mqh:1564:    if(m_telemetry == NULL)
+  Portfolio\SymbolContext.mqh:1672:
+> Portfolio\SymbolContext.mqh:1673:void CSymbolContext::SettleDue(void)
+  Portfolio\SymbolContext.mqh:1674:{
+  Portfolio\SymbolContext.mqh:1675:    if(m_pendingCount == 0)
+  Portfolio\SymbolContext.mqh:1676:        return;
+  Portfolio\SymbolContext.mqh:1689:            //    settler can later stamp the actual outcome for this row.
+> Portfolio\SymbolContext.mqh:1690:            int decisionId = m_telemetry.Record(row);
+  Portfolio\SymbolContext.mqh:1691:            if(decisionId > 0 && m_settler != NULL)
+  Portfolio\SymbolContext.mqh:1692:                m_settler.Register(m_pendingCandidateId[i], decisionId);
+  Portfolio\SymbolContext.mqh:1693:            settled = true;
+  Portfolio\SymbolContext.mqh:1720:            unsettled++;
+> Portfolio\SymbolContext.mqh:1721:        //--- GR02A: capture the collector-assigned decisionId (see 
+SettleDue).
+> Portfolio\SymbolContext.mqh:1722:        int decisionId = m_telemetry.Record(row);
+  Portfolio\SymbolContext.mqh:1723:        if(decisionId > 0 && m_settler != NULL)
+  Portfolio\SymbolContext.mqh:1724:            m_settler.Register(m_pendingCandidateId[i], decisionId);
+  Portfolio\SymbolContext.mqh:1725:    }
+
+

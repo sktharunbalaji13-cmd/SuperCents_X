@@ -1,0 +1,185 @@
+{
+  "manifest_version": "1.0.0",
+  "audit_date": "2026-09-18T00:00:00Z",
+  "classification": "READY-WITH-LIMITATIONS",
+
+  "operative_build": {
+    "git_head": "36c7a73fd8ba22ebd1f20e5ff332da1e4cafc7b3",
+    "git_tag": "v3.0-research-baseline-116-g36c7a73",
+    "source_file": "SuperCents_X.mq5",
+    "ex5_file": "SuperCents_X.ex5",
+    "ex5_size_bytes": 552550,
+    "ex5_timestamp": "2026-09-18T19:08:21Z",
+    "build_tag": "25B-PROD-01",
+    "compiler_result": {
+      "errors": 0,
+      "warnings": 4,
+      "warning_details": "POSITION_COMMISSION deprecated (informational, non-blocking)",
+      "compiler": "MT5 terminal compiler (X64 Regular)"
+    }
+  },
+
+  "production_inputs": {
+    "entry_mode": "ENTRY_MODE_LEGACY",
+    "magic_number": 27182819,
+    "risk_percent": 1.0,
+    "max_positions_per_symbol": 1,
+    "outcome_tp_mode": "OUTCOME_TP_FIXED_RR",
+    "fixed_rr_tier": 2.0,
+    "swing_significance_tier": 0.0,
+    "confluence_weights": {
+      "structure": 25.0,
+      "order_block": 20.0,
+      "fvg": 15.0,
+      "liquidity": 15.0,
+      "trend": 15.0,
+      "premium_discount": 10.0
+    }
+  },
+
+  "execution_pipeline": {
+    "order_type": "TRADE_ACTION_DEAL",
+    "fill_mode": "Market (Ask for BUY, Bid for SELL)",
+    "slippage_points": 3,
+    "dedup_strategy": "In-memory per-session + ledger cross-run inspection",
+    "retry_policy": "H6 (RECORD / REJECT_PERMANENT / RETRY_ELIGIBLE / RETRY_HOLD)",
+    "fail_closed": true,
+    "ledger_infrastructure": {
+      "identity_file": "Execution/execution_seq.dat",
+      "ledger_file": "Execution/execution_ledger.dat",
+      "writer": "CExecutionLedgerWriter",
+      "recovery": "CExecutionRecovery",
+      "inspection": "CExecutionPlanInspection",
+      "reconciler": "CExecutionReconciler"
+    }
+  },
+
+  "safety_gates": {
+    "magic_number": "PASS",
+    "symbol_isolation": "PASS",
+    "direction_handling": "PASS",
+    "risk_sizing": "PASS",
+    "position_gate": "PASS",
+    "closed_bar_discipline": "PASS",
+    "ordersend_handling": "PASS",
+    "fill_price_consistency": "PASS",
+    "sl_tp_validity": "PASS",
+    "position_lifecycle": "PASS",
+    "settlement": "PASS",
+    "restart_recovery": "PASS",
+    "telemetry": "PASS",
+    "provenance": "PASS",
+    "kill_switch": "PASS",
+    "demo_configuration": "PASS"
+  },
+
+  "known_limitations": [
+    {
+      "id": "L1",
+      "severity": "P1",
+      "description": "No daily loss limit",
+      "mitigation": "Manual monitoring; use MT5 Auto Trading toggle as emergency stop"
+    },
+    {
+      "id": "L2",
+      "severity": "P1",
+      "description": "No max aggregate exposure cap",
+      "mitigation": "Max positions per symbol = 1 limits single-symbol exposure"
+    },
+    {
+      "id": "L3",
+      "severity": "P2",
+      "description": "No max spread filter at entry",
+      "mitigation": "Net-RR gate provides partial spread awareness; manual monitoring during news"
+    },
+    {
+      "id": "L4",
+      "severity": "P2",
+      "description": "No post-fill risk recalculation",
+      "mitigation": "Pre-send fill price estimate used; actual fill captured separately for reconciliation"
+    },
+    {
+      "id": "L5",
+      "severity": "P2",
+      "description": "Exit reason indeterminate (SL/TP/manual not distinguished)",
+      "mitigation": "Derivable from deal history; position disappearance detection"
+    },
+    {
+      "id": "L6",
+      "severity": "P2",
+      "description": "Near-duplicate plans possible after restart",
+      "mitigation": "PlanIdentity includes entry/SL/TP prices; exact duplicates blocked"
+    },
+    {
+      "id": "L7",
+      "severity": "P3",
+      "description": "MFE/MAE not tracked in telemetry",
+      "mitigation": "Not required for demo observation"
+    }
+  ],
+
+  "target_deployment": {
+    "symbol": "EURUSD",
+    "timeframe": "M15",
+    "account_type": "MT5 DEMO",
+    "money_type": "DEMO ONLY"
+  },
+
+  "emergency_stop_procedure": [
+    "Remove EA from chart (Expert List → Remove)",
+    "OR disable Auto Trading button (green → red)",
+    "OR shut down MT5 terminal",
+    "OR change EntryMode input to ENTRY_MODE_SHADOW (1)"
+  ],
+
+  "telemetry_schema": {
+    "version": 6,
+    "output_dir": "Common/Files/Telemetry",
+    "rotation": "Daily",
+    "provenance_columns": ["runId", "buildTag", "gitHead"],
+    "join_key": "decisionId"
+  },
+
+  "gate_table": [
+    {"gate": "Build", "status": "PASS", "severity": "P3"},
+    {"gate": "Magic", "status": "PASS", "severity": "-"},
+    {"gate": "Symbol isolation", "status": "PASS", "severity": "-"},
+    {"gate": "Risk sizing", "status": "PASS", "severity": "-"},
+    {"gate": "Position gate", "status": "PASS", "severity": "-"},
+    {"gate": "Closed-bar discipline", "status": "PASS", "severity": "-"},
+    {"gate": "OrderSend handling", "status": "PASS", "severity": "-"},
+    {"gate": "Fill-price consistency", "status": "PASS", "severity": "-"},
+    {"gate": "SL/TP validity", "status": "PASS", "severity": "-"},
+    {"gate": "Position lifecycle", "status": "PASS", "severity": "-"},
+    {"gate": "Settlement", "status": "PASS", "severity": "-"},
+    {"gate": "Restart recovery", "status": "PASS", "severity": "-"},
+    {"gate": "Telemetry", "status": "PASS", "severity": "-"},
+    {"gate": "Provenance", "status": "PASS", "severity": "-"},
+    {"gate": "Kill switch", "status": "PASS", "severity": "-"},
+    {"gate": "Demo configuration", "status": "PASS", "severity": "-"}
+  ],
+
+  "final_declaration": {
+    "production_strategy_modified": false,
+    "production_parameters_modified": false,
+    "a_mirror_rule_8_promoted": false,
+    "existing_rules_modified": false,
+    "tie_break_logic_modified": false,
+    "simulator_modified": false,
+    "production_ea_executed_during_audit": false,
+    "real_money_account_used": false,
+    "demo_order_placed_during_audit": false,
+    "current_build_identified": true,
+    "clean_compile": true,
+    "execution_path_audited": true,
+    "risk_sizing_audited": true,
+    "order_handling_audited": true,
+    "fill_price_consistency_audited": true,
+    "lifecycle_audited": true,
+    "restart_recovery_audited": true,
+    "telemetry_audited": true,
+    "provenance_audited": true,
+    "kill_switch_documented": true,
+    "final_classification": "READY-WITH-LIMITATIONS"
+  }
+}

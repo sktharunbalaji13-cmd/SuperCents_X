@@ -34,6 +34,7 @@
 #include "unit/TestExecutionIdentity.mqh"
 #include "unit/TestTrendFlipGate.mqh"
 #include "unit/TestIntegrityFixes.mqh"
+#include "unit/TestVolumeStepValidation.mqh"
 #include "unit/TestH6RetryPolicy.mqh"
 #include "unit/TestExecutionRecovery.mqh"
 #include "unit/TestD1Correlation.mqh"
@@ -41,6 +42,7 @@
 #include "unit/TestEPlanInspection.mqh"
 #include "unit/TestP0ExecutionIntegrity.mqh"
 #include "unit/TestP1A1DealAdmissionObservability.mqh"
+#include "unit/TestActiveTierSurvivorPolicy.mqh"
 #include "integration/TestValidationLab.mqh"
 #include "integration/TestReconstruction.mqh"
 
@@ -163,6 +165,9 @@ TestCounters RunAllSuperCentsTests(void)
     r = RunIntegrityFixTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
+    r = RunVolumeStepTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
     r = RunH6RetryPolicyTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
@@ -172,10 +177,16 @@ TestCounters RunAllSuperCentsTests(void)
     r = RunD1CorrelationTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
+    r = RunActiveTierSurvivorPolicyTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
     r = RunC1PayloadExtensionTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunEPlanInspectionTests();
+    grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
+
+    r = RunEntryPolicySelectionTests();
     grandTotal += r.total; grandPassed += r.passed; grandFailed += r.failed;
 
     r = RunP0ExecutionIntegrityTests();

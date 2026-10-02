@@ -28,6 +28,9 @@ struct PositionContext
 
     bool     breakEvenApplied;
     bool     trailingActive;
+    //--- P44 (evidence, shadow-only): first-touch latch for hypothetical BE
+    //    observation. Logging only; exits unchanged; BE stays disabled.
+    bool     beShadowLogged;
 
     datetime openedTime;
     datetime lastUpdateTime;
@@ -46,6 +49,7 @@ struct PositionContext
         , lastVolume(0.0)
         , breakEvenApplied(false)
         , trailingActive(false)
+        , beShadowLogged(false)
         , openedTime(0)
         , lastUpdateTime(0)
         , closedTime(0)

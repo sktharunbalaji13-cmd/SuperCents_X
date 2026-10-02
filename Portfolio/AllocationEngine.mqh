@@ -102,7 +102,17 @@ AllocationDecision CAllocationEngine::Evaluate(const ExecutionPlan &plan,
     request.riskAmount = 0.0;
     request.riskPercent = m_defaultRiskPercent;
 
-    double stopDistPoints = MathAbs(plan.entryPrice - plan.stopLoss) / _Point;
+    //--- P37 (integrity, Fix 6): symbol-aware point basis + tickSize divisor,
+    //    mirroring PositionSizer/H7. The omitted divisor misstated requested
+    //    lots and allocated risk amounts wherever tickSize != point.
+    double symbolPoint = SymbolInfoDouble(symbol, SYMBOL_POINT);
+    if(symbolPoint <= 0.0)
+    {
+        decision.decision = ALLOC_REJECTED;
+        decision.reason = "Invalid symbol point for allocation math";
+        return decision;
+    }
+    double stopDistPoints = MathAbs(plan.entryPrice - plan.stopLoss) / symbolPoint;
     if(stopDistPoints <= 0.0)
     {
         decision.decision = ALLOC_REJECTED;
@@ -111,15 +121,25 @@ AllocationDecision CAllocationEngine::Evaluate(const ExecutionPlan &plan,
     }
 
     double tickValue = 0.0;
+    double tickSize = 0.0;
     if(request.symbol != "")
-        tickValue = SymbolInfoDouble(request.symbol, SYMBOL_TRADE_TICK_VALUE);
-
-    double riskPerLot = stopDistPoints * tickValue;
-    if(riskPerLot > 0.0)
     {
-        double equity = AccountInfoDouble(ACCOUNT_EQUITY);
-        request.riskAmount = equity * (m_defaultRiskPercent / 100.0);
-        request.requestedLots = request.riskAmount / riskPerLot;
+        tickValue = SymbolInfoDouble(request.symbol, SYMBOL_TRADE_TICK_VALUE);
+        tickSize = SymbolInfoDouble(request.symbol, SYMBOL_TRADE_TICK_SIZE);
+    }
+    if(tickSize <= 0.0)
+    {
+        decision.decision = ALLOC_REJECTED;
+        decision.reason = "Invalid tick size for allocation math";
+        return decision;
+    }
+
+    double riskPerLot = (stopDistPoints * tickValue) / (tickSize / symbolPoint);
+    if(riskPerLot <= 0.0)
+    {
+        decision.decision = ALLOC_REJECTED;
+        decision.reason = "Non-positive risk per lot for allocation math";
+        return decision;
     }
 
     double allocatedLots = m_capitalAllocator.CalculateSize(request, exposure);

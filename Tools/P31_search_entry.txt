@@ -1,0 +1,9 @@
+﻿EntryOrchestrator.mqh:5: #include "EntryDecisionTypes.mqh"
+EntryOrchestrator.mqh:9: class CEntryOrchestrator
+EntryOrchestrator.mqh:14: EntryDecision       m_lastDecision;
+EntryOrchestrator.mqh:95: EntryDecision Evaluate(const ConfluenceResult &confluence,
+EntryOrchestrator.mqh:103: EntryDecision decision;
+EntryOrchestrator.mqh:190: void CompareWithLegacy(const EntryDecision &legacyDecision)
+EntryOrchestrator.mqh:198: bool GetLastDecision(EntryDecision &out) const
+EntrySetup.mqh:41: datetime        signalTime;
+EntrySetup.mqh:53: && signalTime == other.signalTime

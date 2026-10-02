@@ -67,6 +67,7 @@ bool CBenchmarkFramework::Init(void)
 
 void CBenchmarkFramework::Shutdown(void)
 {
+    Clear();
     m_isInitialized = false;
 }
 

@@ -609,7 +609,7 @@ void CLiquidityDetector::DetectInvalidations(const datetime &time[], int rates_t
             if((isBuySide && !bos.bullish) || (isSellSide && bos.bullish))
             {
                 InvalidateLevel(m_levels[i].id, "OpposingBOS",
-                                curBar, bos.pivotPrice, time[0]);
+                                curBar, bos.pivotPrice, time[1]);
             }
         }
     }
@@ -708,8 +708,7 @@ void CLiquidityDetector::Shutdown(void)
     m_logger.LogInfo(StringFormat("  External LL Mitigated %3d", m_extLlMitigated));
     m_logger.LogInfo("=================================================================");
 
-    ArrayResize(m_levels, 0);
-    m_levelCount = 0;
+    Clear();
     m_initialized = false;
 }
 

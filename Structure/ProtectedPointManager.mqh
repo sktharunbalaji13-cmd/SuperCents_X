@@ -45,7 +45,7 @@ public:
     ~CProtectedPointManager(void);
 
     bool Init(void);
-    void Update(CStructuralPivotEngine *pivotEngine, CBOSDetector *bosDetector, CTrendState *trendState, const datetime &time[]);
+    void Update(CStructuralPivotEngine *pivotEngine, CBOSDetector *bosDetector, CTrendState *trendState, const datetime &time[], int rates_total);
     void Shutdown(void);
     void Clear(void);
 
@@ -113,7 +113,7 @@ void CProtectedPointManager::Clear(void)
     m_lastLoggedHighCandidatePivotId = -1;
 }
 
-void CProtectedPointManager::Update(CStructuralPivotEngine *pivotEngine, CBOSDetector *bosDetector, CTrendState *trendState, const datetime &time[])
+void CProtectedPointManager::Update(CStructuralPivotEngine *pivotEngine, CBOSDetector *bosDetector, CTrendState *trendState, const datetime &time[], int rates_total)
 {
     if(!m_isInitialized)
     {
@@ -126,10 +126,13 @@ void CProtectedPointManager::Update(CStructuralPivotEngine *pivotEngine, CBOSDet
 
     Trend currentTrend = trendState.GetCurrentTrend();
 
-    // Process new trend
+    // Process new trend — use the last CLOSED bar (time[1]) for activationTime,
+    // not the forming bar (time[0]), so the freeze-anchor and CHOCH guard
+    // reference a confirmed bar.
     if(currentTrend != m_lastTrend)
     {
-        ProcessCurrentTrend(pivotEngine, currentTrend, time[0]);
+        datetime activationBar = (rates_total >= 2) ? time[1] : time[0];
+        ProcessCurrentTrend(pivotEngine, currentTrend, activationBar);
         m_lastTrend = currentTrend;
     }
 
@@ -253,7 +256,7 @@ void CProtectedPointManager::Shutdown(void)
     m_logger.LogInfo(StringFormat("Active High: %d", m_activeHighId >= 0 ? m_protectedPoints[m_activeHighId].pivotID : -1));
     m_logger.LogInfo(StringFormat("Active Low: %d", m_activeLowId >= 0 ? m_protectedPoints[m_activeLowId].pivotID : -1));
     
-    m_pointCount = 0;
+    Clear();
     m_isInitialized = false;
     m_logger.LogInfo("ProtectedPointManager shutdown complete");
 }

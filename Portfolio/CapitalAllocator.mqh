@@ -97,7 +97,12 @@ double CCapitalAllocator::CalculateSize(const AllocationRequest &request, const 
         case ALLOC_FIXED_PERCENT:
         {
             double riskCapital = equity * (m_fixedPercent / 100.0);
-            double stopDistPoints = MathAbs(request.entryPrice - request.stopLoss) / _Point;
+            //--- P37 (integrity, Fix 6): symbol-aware point basis. _Point is
+            //    the chart symbol's point; the request may name another symbol.
+            double symbolPoint = SymbolInfoDouble(request.symbol, SYMBOL_POINT);
+            if(symbolPoint <= 0.0)
+                return 0.0;
+            double stopDistPoints = MathAbs(request.entryPrice - request.stopLoss) / symbolPoint;
             if(stopDistPoints <= 0.0)
                 return 0.0;
 
@@ -113,7 +118,7 @@ double CCapitalAllocator::CalculateSize(const AllocationRequest &request, const 
             //    distorted the lot size.  Mirrors the PositionSizer
             //    formula: riskPerLot = stopDistPoints * tickValue /
             //    (tickSize / point).
-            double riskPerLot = (stopDistPoints * tickValue) / (tickSize / _Point);
+            double riskPerLot = (stopDistPoints * tickValue) / (tickSize / symbolPoint);
             if(riskPerLot <= 0.0)
                 return 0.0;
 
@@ -122,10 +127,13 @@ double CCapitalAllocator::CalculateSize(const AllocationRequest &request, const 
             double maxLot = SymbolInfoDouble(request.symbol, SYMBOL_VOLUME_MAX);
             double lotStep = SymbolInfoDouble(request.symbol, SYMBOL_VOLUME_STEP);
 
-            lots = MathMax(lots, minLot);
-            lots = MathMin(lots, maxLot);
+            //--- P37 (integrity, Fix 6): round-then-clamp. Clamp-then-round
+            //    could emit off-step or over-max volume that IsVolumeValid
+            //    rejects downstream (approve-then-reject).
             if(lotStep > 0.0)
                 lots = MathRound(lots / lotStep) * lotStep;
+            lots = MathMax(lots, minLot);
+            lots = MathMin(lots, maxLot);
 
             return lots;
         }
@@ -157,26 +165,36 @@ double CCapitalAllocator::CalculateSize(const AllocationRequest &request, const 
             }
             return baseLots;
         }
-
         case ALLOC_EQUAL_RISK:
         {
             double equitySlice = equity / MathMax(exposure.totalPositions + 1, 1);
             double riskCapital = equitySlice * (m_fixedPercent / 100.0);
-            double stopDistPoints = MathAbs(request.entryPrice - request.stopLoss) / _Point;
+            //--- P37 (integrity, Fix 6): same symbol-aware basis + tickSize
+            //    divisor as FIXED_PERCENT (H7). The omitted divisor oversized
+            //    / undersized by tickSize/point on JPY pairs, indices, XAU.
+            double symbolPoint = SymbolInfoDouble(request.symbol, SYMBOL_POINT);
+            if(symbolPoint <= 0.0)
+                return 0.0;
+            double stopDistPoints = MathAbs(request.entryPrice - request.stopLoss) / symbolPoint;
             if(stopDistPoints <= 0.0)
                 return 0.0;
 
             double tickValue = SymbolInfoDouble(request.symbol, SYMBOL_TRADE_TICK_VALUE);
-            double riskPerLot = stopDistPoints * tickValue;
+            double tickSize = SymbolInfoDouble(request.symbol, SYMBOL_TRADE_TICK_SIZE);
+            if(tickSize <= 0.0)
+                return 0.0;
+            double riskPerLot = (stopDistPoints * tickValue) / (tickSize / symbolPoint);
             if(riskPerLot <= 0.0)
                 return 0.0;
 
             double lots = riskCapital / riskPerLot;
             double minLot = SymbolInfoDouble(request.symbol, SYMBOL_VOLUME_MIN);
+            double maxLot = SymbolInfoDouble(request.symbol, SYMBOL_VOLUME_MAX);
             double lotStep = SymbolInfoDouble(request.symbol, SYMBOL_VOLUME_STEP);
-            lots = MathMax(lots, minLot);
             if(lotStep > 0.0)
                 lots = MathRound(lots / lotStep) * lotStep;
+            lots = MathMax(lots, minLot);
+            lots = MathMin(lots, maxLot);
 
             return lots;
         }

@@ -120,9 +120,7 @@ void RECDriveChain(CRecChain &c,
 
     //--- PP activation seam (production semantics): the "current bar
     //--- time" is the last CLOSED bar (time[1]).
-    datetime actTime[1];
-    actTime[0] = (rates >= 2) ? time[1] : time[0];
-    c.pp.Update(c.pivot, c.bos, c.trend, actTime);
+    c.pp.Update(c.pivot, c.bos, c.trend, time, rates);
 
     c.choch.Update(c.trend, c.pp, close, time, rates, _Point);
     c.ob.Update(c.choch, c.trend, c.pp, open, high, low, close, time, rates);

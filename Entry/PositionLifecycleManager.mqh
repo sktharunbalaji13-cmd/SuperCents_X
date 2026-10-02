@@ -23,6 +23,10 @@ private:
 
     bool             m_beEnabled;
     double           m_beTriggerR;
+    //--- P37 (integrity, Fix 2): BE buffer as price distance, default 0.0 =
+    //    exact legacy behavior (newSL == priceOpen). A nonzero value needs
+    //    separate design authorization; BE stays default-OFF and unwired.
+    double           m_beBufferDist;
 
     bool             m_tsEnabled;
     double           m_tsTriggerR;
@@ -76,6 +80,8 @@ public:
     bool IsBreakevenEnabled(void) const { return m_beEnabled; }
     void SetBreakevenTrigger(double rMultiple) { m_beTriggerR = MathMax(rMultiple, 0.1); }
     double GetBreakevenTrigger(void) const { return m_beTriggerR; }
+    void SetBreakevenBuffer(double bufferPrice) { m_beBufferDist = MathMax(bufferPrice, 0.0); }
+    double GetBreakevenBuffer(void) const { return m_beBufferDist; }
 
     void EnableTrailingStop(bool enable) { m_tsEnabled = enable; }
     bool IsTrailingStopEnabled(void) const { return m_tsEnabled; }
@@ -95,10 +101,9 @@ CPositionLifecycleManager::CPositionLifecycleManager(void)
     , m_positionManager(NULL)
     , m_eventBus(NULL)
     , m_isInitialized(false)
-    , m_symbol("")
-    , m_magicNumber(0)
     , m_beEnabled(false)
     , m_beTriggerR(1.0)
+    , m_beBufferDist(0.0)
     , m_tsEnabled(false)
     , m_tsTriggerR(2.0)
     , m_tsDistance(100.0 * _Point)
@@ -123,7 +128,12 @@ CPositionLifecycleManager::~CPositionLifecycleManager(void)
 bool CPositionLifecycleManager::Init(void)
 {
     m_logger.LogInfo("Initializing PositionLifecycleManager...");
-    m_symbol = _Symbol;
+    //--- P37 (integrity, Fix 2): do not stomp a symbol assigned via SetSymbol
+    //    before Init (multi-symbol contexts). Default (no SetSymbol call)
+    //    preserves legacy behavior exactly. NOTE: SymbolContext wiring that
+    //    calls SetSymbol per context is deferred (dirty-file boundary, P37).
+    if(m_symbol == "")
+        m_symbol = _Symbol;
     m_isInitialized = true;
 
     DiscoverPositions();
@@ -228,6 +238,7 @@ int CPositionLifecycleManager::AddContext(const PositionInfo &pos)
 
     m_contexts[idx].breakEvenApplied = false;
     m_contexts[idx].trailingActive = false;
+    m_contexts[idx].beShadowLogged = false;
 
     m_contexts[idx].openedTime = pos.time;
     m_contexts[idx].lastUpdateTime = pos.time;
@@ -397,6 +408,19 @@ void CPositionLifecycleManager::ProcessContext(int index)
                 if(ApplyTrailingStop(index, pos))
                     break;
             }
+            //--- P44 (evidence, shadow-only): hypothetical BE first-touch.
+            //    BE stays disabled; no SL modified. One line per context.
+            if(!m_beEnabled && !m_contexts[index].beShadowLogged)
+            {
+                double shadowRR = CalculateRRatio(m_contexts[index], pos);
+                if(shadowRR >= m_beTriggerR)
+                {
+                    m_contexts[index].beShadowLogged = true;
+                    m_logger.LogInfo(StringFormat(
+                        "BE-SHADOW Ticket=%llu FirstTouch R=%.2f Entry=%.5f SL=%.5f TP=%.5f Volume=%.2f",
+                        pos.ticket, shadowRR, pos.priceOpen, pos.sl, pos.tp, pos.volume));
+                }
+            }
             break;
         }
 
@@ -430,6 +454,19 @@ void CPositionLifecycleManager::ProcessContext(int index)
             {
                 if(ApplyTrailingStop(index, pos))
                     break;
+            }
+            //--- P44 (evidence, shadow-only): hypothetical BE first-touch.
+            //    BE stays disabled; no SL modified. One line per context.
+            if(!m_beEnabled && !m_contexts[index].beShadowLogged)
+            {
+                double shadowRR = CalculateRRatio(m_contexts[index], pos);
+                if(shadowRR >= m_beTriggerR)
+                {
+                    m_contexts[index].beShadowLogged = true;
+                    m_logger.LogInfo(StringFormat(
+                        "BE-SHADOW Ticket=%llu FirstTouch R=%.2f Entry=%.5f SL=%.5f TP=%.5f Volume=%.2f",
+                        pos.ticket, shadowRR, pos.priceOpen, pos.sl, pos.tp, pos.volume));
+                }
             }
             break;
         }
@@ -481,12 +518,17 @@ bool CPositionLifecycleManager::ApplyBreakeven(int index, const PositionInfo &po
 {
     if(m_contexts[index].breakEvenApplied)
         return false;
-
     double rr = CalculateRRatio(m_contexts[index], pos);
     if(rr < m_beTriggerR)
         return false;
 
-    double newSL = pos.priceOpen;
+    //--- P37 (integrity, Fix 2): buffer-aware BE target. Default 0.0 reproduces
+    //    legacy newSL == priceOpen exactly. BUY shifts SL up past entry, SELL
+    //    shifts it down past entry. Improvement check below still validates
+    //    against live bid/ask. BE remains default-OFF and unwired.
+    double newSL = (pos.type == POSITION_TYPE_BUY)
+        ? (pos.priceOpen + m_beBufferDist)
+        : (pos.priceOpen - m_beBufferDist);
 
     bool isImprovement = (pos.type == POSITION_TYPE_BUY)
         ? (newSL > pos.sl && newSL < SymbolInfoDouble(m_symbol, SYMBOL_BID))

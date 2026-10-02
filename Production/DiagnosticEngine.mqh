@@ -71,7 +71,7 @@ bool CDiagnosticEngine::Init(void)
 void CDiagnosticEngine::Shutdown(void)
 {
     if(!m_isInitialized) return;
-    m_entryCount = 0;
+    Clear();
     m_isInitialized = false;
 }
 

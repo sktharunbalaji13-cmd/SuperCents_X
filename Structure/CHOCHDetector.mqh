@@ -437,7 +437,7 @@ void CCHOCHDetector::Shutdown(void)
     
     m_telemetry.Shutdown();
     
-    m_chochCount = 0;
+    Clear();
     m_isInitialized = false;
     m_logger.LogInfo("CHOCHDetector shutdown complete");
 }

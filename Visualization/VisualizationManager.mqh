@@ -146,6 +146,9 @@ void CVisualizationManager::Update(void)
     ulong s, e;
     string perf = "VIZ";
 
+    //--- PHASE_1_5_DIAGNOSTIC (temporary; remove after verification)
+    int objectsBefore = ObjectsTotal(0);
+
     // Layer order per spec §11: FVG → OB → PP → BOS → CHOCH → Liquidity → Swings → Pivots
     // This ensures rectangles (FVG/OB) are behind lines, arrows on top, labels topmost
 
@@ -191,9 +194,16 @@ void CVisualizationManager::Update(void)
 
     m_diag.Check();
 
+    ulong t_cr = GetMicrosecondCount();
     ChartRedraw(0);
+    ulong crTime = GetMicrosecondCount() - t_cr;
+    int objectsAfter = ObjectsTotal(0);
 
     Print(perf);
+    //--- PHASE_1_5_DIAGNOSTIC (temporary; remove after verification)
+    Print(StringFormat("PHASE_1_5_DIAGNOSTIC VIZ_OBJECTS Before=%d After=%d Net=%d ChartRedraw=%llu us | %s",
+                       objectsBefore, objectsAfter, objectsAfter - objectsBefore, crTime,
+                       m_vse.GetDiagAndReset()));
 }
 
 void CVisualizationManager::Shutdown(void)
@@ -202,7 +212,6 @@ void CVisualizationManager::Shutdown(void)
         return;
 
     m_logger.LogInfo("Shutting down VisualizationManager...");
-    m_isInitialized = false;
 
     m_fvg.Shutdown();
     m_ob.Shutdown();
@@ -214,6 +223,9 @@ void CVisualizationManager::Shutdown(void)
     m_swing.Shutdown();
 
     m_vse.Shutdown();
+
+    Clear();
+    m_isInitialized = false;
 
     m_logger.LogInfo("VisualizationManager shutdown complete");
 }

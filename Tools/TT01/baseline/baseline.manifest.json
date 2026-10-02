@@ -1,44 +1,57 @@
 ﻿{
-    "freezeId":  "B8",
-    "frozenAt":  "2026-08-07T21:50:44",
-    "commit":  "982a9cc",
+    "freezeId":  "B9",
+    "frozenAt":  "2026-09-04T14:46:11",
+    "commit":  "36c7a73",
+    "gitHeadFull":  "36c7a73fd8ba22ebd1f20e5ff332da1e4cafc7b3",
+    "previousBaseline":  "B8",
+    "previousSha":  "B5AB5FEEAD758A814E903F00A0C62A8DF20AE87B7B63E630CF00408EFA0B2735",
     "profile":  "Sprint20_TC02_Telemetry.ini (embedded TT01_Replay.ini)",
     "symbol":  "EURUSD",
     "period":  "H1",
     "fromDate":  "2026.01.01",
     "toDate":  "2026.02.01",
-    "rows":  500,
-    "csvBytes":  693386,
-    "csvSha256":  "B5AB5FEEAD758A814E903F00A0C62A8DF20AE87B7B63E630CF00408EFA0B2735",
-    "headerColumns":  75,
+    "rows":  467,
+    "csvBytes":  376933,
+    "csvSha256":  "41F68E8FA5B15CB2AC2F2DADBB878B24CDBF76772748D634C890D21B9B248A44",
+    "headerColumns":  81,
     "firstSignalTime":  "2026.01.02 04:00",
     "lastSignalTime":  "2026.01.30 23:00",
+    "p32RunId":  "TT01_20260904_135657",
+    "provenance":  {
+                       "artifactHashes":  {
+                                              "superCents":  "13317094",
+                                              "testRunner":  "E69E51E6"
+                                          },
+                       "prodSha":  "13317094E0BB10C705F2A97273087462761F62AE935627AFBE2486D4CD4C61FB",
+                       "buildTag":  "2026.09.04 13:56:59",
+                       "runId":  "RUN-2026.09.04 13:56:59-233086203",
+                       "terminal":  "5.0.0.6140",
+                       "testSha":  "E69E51E691383B1A835BF9FEBD14AD2C0C77010B6BB9B2D44B1CAA0BFC92703D",
+                       "gitHead":  "36c7a73fd8ba22ebd1f20e5ff332da1e4cafc7b3"
+                   },
+    "authorizedState":  {
+                            "active_residual_diffs":  8,
+                            "environmental":  "6118-\u003e6140 / tick-cache UNKNOWN=FAIL retained",
+                            "survivorPolicy":  "max totalConfidence -\u003e min decisionId (1e-9) globally per signalTime, one survivor, upstream C4 preserved",
+                            "behavior_expected_rows":  467,
+                            "integrity_residual_diffs":  32769,
+                            "c4Attribution":  "4 ROOT + 26 SECONDARY_ROOT + 403 PROPAGATED (7d4eecb)",
+                            "settlement_residual_diffs":  76,
+                            "integrity_expected_rows":  6061,
+                            "settlementPath":  "Deferral hoist SettleDue to GATE-OUT, horizon 51",
+                            "active_expected_unique_rows":  211
+                        },
     "counters":  {
-                     "rows":  500,
-                     "decisionIdsUnique":  500,
+                     "decisionIdsUnique":  467,
                      "ruleName":  {
-                                      "(none)":  39,
-                                      "OB_FVG_BEARISH":  89,
-                                      "LIQUIDITY_BOS_BEARISH":  61,
-                                      "LIQUIDITY_BOS_BULLISH":  146,
-                                      "BOS_OB_BEARISH":  165
+                                      "OB_FVG_BEARISH":  114,
+                                      "(none)":  0
                                   },
+                     "rows":  467,
                      "outcome":  {
-                                     "2":  284,
-                                     "1":  166,
+                                     "2":  259,
+                                     "1":  158,
                                      "0":  50
-                                 },
-                     "componentData1":  500,
-                     "firstSignalTime":  "2026.01.02 04:00",
-                     "lastSignalTime":  "2026.01.30 23:00"
-                 },
-    "perf":  {
-                 "peakMemMB":  289.5,
-                 "suiteMs":  9123,
-                 "replayMs":  15949,
-                 "rowsPerSec":  31.3,
-                 "csvBytes":  693386
-             },
-    "perfFrozenFromFirstRun":  true,
-    "perfFrozenCommit":  "982a9cc"
+                                 }
+                 }
 }

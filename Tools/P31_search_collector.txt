@@ -1,0 +1,75 @@
+﻿
+  Telemetry\TelemetryCollector.mqh:13://  - Rows buffered in memory and flushed on a checkpoint boundary
+  Telemetry\TelemetryCollector.mqh:14://    (every N rows, B25-02), when the buffer is full, or on Shutdown
+> Telemetry\TelemetryCollector.mqh:15://  - decisionId is assigned run-locally when the caller passes 0
+  Telemetry\TelemetryCollector.mqh:16://
+  Telemetry\TelemetryCollector.mqh:17://  B25-01 identity (provenance, no behavioral meaning):
+  Telemetry\TelemetryCollector.mqh:18://  - runId    : self-generated at Init: "RUN-<buildTag>-<GetTickCount>"
+  Telemetry\TelemetryCollector.mqh:19://  - buildTag : EA binary compile parse time (__DATETIME__)
+  Telemetry\TelemetryCollector.mqh:103:            row.timeframe,
+  Telemetry\TelemetryCollector.mqh:104:            row.eaVersion,
+> Telemetry\TelemetryCollector.mqh:105:            row.decisionId,
+  Telemetry\TelemetryCollector.mqh:106:            row.direction,
+  Telemetry\TelemetryCollector.mqh:107:            row.confidence,
+  Telemetry\TelemetryCollector.mqh:108:            row.structureRaw, row.structureWeight, 
+row.structureContribution,
+  Telemetry\TelemetryCollector.mqh:109:            row.obRaw,        row.obWeight,        row.obContribution,
+  Telemetry\TelemetryCollector.mqh:296:    }
+  Telemetry\TelemetryCollector.mqh:297:
+> Telemetry\TelemetryCollector.mqh:298:    //--- GR02A: records a decision row and returns the decisionId the
+  Telemetry\TelemetryCollector.mqh:299:    //    row was stored under (run-local assignment when caller passes
+  Telemetry\TelemetryCollector.mqh:300:    //    0).  The caller links the id to a candidate for later actual-
+  Telemetry\TelemetryCollector.mqh:301:    //    outcome settlement.  Returns 0 on failure.
+> Telemetry\TelemetryCollector.mqh:302:    int Record(TelemetryRow &row)
+  Telemetry\TelemetryCollector.mqh:303:    {
+  Telemetry\TelemetryCollector.mqh:304:        if(!m_isInitialized || !m_enabled)
+  Telemetry\TelemetryCollector.mqh:305:            return 0;
+  Telemetry\TelemetryCollector.mqh:306:
+> Telemetry\TelemetryCollector.mqh:307:        if(row.decisionId == 0)
+> Telemetry\TelemetryCollector.mqh:308:            row.decisionId = ++m_runId;
+  Telemetry\TelemetryCollector.mqh:309:
+  Telemetry\TelemetryCollector.mqh:310:        //--- B25-01: stamp provenance identity (constant per run).
+  Telemetry\TelemetryCollector.mqh:311:        row.runId = m_runIdentity;
+  Telemetry\TelemetryCollector.mqh:312:        row.buildTag = m_buildTag;
+  Telemetry\TelemetryCollector.mqh:332:                return 0;
+  Telemetry\TelemetryCollector.mqh:333:        }
+> Telemetry\TelemetryCollector.mqh:334:        return row.decisionId;
+  Telemetry\TelemetryCollector.mqh:335:    }
+  Telemetry\TelemetryCollector.mqh:336:
+  Telemetry\TelemetryCollector.mqh:337:    bool Flush(void) { return FlushBuffer(); }
+  Telemetry\TelemetryCollector.mqh:338:
+  Telemetry\TelemetryCollector.mqh:339:    //--- GR02A: stamps the actual outcome (WIN/LOSS/BREAKEVEN +
+  Telemetry\TelemetryCollector.mqh:340:    //    OUTCOME_SOURCE_ACTUAL) onto the buffered row with the given
+> Telemetry\TelemetryCollector.mqh:341:    //    decisionId.  Simulated fields are never touched.  Returns 
+false
+  Telemetry\TelemetryCollector.mqh:342:    //    when the id is unknown or the row has already been flushed
+  Telemetry\TelemetryCollector.mqh:343:    //    (position closed after run end - documented boundary).
+> Telemetry\TelemetryCollector.mqh:344:    bool ApplyActualOutcome(const int decisionId, const int 
+actualOutcome)
+  Telemetry\TelemetryCollector.mqh:345:    {
+  Telemetry\TelemetryCollector.mqh:346:        if(!m_isInitialized)
+  Telemetry\TelemetryCollector.mqh:347:            return false;
+> Telemetry\TelemetryCollector.mqh:348:        if(decisionId <= 0)
+  Telemetry\TelemetryCollector.mqh:349:            return false;
+  Telemetry\TelemetryCollector.mqh:350:
+  Telemetry\TelemetryCollector.mqh:351:        for(int i = 0; i < m_buffered; i++)
+  Telemetry\TelemetryCollector.mqh:352:        {
+> Telemetry\TelemetryCollector.mqh:353:            if(m_rows[i].decisionId == decisionId)
+  Telemetry\TelemetryCollector.mqh:354:            {
+  Telemetry\TelemetryCollector.mqh:355:                m_rows[i].actualOutcome = actualOutcome;
+  Telemetry\TelemetryCollector.mqh:356:                m_rows[i].actualOutcomeSource = 
+(int)OUTCOME_SOURCE_ACTUAL;
+  Telemetry\TelemetryCollector.mqh:357:                return true;
+  Telemetry\TelemetryCollector.mqh:363:    int BufferedCount(void) const { return m_buffered; }
+  Telemetry\TelemetryCollector.mqh:364:
+> Telemetry\TelemetryCollector.mqh:365:    bool GetBufferedRow(const int decisionId, TelemetryRow &out) const
+  Telemetry\TelemetryCollector.mqh:366:    {
+  Telemetry\TelemetryCollector.mqh:367:        for(int i = 0; i < m_buffered; i++)
+  Telemetry\TelemetryCollector.mqh:368:        {
+> Telemetry\TelemetryCollector.mqh:369:            if(m_rows[i].decisionId == decisionId)
+  Telemetry\TelemetryCollector.mqh:370:            {
+  Telemetry\TelemetryCollector.mqh:371:                out = m_rows[i];
+  Telemetry\TelemetryCollector.mqh:372:                return true;
+  Telemetry\TelemetryCollector.mqh:373:            }
+
+

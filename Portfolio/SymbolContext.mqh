@@ -10,6 +10,7 @@
 #include "../Core/HistoryEpoch.mqh"
 #include "../Utils/Constants.mqh"
 #include "../Utils/Types.mqh"
+#include "../Entry/ActiveTierSurvivorPolicy.mqh"
 #include "../Core/Config.mqh"
 #include "../Structure/SwingDetector.mqh"
 #include "../Structure/StructuralPivotEngine.mqh"
@@ -152,6 +153,11 @@ private:
     bool                      m_pendingLiqHas[];
     int                       m_pendingLiqId[];
     int                       m_pendingCount;
+    //--- P30 ACTIVE-TIER survivor policy: one decision per global signalTime, max confidence
+    datetime                  m_activeTierSeenSignalTime[];
+    double                    m_activeTierSeenConfidence[];
+    int                       m_activeTierSeenDecisionId[];
+    int                       m_activeTierSeenCount;
     CShadowTradeStateProvider m_shadowProvider;
     CShadowRiskEvaluator      m_shadowRisk;
     CProductionTradeStateProvider m_productionProvider;
@@ -335,6 +341,7 @@ CSymbolContext::CSymbolContext(const string symbol, int magicNumber, ENUM_ENTRY_
     , m_outcomeTpMode(OUTCOME_TP_FIXED_RR)
     , m_swingSignificanceTier(0.0)
     , m_pendingCount(0)
+    , m_activeTierSeenCount(0)
     , m_shadowProvider()
     , m_shadowRisk()
     , m_productionProvider(m_symbol, (long)m_magicNumber)
@@ -389,6 +396,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     //    entry mode is changed later, provider binding must be re-done.
 
     m_swingDetector = new CSwingDetector();
+    if(m_swingDetector == NULL) { m_logger.LogError("OOM: SwingDetector"); return false; }
     if(!m_swingDetector.Init())
     {
         m_logger.LogError("Failed to initialize SwingDetector");
@@ -397,6 +405,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_structuralPivotEngine = new CStructuralPivotEngine();
+    if(m_structuralPivotEngine == NULL) { m_logger.LogError("OOM: StructuralPivotEngine"); return false; }
     if(!m_structuralPivotEngine.Init())
     {
         m_logger.LogError("Failed to initialize StructuralPivotEngine");
@@ -405,6 +414,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_bosDetector = new CBOSDetector();
+    if(m_bosDetector == NULL) { m_logger.LogError("OOM: BOSDetector"); return false; }
     if(!m_bosDetector.Init())
     {
         m_logger.LogError("Failed to initialize BOSDetector");
@@ -413,6 +423,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_trendState = new CTrendState();
+    if(m_trendState == NULL) { m_logger.LogError("OOM: TrendState"); return false; }
     if(!m_trendState.Init())
     {
         m_logger.LogError("Failed to initialize TrendState");
@@ -421,6 +432,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_protectedPointManager = new CProtectedPointManager();
+    if(m_protectedPointManager == NULL) { m_logger.LogError("OOM: ProtectedPointManager"); return false; }
     if(!m_protectedPointManager.Init())
     {
         m_logger.LogError("Failed to initialize ProtectedPointManager");
@@ -429,6 +441,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_chochDetector = new CCHOCHDetector();
+    if(m_chochDetector == NULL) { m_logger.LogError("OOM: CHOCHDetector"); return false; }
     if(!m_chochDetector.Init())
     {
         m_logger.LogError("Failed to initialize CHOCHDetector");
@@ -437,6 +450,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_orderBlockDetector = new COrderBlockDetector();
+    if(m_orderBlockDetector == NULL) { m_logger.LogError("OOM: OrderBlockDetector"); return false; }
     if(!m_orderBlockDetector.Init())
     {
         m_logger.LogError("Failed to initialize OrderBlockDetector");
@@ -445,6 +459,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_fvgDetector = new CFVGDetector();
+    if(m_fvgDetector == NULL) { m_logger.LogError("OOM: FVGDetector"); return false; }
     if(!m_fvgDetector.Init())
     {
         m_logger.LogError("Failed to initialize FVGDetector");
@@ -458,6 +473,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_liquidityDetector = new CLiquidityDetector();
+    if(m_liquidityDetector == NULL) { m_logger.LogError("OOM: LiquidityDetector"); return false; }
     if(!m_liquidityDetector.Init())
     {
         m_logger.LogError("Failed to initialize LiquidityDetector");
@@ -488,6 +504,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     m_epoch.AddConsumer(GetPointer(this));
 
     m_visualizationManager = new CVisualizationManager();
+    if(m_visualizationManager == NULL) { m_logger.LogError("OOM: VisualizationManager"); return false; }
     if(!m_visualizationManager.Init())
     {
         m_logger.LogError("Failed to initialize VisualizationManager");
@@ -514,6 +531,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_confluenceEngine = new CConfluenceEngine();
+    if(m_confluenceEngine == NULL) { m_logger.LogError("OOM: ConfluenceEngine"); return false; }
     if(!m_confluenceEngine.Init())
     {
         m_logger.LogError("Failed to initialize ConfluenceEngine");
@@ -542,6 +560,16 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
         //--- ED01: apply the per-family floors from the ED01_* inputs
         //    (defaults equal the frozen B8 values, bit-for-bit identical).
         m_confVal.SetConfig(BuildED01ConfigFromInputs());
+
+        //--- B25-03C-E (integrity): wire the live execution-plan target
+        //    policy and RR from the user's OutcomeTpMode/FixedRRTier inputs
+        //    into the ExecutionPlanner so live TP resolves correctly.
+        ENUM_TARGET_POLICY planTarget = (m_outcomeTpMode == OUTCOME_TP_FIXED_RR)
+                                        ? TARGET_FIXED_RR : TARGET_OPPOSING_LIQUIDITY;
+        double planRR = m_outcomePolicy.GetTpR();
+        m_confluenceEngine.SetPlanConfig(planTarget, planRR);
+        m_logger.LogInfo(StringFormat("ExecutionPlan target: policy=%s RR=%.2f",
+            (planTarget == TARGET_FIXED_RR ? "FixedRR" : "OpposingLiquidity"), planRR));
     }
 
     m_entrySetupBuilder = new CEntrySetupBuilder();
@@ -575,6 +603,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_entryEngine = new CEntryEngine();
+    if(m_entryEngine == NULL) { m_logger.LogError("OOM: EntryEngine"); return false; }
     if(!m_entryEngine.Init())
     {
         m_logger.LogError("Failed to initialize EntryEngine");
@@ -583,6 +612,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_riskManager = new CRiskManager();
+    if(m_riskManager == NULL) { m_logger.LogError("OOM: RiskManager"); return false; }
     if(!m_riskManager.Init())
     {
         m_logger.LogError("Failed to initialize RiskManager");
@@ -591,6 +621,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_executionManager = new CExecutionManager();
+    if(m_executionManager == NULL) { m_logger.LogError("OOM: ExecutionManager"); return false; }
     if(!m_executionManager.Init())
     {
         m_logger.LogError("Failed to initialize ExecutionManager");
@@ -603,6 +634,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_positionManager = new CPositionManager();
+    if(m_positionManager == NULL) { m_logger.LogError("OOM: PositionManager"); return false; }
     if(!m_positionManager.Init())
     {
         m_logger.LogError("Failed to initialize PositionManager");
@@ -615,6 +647,7 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     }
 
     m_positionLifecycleManager = new CPositionLifecycleManager();
+    if(m_positionLifecycleManager == NULL) { m_logger.LogError("OOM: PositionLifecycleManager"); return false; }
     if(!m_positionLifecycleManager.Init())
     {
         m_logger.LogError("Failed to initialize PositionLifecycleManager");
@@ -625,9 +658,14 @@ bool CSymbolContext::Init(CEventBusAdapter *eventBus)
     {
         m_positionLifecycleManager.SetPositionManager(m_positionManager);
         m_positionLifecycleManager.SetMagicNumber(m_magicNumber);
+        //--- P39 (mechanical, P38-2b): route the owning context symbol into the
+        //    lifecycle manager (was chart-_Symbol via Init). Order-safe with
+        //    the P37 Init guard. Disjoint from P31 survivor region (~1190+).
+        m_positionLifecycleManager.SetSymbol(m_symbol);
     }
 
     m_tradeExecutionManager = new CTradeManager();
+    if(m_tradeExecutionManager == NULL) { m_logger.LogError("OOM: TradeExecutionManager"); return false; }
     if(!m_tradeExecutionManager.Init())
     {
         m_logger.LogError("Failed to initialize TradeExecutionManager");
@@ -924,12 +962,7 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
 
     s = GetMicrosecondCount();
     if(m_protectedPointManager != NULL && m_structuralPivotEngine != NULL)
-    {
-        datetime currentBarTime[];
-        ArrayResize(currentBarTime, 1);
-        currentBarTime[0] = (rates_total >= 2) ? time[1] : time[0];
-        m_protectedPointManager.Update(m_structuralPivotEngine, m_bosDetector, m_trendState, currentBarTime);
-    }
+        m_protectedPointManager.Update(m_structuralPivotEngine, m_bosDetector, m_trendState, time, rates_total);
     e = GetMicrosecondCount();
     if(m_metricsCollector != NULL) m_metricsCollector.RecordTiming(MODULE_PROTECTED_POINT_MANAGER, e - s);
     perf += StringFormat(" PP:%llu", e - s);
@@ -999,6 +1032,21 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
 
     if(m_metricsCollector != NULL)
         Print("PERF" + perf);
+
+    //--- PHASE_1_5_DIAGNOSTIC (temporary; remove after verification)
+    {
+        int dSwingHigh = (m_swingDetector != NULL) ? m_swingDetector.GetSwingHighCount() : 0;
+        int dSwingLow  = (m_swingDetector != NULL) ? m_swingDetector.GetSwingLowCount() : 0;
+        int dPivot     = (m_structuralPivotEngine != NULL) ? m_structuralPivotEngine.GetPivotCount() : 0;
+        int dBOS       = (m_bosDetector != NULL) ? m_bosDetector.GetBOSCount() : 0;
+        int dCHOCH     = (m_chochDetector != NULL) ? m_chochDetector.GetCHOCHCount() : 0;
+        int dOB        = (m_orderBlockDetector != NULL) ? m_orderBlockDetector.GetOrderBlockCount() : 0;
+        int dFVG       = (m_fvgDetector != NULL) ? m_fvgDetector.GetFVGCount() : 0;
+        int dLiq       = (m_liquidityDetector != NULL) ? m_liquidityDetector.GetLevelCount() : 0;
+        int dPP        = (m_protectedPointManager != NULL) ? m_protectedPointManager.GetProtectedPointCount() : 0;
+        Print(StringFormat("PHASE_1_5_DIAGNOSTIC STRUCTURE_COUNTS SwingHigh=%d SwingLow=%d Pivot=%d BOS=%d CHOCH=%d OB=%d FVG=%d Liq=%d PP=%d",
+                           dSwingHigh, dSwingLow, dPivot, dBOS, dCHOCH, dOB, dFVG, dLiq, dPP));
+    }
 
     if(m_confluenceEngine != NULL)
     {
@@ -1153,9 +1201,91 @@ void CSymbolContext::Update(double &open[], double &high[], double &low[], doubl
                         //    (§14 columns; ADMIT = qualifying pivot id + k*ATR(14)
                         //    threshold, OFF = neutral sentinels 0/0.0/OFF).
                         SwingGateApplyToRow(row, gate);
-                        QueueForSettlement(row, newDecision.candidateId,
-                                           hasSig && sig.hasLiquiditySweep,
-                                           hasSig ? sig.liquidityLevelId : -1);
+
+                        //--- P31: ACTIVE-TIER survivor policy (P30, verbatim):
+                        //    one decision per global signalTime; highest
+                        //    ConfluenceResult-level confidence (totalConfidence)
+                        //    survives; ties within 1e-9 -> smallest decisionId.
+                        //    The key is the row's own signalTime — the exact
+                        //    telemetry identity the ACTIVE-TIER gate measures.
+                        //    Challengers that do not supersede are discarded
+                        //    pre-queue (no settlement entry; the built row is
+                        //    discarded and never reaches telemetry; the journal
+                        //    log preserves the discard -> survivor trace).
+                        //    Missing/invalid confidence normalizes to 0.0
+                        //    (P30-defined). Direction is not a criterion.
+                        datetime candSignalTime = row.signalTime;
+                        double   candConfidence = ActiveTierSurvivor_NormalizeConfidence(cr.totalConfidence);
+                        int      seenIdx        = -1;
+                        for(int si = 0; si < m_activeTierSeenCount; si++)
+                            if(m_activeTierSeenSignalTime[si] == candSignalTime) { seenIdx = si; break; }
+                        bool survivorProceeds = true;
+                        if(seenIdx >= 0)
+                        {
+                            survivorProceeds = ActiveTierSurvivor_ChallengerWins(
+                                m_activeTierSeenConfidence[seenIdx],
+                                m_activeTierSeenDecisionId[seenIdx],
+                                candConfidence, (long)newDecision.candidateId);
+                            if(!survivorProceeds)
+                                m_logger.LogInfo(StringFormat(
+                                    "ActiveTier: DISCARDED duplicate signalTime %s (survivor conf %.10f id %d; challenger conf %.10f id %d)",
+                                    TimeToString(candSignalTime, TIME_DATE|TIME_MINUTES),
+                                    m_activeTierSeenConfidence[seenIdx],
+                                    m_activeTierSeenDecisionId[seenIdx],
+                                    candConfidence, (int)newDecision.candidateId));
+                            else
+                                m_logger.LogInfo(StringFormat(
+                                    "ActiveTier: SUPERSEDED prior id %d (conf %.10f) by id %d (conf %.10f) at signalTime %s",
+                                    m_activeTierSeenDecisionId[seenIdx],
+                                    m_activeTierSeenConfidence[seenIdx],
+                                    (int)newDecision.candidateId, candConfidence,
+                                    TimeToString(candSignalTime, TIME_DATE|TIME_MINUTES)));
+                        }
+                        if(survivorProceeds)
+                        {
+                            //--- P31 SUPERSESSION: if this signalTime already has a
+                            //    queued survivor pending settlement, remove it so
+                            //    exactly one row per signalTime reaches telemetry.
+                            //    This preserves order-independence for any arrival
+                            //    permutation of same-signalTime candidates.
+                            if(seenIdx >= 0)
+                            {
+                                for(int pi = 0; pi < m_pendingCount; pi++)
+                                {
+                                    if(m_pendingRows[pi].signalTime == candSignalTime)
+                                    {
+                                        for(int pj = pi; pj < m_pendingCount - 1; pj++)
+                                        {
+                                            m_pendingRows[pj]        = m_pendingRows[pj + 1];
+                                            m_pendingEntryTime[pj]   = m_pendingEntryTime[pj + 1];
+                                            m_pendingCandidateId[pj] = m_pendingCandidateId[pj + 1];
+                                            m_pendingLiqHas[pj]      = m_pendingLiqHas[pj + 1];
+                                            m_pendingLiqId[pj]       = m_pendingLiqId[pj + 1];
+                                        }
+                                        m_pendingCount--;
+                                        break;
+                                    }
+                                }
+                                m_activeTierSeenConfidence[seenIdx] = candConfidence;
+                                m_activeTierSeenDecisionId[seenIdx] = (int)newDecision.candidateId;
+                            }
+                            else
+                            {
+                                int n = m_activeTierSeenCount;
+                                ArrayResize(m_activeTierSeenSignalTime, n + 1);
+                                ArrayResize(m_activeTierSeenConfidence, n + 1);
+                                ArrayResize(m_activeTierSeenDecisionId, n + 1);
+                                m_activeTierSeenSignalTime[n] = candSignalTime;
+                                m_activeTierSeenConfidence[n] = candConfidence;
+                                m_activeTierSeenDecisionId[n] = (int)newDecision.candidateId;
+                                m_activeTierSeenCount = n + 1;
+                            }
+                            QueueForSettlement(row, newDecision.candidateId,
+                                               hasSig && sig.hasLiquiditySweep,
+                                               hasSig ? sig.liquidityLevelId : -1);
+                        }
+                        //--- discarded challenger: row not queued — never reaches
+                        //    telemetry; signalTime uniqueness restored per P30
                     }
                 }
             }

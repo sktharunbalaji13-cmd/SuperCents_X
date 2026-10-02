@@ -60,7 +60,7 @@ bool CStrategyCatalog::Init(void)
 void CStrategyCatalog::Shutdown(void)
 {
     if(!m_isInitialized) return;
-    m_strategyCount = 0;
+    Clear();
     m_isInitialized = false;
 }
 

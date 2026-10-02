@@ -646,10 +646,7 @@ TestCounters RunConfluenceEngineTests(void)
                 bos.Update(&pivot, close, time, rates);
                 trend.Update(&bos);
 
-                datetime currentBarTime[];
-                ArrayResize(currentBarTime, 1);
-                currentBarTime[0] = (rates >= 2) ? time[1] : time[0];
-                pp.Update(&pivot, &bos, &trend, currentBarTime);
+                pp.Update(&pivot, &bos, &trend, time, rates);
 
                 ProtectedPoint ppHigh, ppLow;
                 bool hasHigh = pp.GetActiveHigh(ppHigh);
@@ -812,10 +809,7 @@ TestCounters RunConfluenceEngineTests(void)
 
         // Trend is BULLISH (last BOS bullish @idx3) -> active PP = the low
         // (8.00 @B6, idx 14).  Backdated activation at the pivot bar time.
-        datetime actTime[];
-        ArrayResize(actTime, 1);
-        actTime[0] = time[14];
-        pp.Update(&pivot, &bos, &trend, actTime);
+        pp.Update(&pivot, &bos, &trend, time, rates);
 
         CCHOCHDetector choch;
         TEST_TRUE(choch.Init(), "CHOCHDetector init (CHOCH cold start)");
@@ -858,10 +852,7 @@ TestCounters RunConfluenceEngineTests(void)
         DD02RunChain(high, low, close, time, rates, swing, pivot, bos);
         trend.Update(&bos);
 
-        datetime actTime[];
-        ArrayResize(actTime, 1);
-        actTime[0] = time[1];
-        pp.Update(&pivot, &bos, &trend, actTime);
+        pp.Update(&pivot, &bos, &trend, time, rates);
 
         CCHOCHDetector choch;
         TEST_TRUE(choch.Init(), "CHOCHDetector init (CHOCH bar-1 equivalence)");

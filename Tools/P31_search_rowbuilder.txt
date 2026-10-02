@@ -1,0 +1,10 @@
+﻿9: //    new Decision      -> confidence (0-1), qualified flag, validator results
+10: //    legacy Decision   -> confidence (0-1), qualified flag (decision-level
+13: //  All confidence columns are normalized 0-1 (A-02 fix).
+40: cfg.minConfidence = confThreshold;
+88: out.confidence = newDecision.confidence;
+113: out.legacyConfidence = hasLegacy ? legacyDecision.confidence : 0.0;
+114: out.newConfidence = newDecision.confidence;
+155: out.confidenceModel = TELEMETRY_CONFIDENCE_MODEL;
+162: out.ruleConfidence = signal.currentRule.confidence;
+200: out.signalTime = signal.time;

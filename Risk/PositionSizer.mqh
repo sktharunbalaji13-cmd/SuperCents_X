@@ -100,6 +100,10 @@ bool CPositionSizer::Init(void)
 
 void CPositionSizer::Update(void)
 {
+    //--- P37 (integrity, Fix 6): refresh cached contract spec. Tick value
+    //    drifts with price on cross pairs; a stale cache silently mis-sizes.
+    if(m_isInitialized)
+        RefreshSymbolProperties();
 }
 
 void CPositionSizer::Shutdown(void)
@@ -173,12 +177,21 @@ PositionSizingResult CPositionSizer::Calculate(
     }
 
     double lots = riskMoney / riskPerLot;
-
     if(volumeStep > 0.0)
         lots = MathFloor(lots / volumeStep) * volumeStep;
 
+    //--- P37 (integrity, Fix 6): reject instead of silently floor-clamping.
+    //    Clamping lots UP to volumeMin risked MORE dollars than configured
+    //    (tight stop or small equity). Callers must treat invalid as reject,
+    //    never as fallback-to-fixed-lot. Ceiling clamp (over max) only ever
+    //    under-risks, so it is retained.
     if(lots < volumeMin)
-        lots = volumeMin;
+    {
+        result.validationMessage = StringFormat(
+            "POSITION-SIZING-REJECTED computed lots=%.4f below broker minimum=%.2f (stop too tight for min lot at this risk%%)",
+            lots, volumeMin);
+        return result;
+    }
 
     if(lots > volumeMax)
         lots = volumeMax;

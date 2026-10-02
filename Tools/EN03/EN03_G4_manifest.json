@@ -1,0 +1,47 @@
+{
+    "protocol":  "docs/Sprint24_EN03_OptionB_Plan.md G4 (production == frozen COORDINATED trace + replay determinism)",
+    "authorized":  "2026-08-13 user authorization (Option B implementation, G4 hard gate)",
+    "overall":  true,
+    "gates":  [
+                  {
+                      "pass":  true,
+                      "name":  "G4A",
+                      "desc":  "PROD2 CSV byte-identical to PROD1 (replay determinism)"
+                  },
+                  {
+                      "pass":  true,
+                      "name":  "G4B",
+                      "desc":  "PROD1 7 shared detector/trend columns == frozen COORDINATED per window"
+                  },
+                  {
+                      "pass":  true,
+                      "name":  "G4C",
+                      "desc":  "gate-suppressed journal line(s) present + flipCount==1 at W=23 (same-tick suppression)"
+                  }
+              ],
+    "frozen":  "fm2_artifacts/COORDINATED/en03_fm2_coord.csv",
+    "arms":  [
+                 {
+                     "arm":  "PROD1",
+                     "label":  "prod1",
+                     "status":  "DONE",
+                     "start":  null,
+                     "end":  null,
+                     "files":  [
+
+                               ],
+                     "csv":  null
+                 },
+                 {
+                     "arm":  "PROD2",
+                     "label":  "prod2",
+                     "status":  "DONE",
+                     "start":  null,
+                     "end":  null,
+                     "files":  [
+
+                               ],
+                     "csv":  null
+                 }
+             ]
+}

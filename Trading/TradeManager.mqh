@@ -230,6 +230,17 @@ void CTradeManager::Update(void)
 
         m_totalReceived++;
 
+        //--- P54 Stage-1 (MEASUREMENT ONLY - additive, read-only).  Emitted for
+        //    EVERY executable plan that enters the gate chain, so the S1-S8
+        //    report can diff "arrived" against later stages.  Without this,
+        //    absence of a later record would be indistinguishable from a
+        //    false result.  Keyed by planId; no counter is used.
+        m_logger.LogInfo(StringFormat(
+            "S-GATE Plan=%lld Stage=ENTER structureResolved=%d PlanStatus=%d Side=%s Entry=%.8f SL=%.8f TP=%.8f",
+            planId, (plan.structureResolved ? 1 : 0), (int)plan.status,
+            (plan.orderType == ORDER_TYPE_BUY ? "BUY" : "SELL"),
+            plan.entryPrice, plan.stopLoss, plan.takeProfit));
+
         if(IsAlreadySubmitted(planId))
         {
             m_totalDuplicates++;
@@ -311,12 +322,48 @@ void CTradeManager::Update(void)
                     "POSITION-SIZING Plan=%lld risk=%.2f%% stop=%.0fpts equity=%.2f lots=%.2f risk$=%.2f",
                     planId, m_riskPercent, stopDistancePoints,
                     AccountInfoDouble(ACCOUNT_EQUITY), sizing.lots, sizing.dollarRisk));
+
+                //--- P37 Stage 1.1 (additive observation; NO decision reads
+                //    this block).  Emitted ONLY after the authoritative
+                //    PositionSizer has produced its result, so `lots` is the
+                //    volume that would actually be sent - it is NOT a
+                //    re-derivation of the sizing maths.
+                //    Purpose: expose the actual volume together with the
+                //    inputs that produced it, so the P37 concentration unit
+                //    mismatch (notional open leg vs per-1-lot risk-proxy
+                //    added leg, PortfolioRiskManager.mqh:189-240) can be
+                //    quantified OFFLINE.  Raw facts only: no corrected
+                //    concentration percentage is computed here, because that
+                //    is the Stage 2 policy decision.
+                //    Correlation: same bar as the CONC-MEASURE line emitted
+                //    by PortfolioRiskManager earlier in this update, keyed on
+                //    planId and timestamp, so no notional is re-summed here.
+                m_logger.LogInfo(StringFormat(
+                    "P37S1-VOLUME-OBSERVED time=%s Plan=%lld symbol=%s side=%s fillPrice=%.5f stopLoss=%.5f stopDistPrice=%.5f stopDistPoints=%.0f riskPct=%.2f lots=%.4f contractSize=%.2f riskPerLot=%.2f dollarRisk=%.2f equity=%.2f openPositions=%d priceBasis=fill volumeBasis=PositionSizer",
+                    TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), planId, m_symbol,
+                    (plan.orderType == ORDER_TYPE_SELL ? "SELL" : "BUY"),
+                    fillPrice, plan.stopLoss, MathAbs(fillPrice - plan.stopLoss),
+                    stopDistancePoints, m_riskPercent, sizing.lots,
+                    SymbolInfoDouble(m_symbol, SYMBOL_TRADE_CONTRACT_SIZE),
+                    (sizing.lots > 0.0 ? sizing.dollarRisk / sizing.lots : 0.0),
+                    sizing.dollarRisk, AccountInfoDouble(ACCOUNT_EQUITY),
+                    CountOpenPositions()));
             }
             else
             {
+                //--- P37 (integrity, Fix 6): invalid sizing under an active
+                //    risk% path rejects the plan. Falling back to fixed
+                //    m_lotSize here would silently over-risk (the sizer
+                //    rejects exactly when even the broker minimum exceeds
+                //    the configured risk). Fallback retained only when no
+                //    sizer/risk% is configured (outside this branch).
                 m_logger.LogInfo(StringFormat(
-                    "POSITION-SIZING-FALLBACK Plan=%lld reason=%s lots=%.2f",
-                    planId, sizing.validationMessage, m_lotSize));
+                    "POSITION-SIZING-REJECTED Plan=%lld reason=%s",
+                    planId, sizing.validationMessage));
+                if(m_planner != NULL)
+                    m_planner.SetPlanStatus(i, PLAN_REJECTED);
+                m_totalFailed++;
+                continue;
             }
         }
 
@@ -365,6 +412,13 @@ void CTradeManager::Update(void)
                                                       (int)plan.stopPolicy, plan.stopLoss,
                                                       (int)plan.targetPolicy, plan.takeProfit,
                                                       plan.structureResolved);
+            //--- P54 Stage-1 (MEASUREMENT ONLY - additive, read-only): record
+            //    structureResolved AS RECEIVED plus the verdict.  "NOT_REACHED"
+            //    is used when no inspector is wired, so a missing verdict can
+            //    never be read as NOT_FOUND.  Control flow below is unchanged.
+            m_logger.LogInfo(StringFormat(
+                "S-GATE Plan=%lld Stage=INSPECT Verdict=%s structureResolved=%d",
+                planId, inspVerdict, (plan.structureResolved ? 1 : 0)));
             if(inspVerdict != EINSPECT_NOT_FOUND)
             {
                 m_totalInspectionBlocked++;
@@ -373,26 +427,53 @@ void CTradeManager::Update(void)
                 continue;
             }
         }
+        else
+        {
+            //--- P54 Stage-1: explicit NOT_REACHED for the inspector so S6 is
+            //    never silently empty.
+            m_logger.LogInfo(StringFormat(
+                "S-GATE Plan=%lld Stage=INSPECT Verdict=NOT_REACHED structureResolved=%d",
+                planId, (plan.structureResolved ? 1 : 0)));
+        }
 
         //--- B25-03C-B: INTENT-before-send (write-ahead; fail closed before
         //    OrderSend).  Allocates a fresh executionId (never reused).
         string execExecutionId = "";
+        //--- P54 Stage-1 (MEASUREMENT ONLY - additive, read-only): capture the
+        //    write-ahead outcome so S7 can distinguish NOT_REACHED from
+        //    REACHED_FALSE from REACHED_TRUE.  `beginOK = f(...)` followed by
+        //    `if(!beginOK)` is semantically identical to the previous
+        //    `if(!f(...))`; no behaviour is altered.
+        bool   beginReached = false;
+        bool   beginOK      = false;
         if(m_ledgerWriter != NULL)
         {
+            beginReached = true;
             string execSide = (plan.orderType == ORDER_TYPE_BUY) ? "BUY" : "SELL";
-            if(!m_ledgerWriter.BeginExecution((long)planId, m_symbol, execSide,
-                                              request.price, volume, request.sl, request.tp,
-                                              m_magicNumber,
-                                              plan.entryPrice, (int)plan.structureResolved,
-                                              (int)plan.entryPolicy, (int)plan.stopPolicy, (int)plan.targetPolicy,
-                                              execExecutionId))
+            beginOK = m_ledgerWriter.BeginExecution((long)planId, m_symbol, execSide,
+                                                    request.price, volume, request.sl, request.tp,
+                                                    m_magicNumber,
+                                                    plan.entryPrice, (int)plan.structureResolved,
+                                                    (int)plan.entryPolicy, (int)plan.stopPolicy, (int)plan.targetPolicy,
+                                                    execExecutionId);
+            if(!beginOK)
             {
                 m_totalFailed++;
                 m_logger.LogInfo(StringFormat(
                     "ORDER-BLOCKED-INTENT-FAIL Plan=%lld (ledger write-ahead failed; no send)", planId));
+                m_logger.LogInfo(StringFormat(
+                    "S-GATE Plan=%lld Stage=BEGIN Reached=TRUE Result=REACHED_FALSE structureResolved=%d",
+                    planId, (plan.structureResolved ? 1 : 0)));
                 continue;
             }
         }
+        //--- P54 Stage-1: S7 reached-and-succeeded, or explicitly NOT_REACHED
+        //    when no ledger writer is wired.
+        m_logger.LogInfo(StringFormat(
+            "S-GATE Plan=%lld Stage=BEGIN Reached=%s Result=%s structureResolved=%d",
+            planId, (beginReached ? "TRUE" : "FALSE"),
+            (beginReached ? "REACHED_TRUE" : "NOT_REACHED"),
+            (plan.structureResolved ? 1 : 0)));
 
         //--- D1 (restart-stable broker correlation): append the frozen #<seq>
         //    tail to the order comment using the SAME seq embedded in the
@@ -409,6 +490,15 @@ void CTradeManager::Update(void)
         bool sent = OrderSend(request, tradeResult);
 
         ExecutionTruthRecord truth = CaptureExecutionTruth(request, tradeResult, planId);
+
+        //--- P54 Stage-1 (MEASUREMENT ONLY - additive, read-only): S8.  Reaching
+        //    this line means OrderSend was invoked.  retcode is the raw broker
+        //    return code; H6 classification is NOT performed here, and no
+        //    RETRY_HOLD / UNKNOWN conclusion is drawn by this instrumentation.
+        m_logger.LogInfo(StringFormat(
+            "S-GATE Plan=%lld Stage=SEND Reached=TRUE structureResolved=%d sendRet=%d retcode=%u deal=%llu",
+            planId, (plan.structureResolved ? 1 : 0), (sent ? 1 : 0),
+            truth.retcode, truth.dealTicket));
 
         TradeExecutionResult result;
         result.executionPlanId = planId;

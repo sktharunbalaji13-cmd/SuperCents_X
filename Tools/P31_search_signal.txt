@@ -1,0 +1,6 @@
+﻿26: EXPIRY_OB_INVALIDATED,
+28: EXPIRY_LIQUIDITY_INVALIDATED,
+108: double              confidence;
+134: score, confidence, ruleCount, evidenceCount, rationale);
+173: double              confidence;
+188: score, confidence, EvidenceIdsToString(), explanation);

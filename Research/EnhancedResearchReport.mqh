@@ -70,6 +70,7 @@ bool CEnhancedResearchReport::Init(void)
 
 void CEnhancedResearchReport::Shutdown(void)
 {
+    Clear();
     m_isInitialized = false;
 }
 

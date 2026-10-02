@@ -66,7 +66,7 @@ bool CRecommendationEngine::Init(void)
 void CRecommendationEngine::Shutdown(void)
 {
     if(!m_isInitialized) return;
-    m_recommendationCount = 0;
+    Clear();
     m_isInitialized = false;
 }
 

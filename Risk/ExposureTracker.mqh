@@ -118,21 +118,29 @@ void CExposureTracker::Update(void)
         if(entry.symbol == "")
             continue;
 
+        //--- P37 (integrity, Fix 6): instrument-aware notional.
+        //    vol*priceOpen is FX-shaped fiction on XAU/indices (and the risk
+        //    leg ignored contract size). Unknown contract size falls back to
+        //    legacy vol*price (never zero). Live sizing consumer is the dead
+        //    CRiskManager path (P36 §4.10); this corrects display/snapshot
+        //    values and any future live consumer. Caps untouched.
+        double csPos = SymbolInfoDouble(entry.symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+        double notion = (csPos > 0.0) ? volume * priceOpen * csPos : volume * priceOpen;
         if(type == POSITION_TYPE_BUY)
         {
             entry.longVolume   = volume;
-            entry.longExposure = volume * priceOpen;
+            entry.longExposure = notion;
         }
         else
         {
             entry.shortVolume   = volume;
-            entry.shortExposure = volume * priceOpen;
+            entry.shortExposure = notion;
         }
 
         if(sl > 0.0)
         {
             double riskPerUnit = MathAbs(priceOpen - sl) * volume;
-            m_totalOpenRisk += riskPerUnit;
+            m_totalOpenRisk += (csPos > 0.0) ? riskPerUnit * csPos : riskPerUnit;
         }
 
         if(OrderCalcMargin((ENUM_ORDER_TYPE)type, entry.symbol, volume, priceOpen, margin))

@@ -22,6 +22,8 @@
 #include "../TestAssert.mqh"
 #include "../../Telemetry/OutcomePolicies.mqh"
 #include "../../Core/Config.mqh"
+#include "../../Entry/ExecutionPlanTypes.mqh"
+#include "../../Entry/TargetResolver.mqh"
 
 //--- Deterministic quiet bars: 1R = 0.001, SL = 0.999, TP(2R) = 1.002.
 void BuildQuietBarsTier(double &open[], double &high[], double &low[], double &close[],
@@ -214,6 +216,64 @@ void TestFixedRrTier_ConfigDefaultAndRoundTrip(TestCounters &counters)
 
 //─── Entry point ────────────────────────────────────────────────────
 
+//─── B25-03C-E Patch B acceptance: planner FixedRR fixtures (T4/T5/T6)
+//    Pins the resolver math the ExecutionPlanner uses once the live
+//    target policy/RR is wired through ConfluenceEngine::SetPlanConfig:
+//      T4: BUY  Entry=1.14640 SL=1.14574 RR=2.0 -> TP=1.14772
+//      T5: SELL Entry=1.14640 SL=1.14706 RR=2.0 -> TP=1.14508
+//      T6: default config still Opposing-Liquidity (no regression for
+//          non-FixedRR modes); opposing-liquidity with no pool falls
+//          through to FixedRR (resolver intact).
+
+void TestFixedRrTier_PlannerFixedRRFixtures(TestCounters &counters)
+{
+    SUITE_BEGIN("B25-03C-E Patch B - planner FixedRR fixtures (T4/T5/T6)");
+
+    //--- T4: FixedRR BUY.
+    TradeCandidate buy;
+    buy.direction = CONFLUENCE_BULLISH;
+    buy.hasOB = false; buy.obId = -1;
+    buy.hasFVG = false; buy.fvgId = -1;
+    buy.hasLiquidity = false; buy.liquidityId = -1;
+    double tpBuy = 0.0; string nameBuy = ""; bool srBuy = false;
+    TEST_TRUE(ResolveTakeProfit(buy, TARGET_FIXED_RR, 1.14640, 1.14574, 2.0,
+                                NULL, NULL, NULL, NULL, tpBuy, nameBuy, srBuy),
+              "T4 FixedRR BUY resolves");
+    TEST_DBL_NEAR(1.14772, tpBuy, 0.000000001, "T4 BUY TP=1.14772 (entry + 2x risk)");
+    TEST_DBL_NEAR(2.0, (tpBuy - 1.14640) / (1.14640 - 1.14574), 0.000001, "T4 BUY RR=2.0");
+    TEST_STR_EQ("Fixed RR 2.0", nameBuy, "T4 BUY policy name");
+
+    //--- T5: FixedRR SELL.
+    TradeCandidate sell;
+    sell.direction = CONFLUENCE_BEARISH;
+    sell.hasOB = false; sell.obId = -1;
+    sell.hasFVG = false; sell.fvgId = -1;
+    sell.hasLiquidity = false; sell.liquidityId = -1;
+    double tpSell = 0.0; string nameSell = ""; bool srSell = false;
+    TEST_TRUE(ResolveTakeProfit(sell, TARGET_FIXED_RR, 1.14640, 1.14706, 2.0,
+                                NULL, NULL, NULL, NULL, tpSell, nameSell, srSell),
+              "T5 FixedRR SELL resolves");
+    TEST_DBL_NEAR(1.14508, tpSell, 0.000000001, "T5 SELL TP=1.14508 (entry - 2x risk)");
+    TEST_DBL_NEAR(2.0, (1.14640 - tpSell) / (1.14706 - 1.14640), 0.000001, "T5 SELL RR=2.0");
+    TEST_STR_EQ("Fixed RR 2.0", nameSell, "T5 SELL policy name");
+
+    //--- T6a: planner default config unchanged (Patch B only overrides).
+    ExecutionPlanConfig defCfg;
+    TEST_INT_EQ(TARGET_OPPOSING_LIQUIDITY, defCfg.targetPolicy, "T6a default target policy = Opposing Liquidity");
+    TEST_DBL_EQ(2.0, defCfg.targetRR, "T6a default target RR = 2.0");
+    TEST_INT_EQ(ENTRY_OB_RETEST, defCfg.entryPolicy, "T6a default entry policy = OB Retest");
+    TEST_INT_EQ(STOP_PROTECTED_POINT, defCfg.stopPolicy, "T6a default stop policy = Protected Point");
+
+    //--- T6b: opposing-liquidity with no pool falls through to FixedRR.
+    double tpFall = 0.0; string nameFall = ""; bool srFall = false;
+    TEST_TRUE(ResolveTakeProfit(buy, TARGET_OPPOSING_LIQUIDITY, 1.14640, 1.14574, 2.0,
+                                NULL, NULL, NULL, NULL, tpFall, nameFall, srFall),
+              "T6b opposing-liquidity (no pool) fallthrough resolves");
+    TEST_DBL_NEAR(1.14772, tpFall, 0.000000001, "T6b fallthrough TP = FixedRR TP");
+
+    SUITE_END("B25-03C-E Patch B - planner FixedRR fixtures (T4/T5/T6)");
+}
+
 TestCounters RunFixedRrTierTests()
 {
     TestCounters counters;
@@ -225,6 +285,7 @@ TestCounters RunFixedRrTierTests()
     TestFixedRrTier_InvalidTierIgnored(counters);
     TestFixedRrTier_FingerprintInvariant(counters);
     TestFixedRrTier_ConfigDefaultAndRoundTrip(counters);
+    TestFixedRrTier_PlannerFixedRRFixtures(counters);
 
     SUITE_END("Fixed-RR Tier Tests");
     return counters;

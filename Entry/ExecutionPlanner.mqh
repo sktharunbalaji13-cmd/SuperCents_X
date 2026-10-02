@@ -26,7 +26,7 @@ struct PolicyComboResult
     double              avgRR;
     double              avgStopPips;
     double              avgTargetPips;
-    int                 rejectionDetails[8];
+    int                 rejectionDetails[9];
 };
 
 class CExecutionPlanner
@@ -54,8 +54,8 @@ private:
     double  m_totalRR;
     double  m_totalStopDist;
     double  m_totalTargetDist;
-    int     m_rejectionCounts[8];
-    string  m_rejectionLabels[8];
+    int     m_rejectionCounts[9];
+    string  m_rejectionLabels[9];
 
     int     m_lastDecisionCount;
     double  m_point;
@@ -106,7 +106,7 @@ CExecutionPlanner::CExecutionPlanner(void)
     , m_lastDecisionCount(0)
     , m_point(0.0)
 {
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < 9; i++)
     {
         m_rejectionCounts[i] = 0;
         m_rejectionLabels[i] = "";
@@ -119,6 +119,7 @@ CExecutionPlanner::CExecutionPlanner(void)
     m_rejectionLabels[5] = "RR Below Minimum";
     m_rejectionLabels[6] = "Stop Too Close";
     m_rejectionLabels[7] = "Target Too Close";
+    m_rejectionLabels[8] = "Unresolved Entry";
 }
 
 CExecutionPlanner::~CExecutionPlanner(void)
@@ -227,7 +228,8 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
         m_totalRejected++;
         plan.entryPrice = 0; plan.stopLoss = 0; plan.takeProfit = 0;
         plan.riskReward = 0; plan.stopDistance = 0; plan.targetDistance = 0;
-        plan.entryPolicyUsed = ""; plan.stopPolicyUsed = ""; plan.targetPolicyUsed = "";
+        plan.riskRewardNet = 0; plan.hasNetRiskReward = false;
+        plan.belowNetRRThreshold = false;
         m_totalCreated++;
         int idx = m_planCount;
         ArrayResize(m_plans, idx + 1);
@@ -239,10 +241,22 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
 
     bool entrySR = false, stopSR = false, targetSR = false;
 
+    //--- Rule 5/6 (LIQUIDITY_BOS) candidates carry hasLiquidity with
+    //    hasOB=false. The ENTRY_OB_RETEST resolver guard requires hasOB,
+    //    so such plans could never resolve structurally (entrySR=false ->
+    //    Current Price -> "Unresolved Entry" rejection).
+    //    Scope: candidates with no OB at all. RULE_OB_FVG_* is the only
+    //    producer of hasFVG and always produces hasOB
+    //    (TradeCandidateBuilder.mqh:119-124), so every hasOB family —
+    //    including Rule 3/4 OB_FVG — is untouched.
+    ENUM_ENTRY_POLICY entryPolicy = m_config.entryPolicy;
+    if(!candidate.hasOB && candidate.hasLiquidity && candidate.liquidityId >= 0)
+        entryPolicy = ENTRY_LIQUIDITY_LEVEL;
+
     {
         double price = 0;
         string policyName = "";
-        ResolveEntryPrice(candidate, m_config.entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, price, policyName, entrySR);
+        ResolveEntryPrice(candidate, entryPolicy, m_obDetector, m_fvgDetector, m_liqDetector, price, policyName, entrySR);
         plan.entryPrice = price;
         plan.entryPolicyUsed = policyName;
     }
@@ -271,22 +285,47 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
 
     //--- C1 (plan identity): persist the resolution policies (enum) and the
     //    structure-resolved flag for durable cross-run plan identity.
-    plan.entryPolicy = m_config.entryPolicy;
+    //--- Provenance: record the policy actually used to resolve the entry,
+    //    not the config default — this enum is part of the durable plan
+    //    identity persisted in the INTENT payload.
+    plan.entryPolicy = entryPolicy;
     plan.stopPolicy = m_config.stopPolicy;
     plan.targetPolicy = m_config.targetPolicy;
     plan.structureResolved = (entrySR && stopSR && targetSR);
 
     plan.stopDistance = MathAbs(plan.entryPrice - plan.stopLoss);
     plan.targetDistance = MathAbs(plan.takeProfit - plan.entryPrice);
-
     if(plan.stopDistance > 0)
         plan.riskReward = plan.targetDistance / plan.stopDistance;
     else
         plan.riskReward = 0;
+    //--- P44 (evidence, observe-only): spread-only net-RR per P43 §1.
+    //    hasNetRiskReward=true signals computed. Gate below STILL uses gross
+    //    riskReward — no rejection, no threshold. Symmetric round-trip spread
+    //    convention; volume-free R-units; commission/swap excluded (P40).
+    plan.hasNetRiskReward = false;
+    plan.riskRewardNet = plan.riskReward;
+    plan.belowNetRRThreshold = false;
+    {
+        double spreadDistObs = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * m_point;
+        double netDenObs = plan.stopDistance + spreadDistObs;
+        if(plan.stopDistance > 0 && netDenObs > 0)
+        {
+            plan.riskRewardNet = (plan.targetDistance - spreadDistObs) / netDenObs;
+            plan.hasNetRiskReward = true;
+            //--- P46 decision: observe threshold 1.0R (senior-advisor selection
+            //    on P45 evidence; lowest-blast-radius semantic candidate, NOT a
+            //    tuned optimum). Strict < : exact comparison needs no epsilon;
+            //    inventing one is prohibited. Informational only — gate below
+            //    still uses gross riskReward. Rejection NOT authorized.
+            const double netRR_ObserveThreshold = 1.0;
+            plan.belowNetRRThreshold = (plan.riskRewardNet < netRR_ObserveThreshold);
+        }
+    }
 
     {
         double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * m_point;
-        double minStopDist = m_config.minStopDistancePips * 10.0 * m_point;
+        double minStopDist = PipToPriceDistance(m_config.minStopDistancePips, m_point);
         bool valid = true;
         string rejectReason = "";
 
@@ -308,6 +347,15 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
             valid = false;
             rejectReason = "Invalid Prices";
             m_rejectionCounts[4]++;
+        }
+        //--- B25-03C-E (integrity): an unresolved entry has no durable plan
+        //    identity.  Reject at plan creation rather than presenting as
+        //    EXECUTABLE and blocking at the inspection gate.
+        else if(!entrySR)
+        {
+            valid = false;
+            rejectReason = "Unresolved Entry";
+            m_rejectionCounts[8]++;
         }
         else if(plan.stopDistance < spread * 2)
         {
@@ -331,6 +379,17 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
         {
             valid = false;
             rejectReason = "RR Below Minimum";
+            m_rejectionCounts[5]++;
+        }
+        //--- P48 (authorized risk guard): spread-only NetRR < 1.0 rejects AFTER
+        //    the retained gross clause above. Bucket 5 reused (RR family; no
+        //    schema/label change); per-plan reason distinguishes. Strict <
+        //    on numerics, no epsilon. Execution-risk guard, NOT a
+        //    profitability filter. BE/TS/caps/params untouched.
+        else if(plan.hasNetRiskReward && plan.belowNetRRThreshold)
+        {
+            valid = false;
+            rejectReason = "NetRR Below Minimum";
             m_rejectionCounts[5]++;
         }
 
@@ -365,11 +424,67 @@ void CExecutionPlanner::BuildPlan(const TradeCandidate &candidate, const EntryDe
     {
         string statusStr = (plan.status == PLAN_EXECUTABLE ? "EXECUTABLE" :
                            plan.status == PLAN_REJECTED ? "REJECTED" : "CREATED");
-        m_logger.LogInfo(StringFormat("EXECUTION-PLAN Decision=%d Status=%s Entry=%.5f SL=%.5f TP=%.5f RR=%.2f StopPolicy=%s TargetPolicy=%s%s",
+        //--- P46 precision: NetRR at 4 decimals (P44 %.2f blurred borders);
+        //    Below10 logged from the numeric flag, not the formatted string.
+        m_logger.LogInfo(StringFormat("EXECUTION-PLAN Decision=%d Status=%s Entry=%.5f SL=%.5f TP=%.5f RR=%.2f NetRR=%.4f Below10=%d StopPolicy=%s TargetPolicy=%s%s",
                                        decision.candidateId, statusStr,
-                                       plan.entryPrice, plan.stopLoss, plan.takeProfit, plan.riskReward,
+                                       plan.entryPrice, plan.stopLoss, plan.takeProfit, plan.riskReward, plan.riskRewardNet, (plan.belowNetRRThreshold ? 1 : 0),
                                        plan.stopPolicyUsed, plan.targetPolicyUsed,
                                        (plan.status == PLAN_REJECTED ? StringFormat(" Reason=%s", plan.rejectionReason) : "")));
+
+        //--- P54 Stage-1 (MEASUREMENT ONLY - additive, read-only, no behaviour
+        //    change).  One structured record per plan at BuildPlan completion,
+        //    keyed by planId, so the S1-S8 funnel can be reconstructed from
+        //    DISTINCT PLAN IDS rather than from aggregate counters.
+        //
+        //    Records the ACTUAL resolver out-parameters entrySR / stopSR /
+        //    targetSR (ExecutionPlanner.mqh:259/:270/:278).  It deliberately
+        //    does NOT use the resolver return values: ResolveEntryPrice and
+        //    ResolveStopLoss both return true on their non-structural
+        //    fallbacks (EntryPriceResolver.mqh:71-73, StopLossResolver.mqh:105-110),
+        //    so keying on the return value would report structural resolution
+        //    for fallback-priced plans.  targetSR is recorded as an observed
+        //    field rather than assumed, even though TargetResolver.mqh:35
+        //    establishes it as currently constant true.
+        //
+        //    The protected-point getters below are const side-effect-free reads
+        //    (ProtectedPointManager.mqh:273/:282) used only to explain stopSR;
+        //    NO resolver logic is duplicated and no resolver output is altered.
+        int    ppMgrPresent = (m_ppManager != NULL) ? 1 : 0;
+        int    ppLowActive  = 0;
+        int    ppHighActive = 0;
+        double ppPrice      = 0.0;
+        ProtectedPoint ppObs;
+        if(m_ppManager != NULL)
+        {
+            ppLowActive  = m_ppManager.GetActiveLow(ppObs)  ? 1 : 0;
+            ppHighActive = m_ppManager.GetActiveHigh(ppObs) ? 1 : 0;
+            if(candidate.direction == CONFLUENCE_BULLISH && ppLowActive == 1)
+                ppPrice = ppObs.price;
+            else if(candidate.direction == CONFLUENCE_BEARISH && ppHighActive == 1)
+                ppPrice = ppObs.price;
+        }
+
+        m_logger.LogInfo(StringFormat(
+            "S-PLAN Plan=%d Cand=%d Dir=%d Rules=%d Rule0=%d Sym=%s TF=%s "
+            "OB=%d/%d FVG=%d/%d LIQ=%d/%d "
+            "EP=%d(%s) SP=%d TP=%d "
+            "entrySR=%d stopSR=%d targetSR=%d structureResolved=%d "
+            "E=%.8f SL=%.8f TP=%.8f Status=%s "
+            "PP=%d PPLow=%d PPHigh=%d PPPrice=%.8f",
+            plan.entryDecisionId,
+            candidate.id, (int)candidate.direction,
+            candidate.ruleCount, (candidate.ruleCount > 0 ? (int)candidate.matchedRules[0] : -1),
+            _Symbol, EnumToString(_Period),
+            (candidate.hasOB ? 1 : 0), candidate.obId,
+            (candidate.hasFVG ? 1 : 0), candidate.fvgId,
+            (candidate.hasLiquidity ? 1 : 0), candidate.liquidityId,
+            (int)plan.entryPolicy, plan.entryPolicyUsed,
+            (int)plan.stopPolicy, (int)plan.targetPolicy,
+            (entrySR ? 1 : 0), (stopSR ? 1 : 0), (targetSR ? 1 : 0),
+            (plan.structureResolved ? 1 : 0),
+            plan.entryPrice, plan.stopLoss, plan.takeProfit, statusStr,
+            ppMgrPresent, ppLowActive, ppHighActive, ppPrice));
     }
 }
 
@@ -384,7 +499,7 @@ void CExecutionPlanner::EvaluateSingleCombo(int idx, const ExecutionPlanConfig &
     result.avgRR = 0;
     result.avgStopPips = 0;
     result.avgTargetPips = 0;
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < 9; i++)
         result.rejectionDetails[i] = 0;
 
     if(m_candidateBuilder == NULL)
@@ -432,9 +547,8 @@ void CExecutionPlanner::EvaluateSingleCombo(int idx, const ExecutionPlanConfig &
         double rr = (stopDist > 0) ? (targetDist / stopDist) : 0;
 
         result.total++;
-
         double spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * m_point;
-        double minStopDist = cfg.minStopDistancePips * 10.0 * m_point;
+        double minStopDist = PipToPriceDistance(cfg.minStopDistancePips, m_point);
         bool valid = true;
 
         //--- C6 (integrity): directional bracket check, mirror of BuildPlan.
@@ -451,6 +565,11 @@ void CExecutionPlanner::EvaluateSingleCombo(int idx, const ExecutionPlanConfig &
         {
             result.rejected++;
             result.rejectionDetails[4]++;
+        }
+        else if(!eSR)
+        {
+            result.rejected++;
+            result.rejectionDetails[8]++;
         }
         else if(stopDist < spread * 2)
         {
@@ -574,7 +693,7 @@ void CExecutionPlanner::EvaluatePolicyCombos(CEntryDecisionEngine &decisionEngin
     for(int i = 0; i < comboCount; i++)
     {
         string detail = "";
-        for(int k = 0; k < 8; k++)
+        for(int k = 0; k < 9; k++)
         {
             if(results[i].rejectionDetails[k] > 0)
             {
@@ -611,7 +730,7 @@ void CExecutionPlanner::Shutdown(void)
     }
     m_logger.LogInfo("");
     m_logger.LogInfo("--- REJECTION BREAKDOWN ---");
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < 9; i++)
     {
         if(m_rejectionCounts[i] > 0)
             m_logger.LogInfo(StringFormat("  %-25s %5d", m_rejectionLabels[i], m_rejectionCounts[i]));

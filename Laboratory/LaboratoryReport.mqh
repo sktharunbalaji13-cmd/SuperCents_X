@@ -81,7 +81,7 @@ void CLaboratoryReport::Shutdown(void)
     if(m_bodyLineCount > 0)
         Save();
 
-    m_bodyLineCount = 0;
+    Clear();
     m_isInitialized = false;
 }
 
